@@ -1,202 +1,202 @@
-export const subsections = [
+[
   {
-    id: "sql-fundamentals",
-    title: "SQL Fundamentals",
-    topics: [
+    "id": "sql-fundamentals",
+    "title": "SQL Fundamentals",
+    "topics": [
       {
-        heading: "CRUD Operations",
-        points: [
+        "heading": "CRUD Operations",
+        "points": [
           "**SELECT** — `SELECT col1, col2 FROM table WHERE condition ORDER BY col ASC/DESC LIMIT n OFFSET m`.",
           "**INSERT** — `INSERT INTO users (name, email) VALUES ('John', 'john@mail.com')`. Bulk: `INSERT INTO ... SELECT ...`.",
           "**UPDATE** — `UPDATE users SET name = 'Jane' WHERE id = 1`. Always use WHERE clause.",
           "**DELETE** — `DELETE FROM users WHERE id = 1`. `TRUNCATE TABLE users` — faster, resets auto-increment.",
-          "**UPSERT** — MySQL: `INSERT ... ON DUPLICATE KEY UPDATE`. PostgreSQL: `INSERT ... ON CONFLICT DO UPDATE`.",
-        ],
+          "**UPSERT** — MySQL: `INSERT ... ON DUPLICATE KEY UPDATE`. PostgreSQL: `INSERT ... ON CONFLICT DO UPDATE`."
+        ]
       },
       {
-        heading: "Filtering & Sorting",
-        points: [
+        "heading": "Filtering & Sorting",
+        "points": [
           "**WHERE Clauses** — `=`, `!=`, `<`, `>`, `BETWEEN`, `IN`, `LIKE`, `IS NULL`, `IS NOT NULL`.",
           "**LIKE Pattern** — `%` any characters, `_` single character. `WHERE name LIKE 'J%'`.",
           "**AND / OR / NOT** — Combine conditions. Use parentheses for precedence.",
           "**ORDER BY** — `ORDER BY name ASC, created_at DESC`. `NULLS FIRST` / `NULLS LAST` (PostgreSQL).",
-          "**LIMIT & OFFSET** — Pagination: `LIMIT 20 OFFSET 40` (page 3, 20 per page).",
-        ],
+          "**LIMIT & OFFSET** — Pagination: `LIMIT 20 OFFSET 40` (page 3, 20 per page)."
+        ]
       },
       {
-        heading: "Aggregations",
-        points: [
+        "heading": "Aggregations",
+        "points": [
           "**Aggregate Functions** — `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`. `COUNT(*)` counts all rows.",
           "**GROUP BY** — `SELECT dept, COUNT(*) FROM emp GROUP BY dept`. Every non-aggregate column must be in GROUP BY.",
           "**HAVING** — Filter groups. `SELECT dept, AVG(salary) FROM emp GROUP BY dept HAVING AVG(salary) > 50000`.",
           "**DISTINCT** — `SELECT DISTINCT department FROM employees`. Removes duplicate rows.",
-          "**Window Functions** — `ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)`. `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`.",
-        ],
-      },
-    ],
+          "**Window Functions** — `ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)`. `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`."
+        ]
+      }
+    ]
   },
   {
-    id: "joins-subqueries",
-    title: "Joins & Subqueries",
-    topics: [
+    "id": "joins-subqueries",
+    "title": "Joins & Subqueries",
+    "topics": [
       {
-        heading: "JOIN Types",
-        points: [
+        "heading": "JOIN Types",
+        "points": [
           "**INNER JOIN** — Returns matching rows from both tables. `SELECT * FROM orders o INNER JOIN users u ON o.user_id = u.id`.",
           "**LEFT JOIN** — All rows from left table + matching from right. NULL if no match.",
           "**RIGHT JOIN** — All rows from right table + matching from left. Less common.",
           "**FULL OUTER JOIN** — All rows from both tables. NULL where no match. Not supported in MySQL.",
-          "**CROSS JOIN** — Cartesian product. Every row of A paired with every row of B. Rarely needed.",
-        ],
+          "**CROSS JOIN** — Cartesian product. Every row of A paired with every row of B. Rarely needed."
+        ]
       },
       {
-        heading: "Self Join & Multi-Table",
-        points: [
+        "heading": "Self Join & Multi-Table",
+        "points": [
           "**Self Join** — Table joined with itself. `SELECT e.name, m.name AS manager FROM emp e JOIN emp m ON e.manager_id = m.id`.",
           "**Multiple Joins** — Chain joins: `FROM orders o JOIN users u ON ... JOIN products p ON ...`.",
           "**Join with Aggregation** — `SELECT u.name, COUNT(o.id) FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.name`.",
-          "**Natural Join** — Joins on columns with same name. Implicit, fragile — avoid in production.",
-        ],
+          "**Natural Join** — Joins on columns with same name. Implicit, fragile — avoid in production."
+        ]
       },
       {
-        heading: "Subqueries",
-        points: [
+        "heading": "Subqueries",
+        "points": [
           "**Scalar Subquery** — Returns single value. `SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = u.id) FROM users u`.",
           "**IN Subquery** — `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE total > 100)`.",
           "**EXISTS** — `SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)`. Usually faster than IN.",
           "**Correlated Subquery** — References outer query. Executes once per outer row. Consider JOIN instead.",
-          "**CTE (WITH clause)** — `WITH active_users AS (SELECT * FROM users WHERE active = true) SELECT * FROM active_users`.",
-        ],
-      },
-    ],
+          "**CTE (WITH clause)** — `WITH active_users AS (SELECT * FROM users WHERE active = true) SELECT * FROM active_users`."
+        ]
+      }
+    ]
   },
   {
-    id: "indexes-performance",
-    title: "Indexes & Performance",
-    topics: [
+    "id": "indexes-performance",
+    "title": "Indexes & Performance",
+    "topics": [
       {
-        heading: "Index Types",
-        points: [
+        "heading": "Index Types",
+        "points": [
           "**B-Tree Index** — Default. Good for equality and range queries. `CREATE INDEX idx_name ON table(col)`.",
           "**Composite Index** — Multi-column index. `CREATE INDEX idx ON table(col1, col2)`. Leftmost prefix rule.",
           "**Unique Index** — Enforces uniqueness. Automatically created for PRIMARY KEY.",
           "**Hash Index** — Only equality comparisons. Faster than B-Tree for `=`. Not for range queries.",
-          "**Full-Text Index** — Text search. `CREATE FULLTEXT INDEX idx ON articles(title, body)`.",
-        ],
+          "**Full-Text Index** — Text search. `CREATE FULLTEXT INDEX idx ON articles(title, body)`."
+        ]
       },
       {
-        heading: "Query Optimization",
-        points: [
+        "heading": "Query Optimization",
+        "points": [
           "**EXPLAIN / EXPLAIN ANALYZE** — Show query execution plan. Look for: type (ALL = full scan), rows scanned, key used.",
           "**Avoid SELECT *** — Fetch only needed columns. Reduces I/O, memory, and network transfer.",
           "**Avoid Functions on Indexed Columns** — `WHERE YEAR(created_at) = 2024` won't use index. Use range instead.",
           "**Use EXISTS over IN** — For large subqueries, EXISTS short-circuits.",
-          "**Batch Operations** — Batch inserts: `INSERT INTO table VALUES (...), (...), (...)`. Reduce round trips.",
-        ],
+          "**Batch Operations** — Batch inserts: `INSERT INTO table VALUES (...), (...), (...)`. Reduce round trips."
+        ]
       },
       {
-        heading: "Connection Pooling",
-        points: [
+        "heading": "Connection Pooling",
+        "points": [
           "**HikariCP** — Default in Spring Boot. Fastest Java connection pool.",
           "**Pool Sizing** — Formula: connections = (core_count * 2) + effective_spindle_count. Usually 10-20.",
           "**Connection Leaks** — Enable leak detection: `spring.datasource.hikari.leak-detection-threshold=2000`.",
-          "**Timeouts** — `connection-timeout`, `idle-timeout`, `max-lifetime`. Configure appropriately.",
-        ],
-      },
-    ],
+          "**Timeouts** — `connection-timeout`, `idle-timeout`, `max-lifetime`. Configure appropriately."
+        ]
+      }
+    ]
   },
   {
-    id: "normalization-design",
-    title: "Normalization & Design",
-    topics: [
+    "id": "normalization-design",
+    "title": "Normalization & Design",
+    "topics": [
       {
-        heading: "Normal Forms",
-        points: [
+        "heading": "Normal Forms",
+        "points": [
           "**1NF** — Atomic values, no repeating groups. Each cell contains a single value. Each row is unique.",
           "**2NF** — 1NF + no partial dependencies. Every non-key column depends on the entire primary key.",
           "**3NF** — 2NF + no transitive dependencies. Non-key columns depend only on the primary key.",
           "**BCNF** — Stricter 3NF. Every determinant is a candidate key.",
-          "**When to Denormalize** — Read-heavy systems, reporting tables, caching layers. Trade storage for read speed.",
-        ],
+          "**When to Denormalize** — Read-heavy systems, reporting tables, caching layers. Trade storage for read speed."
+        ]
       },
       {
-        heading: "Schema Design Best Practices",
-        points: [
+        "heading": "Schema Design Best Practices",
+        "points": [
           "**Primary Keys** — Use surrogate keys (auto-increment ID or UUID). Avoid natural keys as PK.",
           "**Foreign Keys** — Always define FK constraints. `ON DELETE CASCADE` or `ON DELETE SET NULL`.",
           "**Naming Conventions** — Lowercase, snake_case. Plural table names. Singular column names.",
           "**Soft Delete** — Add `deleted_at` timestamp instead of DELETE. `WHERE deleted_at IS NULL`.",
-          "**Timestamps** — Always include `created_at` and `updated_at`. Use database defaults.",
-        ],
-      },
-    ],
+          "**Timestamps** — Always include `created_at` and `updated_at`. Use database defaults."
+        ]
+      }
+    ]
   },
   {
-    id: "transactions-acid",
-    title: "Transactions & ACID",
-    topics: [
+    "id": "transactions-acid",
+    "title": "Transactions & ACID",
+    "topics": [
       {
-        heading: "ACID Properties",
-        points: [
+        "heading": "ACID Properties",
+        "points": [
           "**Atomicity** — All or nothing. If any part fails, entire transaction rolls back.",
           "**Consistency** — Database moves from one valid state to another. All constraints enforced.",
           "**Isolation** — Concurrent transactions don't interfere. Each sees a consistent snapshot.",
-          "**Durability** — Once committed, data survives system crashes. Written to persistent storage.",
-        ],
+          "**Durability** — Once committed, data survives system crashes. Written to persistent storage."
+        ]
       },
       {
-        heading: "Isolation Levels",
-        points: [
+        "heading": "Isolation Levels",
+        "points": [
           "**READ_UNCOMMITTED** — Dirty reads possible. Fastest but least safe.",
           "**READ_COMMITTED** — No dirty reads. Only see committed data. Default in PostgreSQL.",
           "**REPEATABLE_READ** — No dirty or non-repeatable reads. Default in MySQL/InnoDB.",
           "**SERIALIZABLE** — Strictest. Full isolation. Slowest, most contention.",
-          "**Choosing Level** — Most apps: READ_COMMITTED. Financial: SERIALIZABLE.",
-        ],
+          "**Choosing Level** — Most apps: READ_COMMITTED. Financial: SERIALIZABLE."
+        ]
       },
       {
-        heading: "Spring @Transactional",
-        points: [
+        "heading": "Spring @Transactional",
+        "points": [
           "**Propagation** — REQUIRED (default), REQUIRES_NEW (always new), NESTED, SUPPORTS, NOT_SUPPORTED.",
           "**Rollback Rules** — Default: rollback on `RuntimeException`. `@Transactional(rollbackFor = Exception.class)`.",
           "**Read-Only** — `@Transactional(readOnly = true)`. Hint to JPA/DB. Optimizes flush mode.",
           "**Timeout** — `@Transactional(timeout = 30)`. Transaction rolls back if exceeds timeout.",
-          "**Pitfall: Self-Invocation** — Calling `@Transactional` method from same class bypasses proxy.",
-        ],
-      },
-    ],
+          "**Pitfall: Self-Invocation** — Calling `@Transactional` method from same class bypasses proxy."
+        ]
+      }
+    ]
   },
   {
-    id: "nosql",
-    title: "NoSQL Databases",
-    topics: [
+    "id": "nosql",
+    "title": "NoSQL Databases",
+    "topics": [
       {
-        heading: "Document Databases",
-        points: [
+        "heading": "Document Databases",
+        "points": [
           "**MongoDB** — JSON-like documents (BSON). Flexible schema. Collections instead of tables.",
           "**Use Cases** — Content management, product catalogs, user profiles, real-time analytics.",
           "**Spring Data MongoDB** — `@Document`, `MongoRepository`. `MongoTemplate` for complex queries.",
-          "**Indexing** — `@Indexed`, compound indexes, text indexes, TTL indexes for auto-expiry.",
-        ],
+          "**Indexing** — `@Indexed`, compound indexes, text indexes, TTL indexes for auto-expiry."
+        ]
       },
       {
-        heading: "Key-Value & Cache",
-        points: [
+        "heading": "Key-Value & Cache",
+        "points": [
           "**Redis** — In-memory data structure store. Sub-millisecond latency. Strings, lists, sets, hashes, sorted sets.",
           "**Use Cases** — Caching, session storage, rate limiting, leaderboards, pub/sub, distributed locks.",
           "**Spring Data Redis** — `RedisTemplate`, `@Cacheable`, `@CacheEvict`.",
-          "**TTL & Eviction** — Set expiry: `EXPIRE key seconds`. Policies: `allkeys-lru`, `volatile-lru`, `noeviction`.",
-        ],
+          "**TTL & Eviction** — Set expiry: `EXPIRE key seconds`. Policies: `allkeys-lru`, `volatile-lru`, `noeviction`."
+        ]
       },
       {
-        heading: "When SQL vs NoSQL",
-        points: [
+        "heading": "When SQL vs NoSQL",
+        "points": [
           "**Choose SQL** — Complex queries/joins, strong consistency (ACID), well-defined schema, transactional systems.",
           "**Choose NoSQL** — Flexible schema, horizontal scaling, specific access patterns, high write throughput.",
           "**Polyglot Persistence** — Use different databases for different needs. SQL for orders, Redis for cache, MongoDB for logs.",
-          "**CAP Theorem** — Choose 2 of 3: Consistency, Availability, Partition tolerance.",
-        ],
-      },
-    ],
-  },
-];
+          "**CAP Theorem** — Choose 2 of 3: Consistency, Availability, Partition tolerance."
+        ]
+      }
+    ]
+  }
+]

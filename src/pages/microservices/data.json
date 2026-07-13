@@ -1,162 +1,162 @@
-export const subsections = [
+[
   {
-    id: "core-principles",
-    title: "Core Principles",
-    topics: [
+    "id": "core-principles",
+    "title": "Core Principles",
+    "topics": [
       {
-        heading: "Fundamentals",
-        points: [
+        "heading": "Fundamentals",
+        "points": [
           "**Single Responsibility** — Each microservice owns one business capability. Allows independent development, testing, and scaling by separate teams.",
           "**Loose Coupling** — Services interact only through well-defined APIs. Internal implementation changes should never break consumers.",
           "**Independent Deployment** — Each service has its own CI/CD pipeline, release cycle, and versioning. No coordinated deployments needed.",
           "**Decentralized Data** — Each service owns its database (Database per Service pattern). No direct DB access across service boundaries.",
-          "**Domain-Driven Design** — Use Bounded Contexts to define service boundaries. Aggregate roots, entities, and value objects model the domain.",
-        ],
+          "**Domain-Driven Design** — Use Bounded Contexts to define service boundaries. Aggregate roots, entities, and value objects model the domain."
+        ]
       },
       {
-        heading: "Monolith vs Microservices",
-        points: [
+        "heading": "Monolith vs Microservices",
+        "points": [
           "**Monolith** — Single deployable unit. Simple to develop initially, but scaling and team autonomy become bottlenecks as it grows.",
           "**Microservices** — Distributed system of small services. Enables polyglot tech stacks, independent scaling, and team ownership.",
           "**Migration Strategy** — Strangler Fig pattern: incrementally extract services from monolith. Start with least-coupled modules first.",
           "**When to Use Monolith** — Small teams, early-stage products, simple domains. Avoid premature microservices (distributed monolith anti-pattern).",
-          "**When to Use Microservices** — Large teams, complex domains, need for independent scaling and deployment. Accept operational complexity trade-off.",
-        ],
-      },
-    ],
+          "**When to Use Microservices** — Large teams, complex domains, need for independent scaling and deployment. Accept operational complexity trade-off."
+        ]
+      }
+    ]
   },
   {
-    id: "communication",
-    title: "Communication Patterns",
-    topics: [
+    "id": "communication",
+    "title": "Communication Patterns",
+    "topics": [
       {
-        heading: "Synchronous Communication",
-        points: [
+        "heading": "Synchronous Communication",
+        "points": [
           "**REST (HTTP/JSON)** — Most common inter-service communication. Simple, stateless, cacheable. Use proper HTTP methods and status codes.",
           "**gRPC** — High-performance RPC using Protocol Buffers. Binary serialization, HTTP/2, bidirectional streaming. Ideal for internal service-to-service calls.",
           "**OpenFeign** — Declarative REST client for Spring. `@FeignClient(name = \"user-service\")` with interface methods. Auto load-balanced via Spring Cloud.",
           "**WebClient** — Non-blocking, reactive HTTP client from Spring WebFlux. Supports streaming. Preferred over RestTemplate (deprecated in Spring 6).",
-          "**Drawbacks** — Tight temporal coupling, cascading failures, increased latency. Use async patterns when real-time response is not required.",
-        ],
+          "**Drawbacks** — Tight temporal coupling, cascading failures, increased latency. Use async patterns when real-time response is not required."
+        ]
       },
       {
-        heading: "Asynchronous Communication",
-        points: [
+        "heading": "Asynchronous Communication",
+        "points": [
           "**Message Queues** — Decouple producer from consumer. RabbitMQ (AMQP), ActiveMQ. Point-to-point or pub/sub. Guarantees delivery with acknowledgments.",
           "**Apache Kafka** — Distributed event streaming platform. Topics, partitions, consumer groups. High throughput, durable, replayable event log.",
           "**Event-Driven Architecture** — Services emit domain events. Other services react asynchronously. Enables loose coupling and eventual consistency.",
           "**CQRS** — Command Query Responsibility Segregation. Separate read and write models. Often paired with Event Sourcing for audit trails.",
-          "**Saga Pattern** — Manage distributed transactions across services. Choreography (events) or Orchestration (central coordinator). Compensating transactions on failure.",
-        ],
+          "**Saga Pattern** — Manage distributed transactions across services. Choreography (events) or Orchestration (central coordinator). Compensating transactions on failure."
+        ]
       },
       {
-        heading: "API Gateway",
-        points: [
+        "heading": "API Gateway",
+        "points": [
           "**Purpose** — Single entry point for clients. Handles routing, authentication, rate limiting, SSL termination, and request aggregation.",
           "**Spring Cloud Gateway** — Reactive gateway built on WebFlux. Route predicates, filters (pre/post), circuit breaker integration, request rate limiting.",
           "**Backend for Frontend (BFF)** — Separate gateways per client type (web, mobile, IoT). Each BFF tailors API responses for its client's needs.",
           "**Service Mesh** — Infrastructure layer for service-to-service communication. Istio, Linkerd. Handles mTLS, retries, observability without app code changes.",
-          "**API Versioning** — URL path (`/v1/users`), header (`Accept-Version`), or query param. Gateway can route to different service versions.",
-        ],
-      },
-    ],
+          "**API Versioning** — URL path (`/v1/users`), header (`Accept-Version`), or query param. Gateway can route to different service versions."
+        ]
+      }
+    ]
   },
   {
-    id: "resilience",
-    title: "Resilience Patterns",
-    topics: [
+    "id": "resilience",
+    "title": "Resilience Patterns",
+    "topics": [
       {
-        heading: "Fault Tolerance",
-        points: [
+        "heading": "Fault Tolerance",
+        "points": [
           "**Circuit Breaker** — Prevents cascading failures. States: Closed (normal), Open (fail-fast), Half-Open (test recovery). Use Resilience4j `@CircuitBreaker`.",
           "**Retry** — Automatically retry failed requests with backoff. `@Retry(name = \"myService\", fallbackMethod = \"fallback\")`. Use exponential backoff to avoid thundering herd.",
           "**Timeout** — Set max wait time for external calls. `@TimeLimiter(name = \"myService\")`. Prevents threads from blocking indefinitely on slow services.",
           "**Bulkhead** — Isolate failures by limiting concurrent calls. Thread pool or semaphore based. Prevents one slow service from exhausting all resources.",
-          "**Fallback** — Provide degraded response when service is unavailable. Return cached data, default values, or graceful error messages.",
-        ],
+          "**Fallback** — Provide degraded response when service is unavailable. Return cached data, default values, or graceful error messages."
+        ]
       },
       {
-        heading: "Rate Limiting",
-        points: [
+        "heading": "Rate Limiting",
+        "points": [
           "**Token Bucket** — Tokens added at fixed rate, consumed per request. Allows burst traffic up to bucket capacity. Most common algorithm.",
           "**Sliding Window** — Track request count in a rolling time window. Fixed window has boundary issues; sliding window is more accurate.",
           "**Gateway Rate Limiting** — Apply rate limits at API Gateway level. Spring Cloud Gateway `RequestRateLimiter` filter with Redis backend.",
           "**HTTP 429 Too Many Requests** — Standard response for rate-limited requests. Include `Retry-After` header to tell clients when to retry.",
-          "**Per-Client Limiting** — Different rate limits per API key, user tier, or IP. Use Redis sorted sets or in-memory caches for tracking.",
-        ],
-      },
-    ],
+          "**Per-Client Limiting** — Different rate limits per API key, user tier, or IP. Use Redis sorted sets or in-memory caches for tracking."
+        ]
+      }
+    ]
   },
   {
-    id: "spring-cloud",
-    title: "Spring Cloud Stack",
-    topics: [
+    "id": "spring-cloud",
+    "title": "Spring Cloud Stack",
+    "topics": [
       {
-        heading: "Service Discovery",
-        points: [
+        "heading": "Service Discovery",
+        "points": [
           "**Eureka Server** — Netflix OSS service registry. Services register on startup and send heartbeats. Clients discover services by name.",
           "**Spring Cloud LoadBalancer** — Client-side load balancing. Replaces Netflix Ribbon. Round-robin or random instance selection from registry.",
           "**Consul** — HashiCorp service discovery + config store + health checking. Alternative to Eureka with built-in KV store and multi-datacenter support.",
           "**Service Registration** — `@EnableDiscoveryClient` on service. Auto-registers with configured registry. Use `spring.application.name` for service identity.",
-          "**Health Checks** — Registry removes unhealthy instances. Eureka uses heartbeats; Consul uses HTTP/TCP/script checks. Actuator `/health` endpoint.",
-        ],
+          "**Health Checks** — Registry removes unhealthy instances. Eureka uses heartbeats; Consul uses HTTP/TCP/script checks. Actuator `/health` endpoint."
+        ]
       },
       {
-        heading: "Configuration Management",
-        points: [
+        "heading": "Configuration Management",
+        "points": [
           "**Spring Cloud Config Server** — Centralized external configuration. Backed by Git, file system, or Vault. Serves config via REST to client services.",
           "**@RefreshScope** — Refresh bean properties without restart. Trigger via `/actuator/refresh` or Spring Cloud Bus for broadcast refresh across instances.",
           "**HashiCorp Vault** — Secure secrets management. Dynamic secrets, encryption as a service, lease-based credentials. Spring Vault integration.",
           "**Config Profiles** — `application-{profile}.yml` per environment. Activate with `spring.profiles.active`. Config Server serves profile-specific overrides.",
-          "**Spring Cloud Bus** — Broadcast config changes to all instances via message broker (RabbitMQ/Kafka). Single refresh propagates everywhere.",
-        ],
+          "**Spring Cloud Bus** — Broadcast config changes to all instances via message broker (RabbitMQ/Kafka). Single refresh propagates everywhere."
+        ]
       },
       {
-        heading: "Distributed Tracing",
-        points: [
+        "heading": "Distributed Tracing",
+        "points": [
           "**Micrometer Tracing** — Vendor-neutral observability facade (replaces Spring Cloud Sleuth). Generates trace and span IDs for request correlation.",
           "**Zipkin** — Distributed tracing system. Collects timing data, visualizes call chains, identifies latency bottlenecks across services.",
           "**OpenTelemetry** — CNCF standard for traces, metrics, and logs. Auto-instrumentation agent. Export to Jaeger, Zipkin, or any OTLP backend.",
           "**Log Correlation** — Include traceId and spanId in log patterns via MDC. `%X{traceId}` in Logback. Enables searching logs across services by trace.",
-          "**Span Propagation** — Trace context propagated via HTTP headers (W3C Trace Context or B3). Automatic with Spring instrumentation libraries.",
-        ],
-      },
-    ],
+          "**Span Propagation** — Trace context propagated via HTTP headers (W3C Trace Context or B3). Automatic with Spring instrumentation libraries."
+        ]
+      }
+    ]
   },
   {
-    id: "deployment",
-    title: "Deployment & Monitoring",
-    topics: [
+    "id": "deployment",
+    "title": "Deployment & Monitoring",
+    "topics": [
       {
-        heading: "Containerization",
-        points: [
+        "heading": "Containerization",
+        "points": [
           "**Dockerfile** — `FROM eclipse-temurin:21-jre-alpine` for minimal image. Copy JAR, expose port, set entrypoint. Use `.dockerignore` to exclude files.",
           "**Multi-Stage Build** — Build stage compiles with Maven/Gradle; runtime stage copies only the JAR. Reduces final image size significantly.",
           "**Docker Compose** — Define multi-container setups. Service dependencies, shared networks, volume mounts. Ideal for local development with databases and queues.",
           "**Jib** — Build optimized Docker images without a Dockerfile. Maven/Gradle plugin by Google. Layer caching for fast rebuilds.",
-          "**Health & Graceful Shutdown** — `HEALTHCHECK` in Dockerfile. Configure `server.shutdown=graceful` and `spring.lifecycle.timeout-per-shutdown-phase` in Spring Boot.",
-        ],
+          "**Health & Graceful Shutdown** — `HEALTHCHECK` in Dockerfile. Configure `server.shutdown=graceful` and `spring.lifecycle.timeout-per-shutdown-phase` in Spring Boot."
+        ]
       },
       {
-        heading: "Kubernetes",
-        points: [
+        "heading": "Kubernetes",
+        "points": [
           "**Deployment** — Manages ReplicaSets and rolling updates. Define desired state (replicas, image, resources). K8s ensures actual state matches.",
           "**Service** — Stable network endpoint for Pods. ClusterIP (internal), NodePort (external), LoadBalancer (cloud). DNS-based service discovery.",
           "**ConfigMap & Secret** — Externalize configuration. Mount as environment variables or volumes. Secrets are base64-encoded (use Sealed Secrets for encryption).",
           "**HPA (Horizontal Pod Autoscaler)** — Auto-scale pods based on CPU, memory, or custom metrics. `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage`.",
-          "**Helm** — Kubernetes package manager. Charts define templated manifests. Values files per environment. `helm install`, `helm upgrade --set`.",
-        ],
+          "**Helm** — Kubernetes package manager. Charts define templated manifests. Values files per environment. `helm install`, `helm upgrade --set`."
+        ]
       },
       {
-        heading: "Observability",
-        points: [
+        "heading": "Observability",
+        "points": [
           "**Logging (ELK Stack)** — Elasticsearch stores logs, Logstash/Fluentd collects and transforms, Kibana visualizes. Structured JSON logging recommended.",
           "**Metrics (Prometheus + Grafana)** — Prometheus scrapes `/actuator/prometheus` metrics. Grafana dashboards for visualization. Alert rules for anomalies.",
           "**Health Checks** — Actuator `/health` for liveness, `/health/readiness` for readiness probes. Custom health indicators for downstream dependencies.",
           "**Alerting** — Prometheus Alertmanager or Grafana alerts. Define thresholds for error rate, latency p99, pod restarts. Route to Slack, PagerDuty, email.",
-          "**SLOs and SLIs** — Define Service Level Objectives (99.9% availability, p99 < 200ms). Track with Service Level Indicators. Error budgets guide risk decisions.",
-        ],
-      },
-    ],
-  },
-];
+          "**SLOs and SLIs** — Define Service Level Objectives (99.9% availability, p99 < 200ms). Track with Service Level Indicators. Error budgets guide risk decisions."
+        ]
+      }
+    ]
+  }
+]

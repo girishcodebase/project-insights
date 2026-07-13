@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { flatSubsections } from "../sectionsConfig";
 
-export default function Header({ onToggleSidebar }) {
+export default function Header({ onToggleSidebar, onAddContent }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [focused, setFocused] = useState(false);
@@ -60,6 +60,13 @@ export default function Header({ onToggleSidebar }) {
           </div>
         )}
       </div>
+      <button
+        className="add-content-btn"
+        onClick={onAddContent}
+        aria-label="Add content"
+      >
+        +
+      </button>
     </header>
   );
 }

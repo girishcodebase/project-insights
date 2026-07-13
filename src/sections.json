@@ -1,0 +1,10 @@
+[
+  { "id": "java", "title": "Java", "color": "#e76f00" },
+  { "id": "springboot", "title": "Spring Boot", "color": "#6db33f" },
+  { "id": "database", "title": "Database & SQL", "color": "#336791" },
+  { "id": "microservices", "title": "Microservices", "color": "#ff6b6b" },
+  { "id": "designpatterns", "title": "Design Patterns", "color": "#9b59b6" },
+  { "id": "systemdesign", "title": "System Design", "color": "#e67e22" },
+  { "id": "devops", "title": "DevOps", "color": "#2ecc71" },
+  { "id": "testing", "title": "Testing", "color": "#1abc9c" }
+]

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import ContentPage from "./components/ContentPage";
+import AddContentModal from "./components/AddContentModal";
 import { sections } from "./sectionsConfig";
 import "./App.css";
 
@@ -12,11 +13,15 @@ const defaultPath = `/${defaultSection.id}/${defaultSubsection.id}`;
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [addContentOpen, setAddContentOpen] = useState(false);
 
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
       <div className="app">
-        <Header onToggleSidebar={() => setSidebarOpen((o) => !o)} />
+        <Header
+          onToggleSidebar={() => setSidebarOpen((o) => !o)}
+          onAddContent={() => setAddContentOpen(true)}
+        />
         <div className="app-body">
           <Sidebar isOpen={sidebarOpen} onNavigate={() => setSidebarOpen(false)} />
           <main className="main-content">
@@ -26,6 +31,9 @@ export default function App() {
             </Routes>
           </main>
         </div>
+        {addContentOpen && (
+          <AddContentModal onClose={() => setAddContentOpen(false)} />
+        )}
       </div>
     </BrowserRouter>
   );

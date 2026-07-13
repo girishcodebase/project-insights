@@ -1,90 +1,90 @@
-export const subsections = [
+[
   {
-    id: "docker",
-    title: "Docker",
-    topics: [
+    "id": "docker",
+    "title": "Docker",
+    "topics": [
       {
-        heading: "Dockerfile Best Practices",
-        points: [
+        "heading": "Dockerfile Best Practices",
+        "points": [
           "**Base Image** — Use minimal images like `alpine` or `eclipse-temurin:21-jre-alpine`. Smaller image = faster pulls, smaller attack surface, less storage.",
           "**Multi-Stage Builds** — Build stage compiles with Maven/Gradle; final stage copies only the JAR. `FROM maven AS build` then `FROM eclipse-temurin:21-jre-alpine`.",
           "**Layer Caching** — Order Dockerfile instructions from least to most frequently changing. Copy `pom.xml` and download dependencies before copying source code.",
           "**Security** — Run as non-root user (`RUN adduser --system app` + `USER app`). Scan images with Trivy or Snyk. Use `.dockerignore` to exclude sensitive files.",
-          "**HEALTHCHECK** — `HEALTHCHECK CMD curl -f http://localhost:8080/actuator/health || exit 1`. Enables Docker to detect unhealthy containers and restart them.",
-        ],
+          "**HEALTHCHECK** — `HEALTHCHECK CMD curl -f http://localhost:8080/actuator/health || exit 1`. Enables Docker to detect unhealthy containers and restart them."
+        ]
       },
       {
-        heading: "Docker Compose",
-        points: [
+        "heading": "Docker Compose",
+        "points": [
           "**Service Definition** — Define services, networks, and volumes in `docker-compose.yml`. Each service maps to a container with its own config, ports, and environment.",
           "**Dependencies** — `depends_on` controls startup order. Use `healthcheck` + `condition: service_healthy` to wait for actual readiness, not just container start.",
           "**Networking** — Services on same network communicate by service name. Default bridge network created automatically. Custom networks for isolation.",
           "**Volumes** — Named volumes for persistent data (databases). Bind mounts for development (live code reload). `volumes:` section for reusable volume definitions.",
-          "**Environment Variables** — `.env` file for defaults, `environment:` in compose file, or `env_file:` for per-service config. Override with `docker compose --env-file`.",
-        ],
-      },
-    ],
+          "**Environment Variables** — `.env` file for defaults, `environment:` in compose file, or `env_file:` for per-service config. Override with `docker compose --env-file`."
+        ]
+      }
+    ]
   },
   {
-    id: "cicd",
-    title: "CI/CD Pipelines",
-    topics: [
+    "id": "cicd",
+    "title": "CI/CD Pipelines",
+    "topics": [
       {
-        heading: "GitHub Actions",
-        points: [
+        "heading": "GitHub Actions",
+        "points": [
           "**Workflow Structure** — YAML in `.github/workflows/`. Triggers: `push`, `pull_request`, `schedule`, `workflow_dispatch`. Jobs run on runners (ubuntu-latest, self-hosted).",
           "**Steps & Actions** — Steps execute commands or reuse actions. `uses: actions/checkout@v4`, `uses: actions/setup-java@v4`. `run:` for shell commands.",
           "**Caching** — Cache Maven/Gradle dependencies: `actions/cache@v4` with `~/.m2` or `~/.gradle/caches`. Speeds up builds significantly.",
           "**Secrets & Environment** — Store secrets in repo/org settings. Access via `${{ secrets.DOCKER_PASSWORD }}`. Environment protection rules for production deployments.",
-          "**Matrix Builds** — Test across multiple versions: `strategy: matrix: java: [17, 21]`. Runs parallel jobs for each combination.",
-        ],
+          "**Matrix Builds** — Test across multiple versions: `strategy: matrix: java: [17, 21]`. Runs parallel jobs for each combination."
+        ]
       },
       {
-        heading: "Deployment Strategies",
-        points: [
+        "heading": "Deployment Strategies",
+        "points": [
           "**Blue-Green Deployment** — Two identical environments. Route traffic from blue (current) to green (new) after validation. Instant rollback by switching back.",
           "**Canary Deployment** — Route small percentage of traffic (5-10%) to new version. Monitor error rates and latency. Gradually increase if healthy.",
           "**Rolling Deployment** — Replace instances one at a time. No downtime. Kubernetes default strategy. `maxSurge` and `maxUnavailable` control rollout speed.",
           "**Feature Flags** — Toggle features without deployment. LaunchDarkly, Unleash, or custom implementation. Decouple deployment from release. A/B testing support.",
-          "**Rollback Strategy** — Automated rollback on health check failure. Keep previous version artifacts. Database migrations must be backward-compatible for safe rollback.",
-        ],
-      },
-    ],
+          "**Rollback Strategy** — Automated rollback on health check failure. Keep previous version artifacts. Database migrations must be backward-compatible for safe rollback."
+        ]
+      }
+    ]
   },
   {
-    id: "kubernetes",
-    title: "Kubernetes",
-    topics: [
+    "id": "kubernetes",
+    "title": "Kubernetes",
+    "topics": [
       {
-        heading: "Core Concepts",
-        points: [
+        "heading": "Core Concepts",
+        "points": [
           "**Pod** — Smallest deployable unit. One or more containers sharing network and storage. Ephemeral by design; managed by controllers, not created directly.",
           "**Deployment** — Manages ReplicaSets for declarative updates. Defines desired state (replicas, image, strategy). Supports rolling updates and rollbacks.",
           "**Service** — Stable network endpoint for Pods. ClusterIP (internal), NodePort (external port on each node), LoadBalancer (cloud LB), ExternalName (DNS alias).",
           "**Ingress** — HTTP/HTTPS routing to services. Host-based and path-based routing. TLS termination. Requires Ingress Controller (NGINX, Traefik, AWS ALB).",
-          "**Namespace** — Logical cluster isolation. `default`, `kube-system`, custom namespaces per team/environment. Resource quotas and network policies per namespace.",
-        ],
+          "**Namespace** — Logical cluster isolation. `default`, `kube-system`, custom namespaces per team/environment. Resource quotas and network policies per namespace."
+        ]
       },
       {
-        heading: "Config & Storage",
-        points: [
+        "heading": "Config & Storage",
+        "points": [
           "**ConfigMap** — Store non-sensitive config as key-value pairs. Mount as environment variables or volume files. `kubectl create configmap --from-file`.",
           "**Secret** — Base64-encoded sensitive data. Types: Opaque, docker-registry, TLS. Use Sealed Secrets or External Secrets Operator for encryption at rest.",
           "**PersistentVolume (PV)** — Cluster storage resource. `PersistentVolumeClaim` (PVC) requests storage. StorageClass for dynamic provisioning (EBS, GCE PD, NFS).",
           "**Resource Limits** — `requests` (guaranteed) and `limits` (maximum) for CPU and memory. Prevents noisy neighbors. OOMKilled if memory limit exceeded.",
-          "**Init Containers** — Run before app containers. Use for setup tasks: wait for dependencies, run migrations, download configs. Must complete successfully before app starts.",
-        ],
+          "**Init Containers** — Run before app containers. Use for setup tasks: wait for dependencies, run migrations, download configs. Must complete successfully before app starts."
+        ]
       },
       {
-        heading: "Scaling & Health",
-        points: [
+        "heading": "Scaling & Health",
+        "points": [
           "**HPA (Horizontal Pod Autoscaler)** — Auto-scale pods based on CPU, memory, or custom metrics. `minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70`.",
           "**Liveness Probe** — Detects if container is stuck. Restarts container on failure. HTTP GET, TCP socket, or exec command. Configure `initialDelaySeconds` and `periodSeconds`.",
           "**Readiness Probe** — Detects if container can serve traffic. Removes from Service endpoints when failing. Prevents routing to starting or unhealthy pods.",
           "**Resource Quotas** — Limit total resources per namespace. `requests.cpu`, `limits.memory`, `count/pods`. Prevents one team from consuming entire cluster.",
-          "**Pod Disruption Budget (PDB)** — Guarantees minimum available pods during voluntary disruptions (node drain, upgrades). `minAvailable: 2` or `maxUnavailable: 1`.",
-        ],
-      },
-    ],
-  },
-];
+          "**Pod Disruption Budget (PDB)** — Guarantees minimum available pods during voluntary disruptions (node drain, upgrades). `minAvailable: 2` or `maxUnavailable: 1`."
+        ]
+      }
+    ]
+  }
+]
