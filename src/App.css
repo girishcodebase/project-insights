@@ -4,15 +4,24 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: #f5f5f5;
+  overflow: hidden;
 }
 
 /* Header */
 .app-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   padding: 16px 24px;
@@ -219,7 +228,9 @@
 /* Main Content */
 .main-content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 28px 40px;
 }
 
@@ -229,6 +240,7 @@
   font-weight: 800;
   margin-bottom: 20px;
   letter-spacing: -0.5px;
+  overflow-wrap: break-word;
 }
 
 /* Topic blocks (simple list, no cards) */
@@ -237,6 +249,12 @@
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: 12px 40px;
   align-content: start;
+  min-width: 0;
+}
+
+.page-container,
+.page-container * {
+  min-width: 0;
 }
 
 .page-title {
@@ -280,6 +298,7 @@
   margin-bottom: 12px;
   padding-bottom: 6px;
   border-bottom: 2px solid #eee;
+  overflow-wrap: break-word;
 }
 
 .topic-points {
@@ -295,6 +314,7 @@
   color: #444;
   padding-left: 16px;
   position: relative;
+  overflow-wrap: break-word;
 }
 
 .topic-points li::before {
