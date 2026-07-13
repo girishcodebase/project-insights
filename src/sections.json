@@ -1,4 +1,9 @@
 [
+    {
+    "id": "introduction",
+    "title": "Introduction",
+    "color": "hsl(334, 60%, 45%)"
+    },
   {
     "id": "java",
     "title": "Java",
@@ -38,10 +43,5 @@
     "id": "testing",
     "title": "Testing",
     "color": "#1abc9c"
-  },
-  {
-    "id": "introuction",
-    "title": "Introuction",
-    "color": "hsl(334, 60%, 45%)"
   }
 ]
