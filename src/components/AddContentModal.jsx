@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { sections } from "../sectionsConfig";
-import { getJsonFile, putJsonFile } from "../github";
+import { GITHUB_TOKEN, getJsonFile, getJsonFileIfExists, putJsonFile } from "../github";
 
 function slugify(text) {
   return text
@@ -10,8 +10,12 @@ function slugify(text) {
     .replace(/^-+|-+$/g, "");
 }
 
+function randomAccentColor() {
+  const hue = Math.floor(Math.random() * 360);
+  return `hsl(${hue}, 60%, 45%)`;
+}
+
 const emptyTopic = { heading: "", points: "" };
-const TOKEN_STORAGE_KEY = "project-insights-github-token";
 
 export default function AddContentModal({ onClose }) {
   const [mode, setMode] = useState("subsection");
@@ -20,7 +24,6 @@ export default function AddContentModal({ onClose }) {
     sections[0].subsections[0]?.id || ""
   );
   const [newSectionTitle, setNewSectionTitle] = useState("");
-  const [newSectionColor, setNewSectionColor] = useState("#607d8b");
   const [subsectionTitle, setSubsectionTitle] = useState("");
   const [topics, setTopics] = useState([{ ...emptyTopic }]);
 
@@ -31,28 +34,8 @@ export default function AddContentModal({ onClose }) {
     const section = sections.find((s) => s.id === id);
     setExistingSubsectionId(section?.subsections[0]?.id || "");
   }
-  const [token, setToken] = useState(
-    () => localStorage.getItem(TOKEN_STORAGE_KEY) || ""
-  );
-  const [rememberToken, setRememberToken] = useState(
-    () => !!localStorage.getItem(TOKEN_STORAGE_KEY)
-  );
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
-
-  function handleTokenChange(value) {
-    setToken(value);
-    if (rememberToken) localStorage.setItem(TOKEN_STORAGE_KEY, value);
-  }
-
-  function handleRememberChange(checked) {
-    setRememberToken(checked);
-    if (checked) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-    }
-  }
 
   function updateTopic(idx, field, value) {
     setTopics((prev) =>
@@ -84,10 +67,6 @@ export default function AddContentModal({ onClose }) {
     e.preventDefault();
     setStatus(null);
 
-    if (!token.trim()) {
-      setStatus({ type: "error", text: "GitHub token is required." });
-      return;
-    }
     if (mode !== "existing" && !subsectionTitle.trim()) {
       setStatus({ type: "error", text: "Subsection title is required." });
       return;
@@ -107,24 +86,24 @@ export default function AddContentModal({ onClose }) {
     try {
       if (mode === "existing") {
         const path = `src/pages/${sectionId}/data.json`;
-        const { json, sha } = await getJsonFile(path, token);
+        const { json, sha } = await getJsonFile(path, GITHUB_TOKEN);
         const target = json.find((sub) => sub.id === existingSubsectionId);
         if (!target) throw new Error("Selected subsection not found.");
         target.topics.push(...newTopics);
         await putJsonFile(
           path,
-          token,
+          GITHUB_TOKEN,
           json,
           sha,
           `Add topics to "${target.title}" in ${sectionId}`
         );
       } else if (mode === "subsection") {
         const path = `src/pages/${sectionId}/data.json`;
-        const { json, sha } = await getJsonFile(path, token);
+        const { json, sha } = await getJsonFile(path, GITHUB_TOKEN);
         json.push(newSubsection);
         await putJsonFile(
           path,
-          token,
+          GITHUB_TOKEN,
           json,
           sha,
           `Add subsection "${newSubsection.title}" to ${sectionId}`
@@ -133,27 +112,35 @@ export default function AddContentModal({ onClose }) {
         const newId = slugify(newSectionTitle);
         if (!newId) throw new Error("Main section title is required.");
 
-        await putJsonFile(
-          `src/pages/${newId}/data.json`,
-          token,
-          [newSubsection],
-          null,
-          `Add data for new section "${newSectionTitle}"`
-        );
-
         const metaPath = "src/sections.json";
         const { json: meta, sha: metaSha } = await getJsonFile(
           metaPath,
-          token
+          GITHUB_TOKEN
         );
+        if (meta.some((s) => s.id === newId)) {
+          throw new Error(
+            `A main section with id "${newId}" already exists. Pick a different title.`
+          );
+        }
+
+        const dataPath = `src/pages/${newId}/data.json`;
+        const existingData = await getJsonFileIfExists(dataPath, GITHUB_TOKEN);
+        await putJsonFile(
+          dataPath,
+          GITHUB_TOKEN,
+          [newSubsection],
+          existingData?.sha || null,
+          `Add data for new section "${newSectionTitle}"`
+        );
+
         meta.push({
           id: newId,
           title: newSectionTitle.trim(),
-          color: newSectionColor,
+          color: randomAccentColor(),
         });
         await putJsonFile(
           metaPath,
-          token,
+          GITHUB_TOKEN,
           meta,
           metaSha,
           `Add new section "${newSectionTitle}"`
@@ -219,14 +206,6 @@ export default function AddContentModal({ onClose }) {
                   onChange={(e) => setNewSectionTitle(e.target.value)}
                 />
               </label>
-              <label>
-                Accent Color
-                <input
-                  type="color"
-                  value={newSectionColor}
-                  onChange={(e) => setNewSectionColor(e.target.value)}
-                />
-              </label>
             </>
           )}
 
@@ -290,30 +269,6 @@ export default function AddContentModal({ onClose }) {
           <button type="button" className="modal-add-topic-btn" onClick={addTopic}>
             + Add another topic
           </button>
-
-          <label>
-            GitHub Personal Access Token
-            <input
-              type="password"
-              placeholder="ghp_..."
-              value={token}
-              onChange={(e) => handleTokenChange(e.target.value)}
-            />
-          </label>
-          <label className="modal-checkbox-label">
-            <input
-              type="checkbox"
-              checked={rememberToken}
-              onChange={(e) => handleRememberChange(e.target.checked)}
-            />
-            Remember token on this device
-          </label>
-          <p className="modal-hint">
-            Needs write access to this repo.{" "}
-            {rememberToken
-              ? "Saved in this browser's local storage only — never in the site's code."
-              : "Not saved anywhere — you'll re-enter it next time."}
-          </p>
 
           {status && (
             <p className={`modal-status modal-status-${status.type}`}>

@@ -2,6 +2,8 @@ const OWNER = "girishcodebase";
 const REPO = "project-insights";
 const BRANCH = "main";
 
+export const GITHUB_TOKEN = "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";
+
 function encodeUtf8Base64(str) {
   return btoa(
     encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, hex) =>
@@ -33,7 +35,9 @@ async function githubRequest(path, token, options = {}) {
   );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || `GitHub API error (${res.status})`);
+    const err = new Error(body.message || `GitHub API error (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -41,6 +45,15 @@ async function githubRequest(path, token, options = {}) {
 export async function getJsonFile(path, token) {
   const data = await githubRequest(`${path}?ref=${BRANCH}`, token);
   return { json: JSON.parse(decodeUtf8Base64(data.content)), sha: data.sha };
+}
+
+export async function getJsonFileIfExists(path, token) {
+  try {
+    return await getJsonFile(path, token);
+  } catch (err) {
+    if (err.status === 404) return null;
+    throw err;
+  }
 }
 
 export async function putJsonFile(path, token, json, sha, message) {
