@@ -1,0 +1,110 @@
+export const subsections = [
+  {
+    id: "creational",
+    title: "Creational Patterns",
+    topics: [
+      {
+        heading: "Singleton",
+        points: [
+          "**Enum Singleton** — `enum Singleton { INSTANCE; }` is the safest approach. Handles serialization and reflection attacks automatically.",
+          "**Double-Checked Locking** — `volatile` field + synchronized block inside null check. Lazy initialization with thread safety. Use only pre-Java 5+ guarantees.",
+          "**Spring Singleton** — Default bean scope. One instance per ApplicationContext (not per JVM). Managed by IoC container, not by private constructor.",
+          "**Bill Pugh (Holder Pattern)** — Static inner class holds instance. Loaded lazily on first access. Thread-safe without synchronization overhead.",
+          "**When to Use** — Logging, configuration, connection pools, caches. Avoid overuse as it introduces global state and hinders testability.",
+        ],
+      },
+      {
+        heading: "Factory & Abstract Factory",
+        points: [
+          "**Factory Method** — Define interface for creating objects; subclasses decide which class to instantiate. `ShapeFactory.createShape(\"circle\")` returns `Circle`.",
+          "**Abstract Factory** — Factory of factories. Creates families of related objects without specifying concrete classes. e.g., `UIFactory` producing buttons + dialogs per OS.",
+          "**Spring Factory Pattern** — `BeanFactory` and `ApplicationContext` are factory implementations. `FactoryBean<T>` interface for custom bean creation logic.",
+          "**Static Factory Method** — `of()`, `valueOf()`, `getInstance()`. e.g., `List.of()`, `Optional.of()`. More descriptive than constructors, can cache instances.",
+          "**When to Use** — Object creation logic is complex, varies by type, or needs to be decoupled from the client. Common in frameworks and libraries.",
+        ],
+      },
+      {
+        heading: "Builder & Prototype",
+        points: [
+          "**Builder Pattern** — Step-by-step object construction. `User.builder().name(\"John\").age(30).build()`. Ideal for objects with many optional parameters.",
+          "**Lombok @Builder** — Auto-generates builder class. `@Builder` on class or constructor. Combine with `@Singular` for collection fields, `@Builder.Default` for defaults.",
+          "**Telescoping Constructor Problem** — Multiple constructors with increasing parameters become unreadable. Builder pattern solves this elegantly.",
+          "**Prototype Pattern** — Clone existing objects instead of creating new ones. Implement `Cloneable` and override `clone()`. Use deep copy for nested objects.",
+          "**Spring Prototype Scope** — `@Scope(\"prototype\")` creates new bean instance per injection. Use `ObjectProvider<T>` or `@Lookup` to get prototypes inside singletons.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "structural",
+    title: "Structural Patterns",
+    topics: [
+      {
+        heading: "Adapter & Bridge",
+        points: [
+          "**Adapter** — Converts one interface to another that clients expect. Wraps an incompatible class. e.g., `Arrays.asList()` adapts array to List interface.",
+          "**Object Adapter** — Uses composition (holds reference to adaptee). More flexible than class adapter. Preferred in Java since no multiple inheritance.",
+          "**Bridge** — Separates abstraction from implementation so both can vary independently. e.g., `Shape` (abstraction) + `Color` (implementation) hierarchies.",
+          "**Spring Adapter Examples** — `HandlerAdapter` adapts different handler types to DispatcherServlet. `JpaVendorAdapter` bridges JPA to Hibernate/EclipseLink.",
+          "**When to Use** — Adapter: integrating legacy/third-party code. Bridge: when both abstraction and implementation have multiple variants that evolve independently.",
+        ],
+      },
+      {
+        heading: "Decorator & Proxy",
+        points: [
+          "**Decorator** — Adds behavior dynamically by wrapping objects. Same interface as wrapped object. e.g., `BufferedInputStream` wraps `FileInputStream`.",
+          "**Java I/O Decorators** — `new BufferedReader(new InputStreamReader(new FileInputStream(file)))`. Each layer adds functionality (buffering, char conversion).",
+          "**Proxy Pattern** — Controls access to an object. Virtual proxy (lazy loading), protection proxy (access control), remote proxy (network calls).",
+          "**Spring AOP Proxies** — JDK dynamic proxy (interface-based) or CGLIB proxy (class-based). `@Transactional`, `@Cacheable`, `@Async` all use proxy pattern.",
+          "**When to Use** — Decorator: add features without modifying existing classes. Proxy: lazy loading, access control, logging, transaction management.",
+        ],
+      },
+      {
+        heading: "Facade & Composite & Flyweight",
+        points: [
+          "**Facade** — Simplified interface to a complex subsystem. Hides internal complexity. e.g., `JdbcTemplate` is a facade over JDBC boilerplate.",
+          "**Spring Facade Examples** — `RestTemplate`/`WebClient` facades HTTP complexity. `JmsTemplate` facades JMS. `@Service` layer facades business logic for controllers.",
+          "**Composite** — Tree structure where individual objects and compositions are treated uniformly. e.g., file system (File and Directory implement same interface).",
+          "**Flyweight** — Share common state across many objects to save memory. e.g., `Integer.valueOf()` caches -128 to 127. `String` pool is a flyweight.",
+          "**When to Use** — Facade: simplify complex APIs. Composite: hierarchical structures (menus, org charts). Flyweight: large number of similar objects (game entities, characters).",
+        ],
+      },
+    ],
+  },
+  {
+    id: "behavioral",
+    title: "Behavioral Patterns",
+    topics: [
+      {
+        heading: "Strategy & Template Method",
+        points: [
+          "**Strategy** — Define family of algorithms, encapsulate each, make them interchangeable. e.g., `Comparator<T>` is a strategy for sorting.",
+          "**Lambda as Strategy** — In Java 8+, functional interfaces replace strategy classes. `list.sort(Comparator.comparing(User::getName))` instead of anonymous class.",
+          "**Template Method** — Define algorithm skeleton in base class; subclasses override specific steps. e.g., `AbstractApplicationContext.refresh()` in Spring.",
+          "**Spring Template Methods** — `JdbcTemplate.execute()`, `TransactionTemplate`, `JmsTemplate`. Framework defines flow; you provide callbacks for custom logic.",
+          "**When to Use** — Strategy: multiple algorithms for same task, chosen at runtime. Template Method: common algorithm with customizable steps.",
+        ],
+      },
+      {
+        heading: "Observer & Chain of Responsibility",
+        points: [
+          "**Observer** — One-to-many dependency. When subject changes state, all observers are notified. Decouples event producers from consumers.",
+          "**Spring Events** — `ApplicationEventPublisher.publishEvent()` + `@EventListener` or `ApplicationListener<T>`. Synchronous by default; use `@Async` for async.",
+          "**Chain of Responsibility** — Pass request along a chain of handlers. Each handler decides to process or pass along. Decouples sender from receiver.",
+          "**Servlet Filters** — `Filter` chain in Spring/Jakarta. Security filters, CORS, logging. `FilterChain.doFilter()` passes to next filter. Order matters.",
+          "**Spring Interceptors** — `HandlerInterceptor` with `preHandle`, `postHandle`, `afterCompletion`. Registered via `WebMvcConfigurer.addInterceptors()`.",
+        ],
+      },
+      {
+        heading: "Command & State & Mediator & Iterator",
+        points: [
+          "**Command** — Encapsulate request as an object. Enables undo/redo, queuing, and logging. e.g., `Runnable` and `Callable` are command objects in Java.",
+          "**State** — Object changes behavior when internal state changes. Replace complex if/switch with state classes. e.g., order states (Created, Paid, Shipped).",
+          "**Mediator** — Centralize complex communication between objects. Objects interact through mediator instead of directly. Reduces coupling in complex UIs.",
+          "**Iterator** — Sequential access to collection elements without exposing internal structure. Java `Iterator<T>`, enhanced for-loop, and `Stream` API.",
+          "**When to Use** — Command: task scheduling, undo/redo. State: objects with distinct behavioral modes. Mediator: many-to-many object interactions. Iterator: traversal abstraction.",
+        ],
+      },
+    ],
+  },
+];

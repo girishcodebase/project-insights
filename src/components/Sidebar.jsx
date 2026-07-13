@@ -1,52 +1,50 @@
 import { useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { sections } from "../sectionsConfig";
 
-export default function Sidebar({ notes, activeId, onSelect, isOpen, onToggle }) {
-  const [search, setSearch] = useState("");
+export default function Sidebar({ isOpen, onNavigate }) {
+  const location = useLocation();
+  const sectionId = location.pathname.split("/")[1];
+  const [openSection, setOpenSection] = useState(sectionId || sections[0].id);
 
-  const filtered = notes.filter(
-    (n) =>
-      n.title.toLowerCase().includes(search.toLowerCase()) ||
-      n.category.toLowerCase().includes(search.toLowerCase())
-  );
+  if (!isOpen) return null;
 
   return (
-    <>
-      <div className={`sidebar-overlay ${isOpen ? "active" : ""}`} onClick={onToggle} />
-      <aside className={`sidebar ${isOpen ? "open" : ""}`}>
-        <div className="sidebar-header">
-          <h2>Topics</h2>
-          <button className="close-btn" onClick={onToggle}>
-            &times;
-          </button>
-        </div>
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search topics..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <nav className="sidebar-nav">
-          {filtered.map((note) => (
-            <button
-              key={note.id}
-              className={`nav-item ${activeId === note.id ? "active" : ""}`}
-              onClick={() => {
-                onSelect(note.id);
-                onToggle();
-              }}
-            >
-              <span className="nav-icon">{note.icon}</span>
-              <div className="nav-text">
-                <span className="nav-title">{note.title}</span>
-                <span className="nav-category">{note.category}</span>
-              </div>
-            </button>
-          ))}
-          {filtered.length === 0 && <p className="no-results">No topics found</p>}
-        </nav>
-      </aside>
-    </>
+    <aside className="sidebar">
+      <nav className="sidebar-nav">
+        {sections.map((section) => {
+          const isSectionOpen = openSection === section.id;
+          return (
+            <div className="sidebar-group" key={section.id}>
+              <button
+                className="sidebar-section-btn"
+                style={{ borderLeftColor: section.color }}
+                onClick={() => setOpenSection(isSectionOpen ? null : section.id)}
+              >
+                <span className="sidebar-icon">{section.icon}</span>
+                <span className="sidebar-title">{section.title}</span>
+                <span className={`sidebar-caret ${isSectionOpen ? "open" : ""}`}>›</span>
+              </button>
+              {isSectionOpen && (
+                <div className="sidebar-subsections">
+                  {section.subsections.map((sub) => (
+                    <NavLink
+                      key={sub.id}
+                      to={`/${section.id}/${sub.id}`}
+                      onClick={onNavigate}
+                      className={({ isActive }) =>
+                        `sidebar-subsection-link ${isActive ? "active" : ""}`
+                      }
+                    >
+                      {sub.title}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+    </aside>
   );
 }

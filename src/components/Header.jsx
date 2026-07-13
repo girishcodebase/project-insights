@@ -1,15 +1,19 @@
-export default function Header({ onMenuClick }) {
+import { Link } from "react-router-dom";
+
+export default function Header({ onToggleSidebar }) {
   return (
     <header className="app-header">
-      <button className="menu-btn" onClick={onMenuClick}>
-        <span />
-        <span />
-        <span />
+      <button
+        className="sidebar-toggle-btn"
+        onClick={onToggleSidebar}
+        aria-label="Toggle sidebar"
+      >
+        ☰
       </button>
-      <div className="header-brand">
+      <Link to="/" className="header-brand">
         <h1>Project Insights</h1>
         <p>Quick reference notes for developers</p>
-      </div>
+      </Link>
     </header>
   );
 }

@@ -1,0 +1,199 @@
+export const subsections = [
+  {
+    id: "core-annotations",
+    title: "Core Concepts & Annotations",
+    topics: [
+      {
+        heading: "Stereotype Annotations",
+        points: [
+          "**@SpringBootApplication** — Combines `@Configuration` + `@EnableAutoConfiguration` + `@ComponentScan`. Application entry point.",
+          "**@Component** — Generic Spring-managed bean. Base for all stereotype annotations.",
+          "**@Service** — Business logic layer. Semantic marker for service classes. Same as @Component functionally.",
+          "**@Repository** — Data access layer. Adds automatic exception translation for persistence exceptions.",
+          "**@Controller / @RestController** — Web layer. `@RestController` = `@Controller` + `@ResponseBody`.",
+        ],
+      },
+      {
+        heading: "Dependency Injection",
+        points: [
+          "**@Autowired** — Inject dependencies. Constructor injection (preferred), setter injection, field injection (avoid).",
+          "**Constructor Injection** — Immutable, testable, fail-fast. If single constructor, `@Autowired` is optional.",
+          "**@Qualifier** — Resolve ambiguity when multiple beans of same type. `@Qualifier(\"emailService\")`.",
+          "**@Primary** — Mark one bean as default when multiple candidates exist. Overridden by `@Qualifier`.",
+          "**@Lazy** — Bean created on first use, not at startup. Use for expensive initialization.",
+        ],
+      },
+      {
+        heading: "Bean Lifecycle & Scope",
+        points: [
+          "**Bean Scopes** — `singleton` (default), `prototype` (new instance each time), `request`, `session`, `application`.",
+          "**@PostConstruct** — Method runs after dependency injection. Initialization logic. Called once.",
+          "**@PreDestroy** — Method runs before bean destruction. Cleanup resources, close connections.",
+          "**@Bean** — Declare bean in `@Configuration` class. Use for third-party library classes you can't annotate.",
+          "**@Conditional** — Conditional bean creation. `@ConditionalOnProperty`, `@ConditionalOnClass`, `@ConditionalOnMissingBean`.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "spring-mvc-rest",
+    title: "Spring MVC & REST API",
+    topics: [
+      {
+        heading: "Request Mapping",
+        points: [
+          "**@GetMapping** — `@GetMapping(\"/users/{id}\")`. Shortcut for `@RequestMapping(method = GET)`.",
+          "**@PostMapping** — Create resource. `@PostMapping(\"/users\")`. Request body contains new resource data.",
+          "**@PutMapping** — Full update. `@PutMapping(\"/users/{id}\")`. Replace entire resource.",
+          "**@PatchMapping** — Partial update. Only send fields to update.",
+          "**@DeleteMapping** — Delete resource. `@DeleteMapping(\"/users/{id}\")`. Return 204 No Content on success.",
+        ],
+      },
+      {
+        heading: "Request & Response",
+        points: [
+          "**@RequestBody** — Deserialize JSON request body to Java object.",
+          "**@PathVariable** — Extract from URL path. `@GetMapping(\"/users/{id}\")` → `@PathVariable Long id`.",
+          "**@RequestParam** — Query parameters. `@RequestParam(defaultValue = \"0\") int page`.",
+          "**@RequestHeader** — Access HTTP headers. `@RequestHeader(\"Authorization\") String token`.",
+          "**ResponseEntity** — Full control over response. `ResponseEntity.ok(body)`, `ResponseEntity.status(201).body(created)`.",
+        ],
+      },
+      {
+        heading: "Validation",
+        points: [
+          "**@Valid / @Validated** — Trigger bean validation on `@RequestBody`. Add `spring-boot-starter-validation`.",
+          "**@NotNull / @NotBlank / @NotEmpty** — Null checks. `@NotBlank` for strings (not null, not empty, not whitespace).",
+          "**@Size / @Min / @Max** — `@Size(min=2, max=50) String name`, `@Min(0) int age`.",
+          "**@Email / @Pattern** — `@Email String email`, `@Pattern(regexp = \"^[0-9]{10}$\") String phone`.",
+          "**Custom Validator** — Implement `ConstraintValidator<Annotation, Type>`. Create custom annotation + validator class.",
+        ],
+      },
+      {
+        heading: "Exception Handling",
+        points: [
+          "**@ControllerAdvice** — Global exception handler. Centralized error handling across all controllers.",
+          "**@ExceptionHandler** — Handle specific exceptions. `@ExceptionHandler(NotFoundException.class)`.",
+          "**ProblemDetail (Spring 6+)** — RFC 7807 error response format. Type, title, status, detail, instance.",
+          "**Custom Error Response** — Create `ErrorResponse` DTO with timestamp, message, status, path.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "spring-data-jpa",
+    title: "Spring Data JPA",
+    topics: [
+      {
+        heading: "Entity Mapping",
+        points: [
+          "**@Entity** — Marks class as JPA entity. Must have no-arg constructor. `@Entity @Table(name = \"users\")`.",
+          "**@Id + @GeneratedValue** — Primary key. Strategies: `IDENTITY` (auto-increment), `SEQUENCE`, `UUID`.",
+          "**@Column** — `@Column(name = \"user_name\", nullable = false, unique = true, length = 100)`.",
+          "**@Enumerated** — `@Enumerated(EnumType.STRING)`. Always use STRING, not ORDINAL.",
+          "**Auditing** — `@CreatedDate`, `@LastModifiedDate`, `@CreatedBy`. Enable with `@EnableJpaAuditing`.",
+        ],
+      },
+      {
+        heading: "Relationships",
+        points: [
+          "**@OneToMany / @ManyToOne** — Parent-child. `@OneToMany(mappedBy = \"user\")`. `@ManyToOne @JoinColumn(name = \"user_id\")`.",
+          "**@ManyToMany** — `@ManyToMany @JoinTable(name = \"user_roles\")`. Use `Set` to avoid Hibernate bag issues.",
+          "**@OneToOne** — `@OneToOne(cascade = CascadeType.ALL) @JoinColumn(name = \"profile_id\")`.",
+          "**FetchType** — `LAZY` (load on access, default for collections) vs `EAGER` (load immediately). Prefer LAZY always.",
+          "**Cascade** — `CascadeType.ALL`, `PERSIST`, `MERGE`, `REMOVE`. Propagate operations to related entities.",
+        ],
+      },
+      {
+        heading: "Repository & Queries",
+        points: [
+          "**JpaRepository** — `extends JpaRepository<User, Long>`. Provides `save()`, `findById()`, `findAll()`, `deleteById()`.",
+          "**Derived Queries** — `findByNameAndAge()`, `findByEmailContaining()`, `findByStatusOrderByCreatedDesc()`.",
+          "**@Query (JPQL)** — `@Query(\"SELECT u FROM User u WHERE u.email = :email\")`. Object-oriented SQL.",
+          "**@Query (Native)** — `@Query(value = \"SELECT * FROM users WHERE email = ?1\", nativeQuery = true)`.",
+          "**Pagination** — `Page<User> findByStatus(Status s, Pageable p)`. Call: `PageRequest.of(0, 20, Sort.by(\"name\"))`.",
+        ],
+      },
+      {
+        heading: "Transactions & Performance",
+        points: [
+          "**@Transactional** — Declarative transaction management. Default: REQUIRED propagation, rollback on RuntimeException.",
+          "**Read-Only** — `@Transactional(readOnly = true)`. Optimizes Hibernate flush mode.",
+          "**N+1 Problem** — Lazy loading causes extra queries. Fix: `@EntityGraph`, `JOIN FETCH` in JPQL, `@BatchSize`.",
+          "**Projections** — Interface or DTO projections to select specific columns. Reduces data transfer.",
+          "**Specifications** — Dynamic queries with `Specification<T>`. Combine predicates with `and()`, `or()`.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "spring-security",
+    title: "Spring Security",
+    topics: [
+      {
+        heading: "Authentication",
+        points: [
+          "**SecurityFilterChain** — Configure security via `@Bean SecurityFilterChain`. Replaces `WebSecurityConfigurerAdapter`.",
+          "**UserDetailsService** — Load user by username. Implement to connect to your user database.",
+          "**PasswordEncoder** — `BCryptPasswordEncoder`. Never store plain text. `encoder.encode()`, `encoder.matches()`.",
+          "**Form Login** — `.formLogin(form -> form.loginPage(\"/login\").defaultSuccessUrl(\"/dashboard\"))`.",
+          "**HTTP Basic** — `.httpBasic(Customizer.withDefaults())`. Base64 encoded credentials. Use only with HTTPS.",
+        ],
+      },
+      {
+        heading: "JWT Authentication",
+        points: [
+          "**JWT Structure** — Header (algorithm) + Payload (claims) + Signature. Base64 encoded, dot-separated.",
+          "**Flow** — Login → validate credentials → generate JWT → client stores token → send in `Authorization: Bearer <token>`.",
+          "**Token Generation** — Use `io.jsonwebtoken:jjwt`. Set subject, claims, expiration, sign with secret key.",
+          "**JWT Filter** — Extend `OncePerRequestFilter`. Extract token, validate, set `SecurityContext`.",
+          "**Refresh Token** — Short-lived access token + long-lived refresh token. Rotate refresh tokens for security.",
+        ],
+      },
+      {
+        heading: "Authorization",
+        points: [
+          "**URL-Based** — `.requestMatchers(\"/admin/**\").hasRole(\"ADMIN\")`. `.requestMatchers(\"/api/**\").authenticated()`.",
+          "**Method Security** — `@EnableMethodSecurity`. `@PreAuthorize(\"hasRole('ADMIN')\")`, `@PreAuthorize(\"#id == principal.id\")`.",
+          "**Role vs Authority** — Role: `ROLE_ADMIN` (prefixed). Authority: `READ_PRIVILEGE` (fine-grained).",
+          "**CORS** — `@CrossOrigin` or global config. `allowedOrigins`, `allowedMethods`, `allowCredentials`.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "spring-config",
+    title: "Configuration & Profiles",
+    topics: [
+      {
+        heading: "Property Configuration",
+        points: [
+          "**application.properties / application.yml** — Default config file. YAML supports hierarchical structure.",
+          "**@Value** — Inject single property. `@Value(\"${app.name:default}\") String appName`.",
+          "**@ConfigurationProperties** — Type-safe binding. `@ConfigurationProperties(prefix = \"app\")` on POJO class.",
+          "**Environment Variables** — Override properties. `SERVER_PORT=9090` overrides `server.port`.",
+          "**Custom Config File** — `@PropertySource(\"classpath:custom.properties\")`. Load additional property files.",
+        ],
+      },
+      {
+        heading: "Profiles",
+        points: [
+          "**Activating** — `spring.profiles.active=dev`. Via env var: `SPRING_PROFILES_ACTIVE=prod`.",
+          "**Profile-Specific Files** — `application-dev.yml`, `application-prod.yml`. Automatically loaded when profile is active.",
+          "**@Profile** — `@Profile(\"dev\") @Bean DataSource devDataSource()`. Bean only created for specific profile.",
+          "**Multiple Profiles** — `spring.profiles.active=dev,metrics`. Multiple profiles can be active simultaneously.",
+        ],
+      },
+      {
+        heading: "Actuator & Monitoring",
+        points: [
+          "**Spring Actuator** — Add `spring-boot-starter-actuator`. Exposes operational endpoints.",
+          "**Key Endpoints** — `/actuator/health`, `/actuator/info`, `/actuator/metrics`, `/actuator/env`, `/actuator/beans`.",
+          "**Custom Health** — Implement `HealthIndicator`. Return `Health.up().withDetail(\"key\", \"value\").build()`.",
+          "**Metrics** — Micrometer integration. Custom metrics: `meterRegistry.counter(\"api.calls\").increment()`.",
+          "**Securing Actuator** — Expose only needed endpoints: `management.endpoints.web.exposure.include=health,info,metrics`.",
+        ],
+      },
+    ],
+  },
+];
