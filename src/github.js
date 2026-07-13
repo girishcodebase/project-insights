@@ -2,8 +2,6 @@ const OWNER = "girishcodebase";
 const REPO = "project-insights";
 const BRANCH = "main";
 
-export const GITHUB_TOKEN = "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";
-
 function encodeUtf8Base64(str) {
   return btoa(
     encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, hex) =>

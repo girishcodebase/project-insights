@@ -1,23 +1,18 @@
 import sectionsMeta from "./sections.json";
-import java from "./pages/java/data.json";
-import springboot from "./pages/springboot/data.json";
-import database from "./pages/database/data.json";
-import microservices from "./pages/microservices/data.json";
-import designpatterns from "./pages/designpatterns/data.json";
-import systemdesign from "./pages/systemdesign/data.json";
-import devops from "./pages/devops/data.json";
-import testing from "./pages/testing/data.json";
 
-const subsectionsById = {
-  java,
-  springboot,
-  database,
-  microservices,
-  designpatterns,
-  systemdesign,
-  devops,
-  testing,
-};
+// Auto-discovers every src/pages/<id>/data.json at build time — no
+// manual import needed when a new main section is added.
+const dataModules = import.meta.glob("./pages/*/data.json", {
+  eager: true,
+  import: "default",
+});
+
+const subsectionsById = Object.fromEntries(
+  Object.entries(dataModules).map(([path, data]) => {
+    const [, id] = path.match(/\.\/pages\/([^/]+)\/data\.json$/);
+    return [id, data];
+  })
+);
 
 export const sections = sectionsMeta.map((meta) => ({
   ...meta,
