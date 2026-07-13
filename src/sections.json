@@ -6,5 +6,6 @@
   { "id": "designpatterns", "title": "Design Patterns", "color": "#9b59b6" },
   { "id": "systemdesign", "title": "System Design", "color": "#e67e22" },
   { "id": "devops", "title": "DevOps", "color": "#2ecc71" },
-  { "id": "testing", "title": "Testing", "color": "#1abc9c" }
+  { "id": "testing", "title": "Testing", "color": "#1abc9c" },
+  { "id": "introduction", "title": "Introduction", "color": "#607d8b" }
 ]
