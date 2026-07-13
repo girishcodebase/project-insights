@@ -15,5 +15,25 @@
         ]
       }
     ]
+  },
+  {
+    "id": "projects",
+    "title": "Projects",
+    "topics": [
+      {
+        "heading": "JOP Ticketing System (AI-Augmented Support Platform)",
+        "points": [
+          "One of my recent projects is the JOP Ticketing System, an AI-powered support platform designed to automate ticket resolution. The system processes support requests received through emails, analyzes logs and knowledge base documents using AI agents, and generates contextual responses to help support teams resolve issues faster.",
+          "The application was built using LangGraph, LangChain, FastAPI, OpenAI, Qdrant, React, and WebSockets. My responsibilities included developing backend APIs, integrating AI workflows, implementing real-time communication, and building frontend components for ticket management and monitoring."
+        ]
+      },
+      {
+        "heading": "QEssence (AI-Powered Test Automation Platform)",
+        "points": [
+          "QEssence is an AI-powered test automation platform that enables users to create and execute automated test cases with minimal manual effort. It provides a drag-and-drop workflow builder, AI-generated Playwright test scripts, browser extensions for recording user actions, and supports multi-tenant execution.",
+          "The application was built using React, ReactFlow, NestJS, Playwright, Bull Queue, JWT, and RBAC. My responsibilities included developing backend APIs, implementing workflow execution logic, integrating authentication and authorization, and contributing to frontend features for test design and execution."
+        ]
+      }
+    ]
   }
 ]
