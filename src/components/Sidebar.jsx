@@ -21,7 +21,6 @@ export default function Sidebar({ isOpen, onNavigate }) {
                 style={{ borderLeftColor: section.color }}
                 onClick={() => setOpenSection(isSectionOpen ? null : section.id)}
               >
-                <span className="sidebar-icon">{section.icon}</span>
                 <span className="sidebar-title">{section.title}</span>
                 <span className={`sidebar-caret ${isSectionOpen ? "open" : ""}`}>›</span>
               </button>

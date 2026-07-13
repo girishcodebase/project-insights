@@ -8,14 +8,14 @@ import { subsections as devops } from "./pages/devops/data";
 import { subsections as testing } from "./pages/testing/data";
 
 export const sections = [
-  { id: "java", icon: "☕", title: "Java", color: "#e76f00", subsections: java },
-  { id: "springboot", icon: "🍃", title: "Spring Boot", color: "#6db33f", subsections: springboot },
-  { id: "database", icon: "🗄️", title: "Database & SQL", color: "#336791", subsections: database },
-  { id: "microservices", icon: "🔗", title: "Microservices", color: "#ff6b6b", subsections: microservices },
-  { id: "designpatterns", icon: "🏗️", title: "Design Patterns", color: "#9b59b6", subsections: designpatterns },
-  { id: "systemdesign", icon: "🌐", title: "System Design", color: "#e67e22", subsections: systemdesign },
-  { id: "devops", icon: "⚙️", title: "DevOps", color: "#2ecc71", subsections: devops },
-  { id: "testing", icon: "🧪", title: "Testing", color: "#1abc9c", subsections: testing },
+  { id: "java", title: "Java", color: "#e76f00", subsections: java },
+  { id: "springboot", title: "Spring Boot", color: "#6db33f", subsections: springboot },
+  { id: "database", title: "Database & SQL", color: "#336791", subsections: database },
+  { id: "microservices", title: "Microservices", color: "#ff6b6b", subsections: microservices },
+  { id: "designpatterns", title: "Design Patterns", color: "#9b59b6", subsections: designpatterns },
+  { id: "systemdesign", title: "System Design", color: "#e67e22", subsections: systemdesign },
+  { id: "devops", title: "DevOps", color: "#2ecc71", subsections: devops },
+  { id: "testing", title: "Testing", color: "#1abc9c", subsections: testing },
 ];
 
 // Flat, ordered list of every subsection across all sections, used to

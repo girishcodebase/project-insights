@@ -47,22 +47,20 @@ export default function ContentPage() {
       <div className="topic-nav">
         {prev ? (
           <Link
-            className="topic-nav-btn topic-nav-prev"
+            className="topic-nav-link topic-nav-prev"
             to={`/${prev.sectionId}/${prev.subsectionId}`}
           >
-            <span className="topic-nav-label">← Previous</span>
-            <span className="topic-nav-title">{prev.subsectionTitle}</span>
+            ← {prev.subsectionTitle}
           </Link>
         ) : (
           <span />
         )}
         {next && (
           <Link
-            className="topic-nav-btn topic-nav-next"
+            className="topic-nav-link topic-nav-next"
             to={`/${next.sectionId}/${next.subsectionId}`}
           >
-            <span className="topic-nav-label">Next →</span>
-            <span className="topic-nav-title">{next.subsectionTitle}</span>
+            {next.subsectionTitle} →
           </Link>
         )}
       </div>
