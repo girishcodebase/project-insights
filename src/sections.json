@@ -1,9 +1,9 @@
 [
-    {
+  {
     "id": "introduction",
     "title": "Introduction",
     "color": "hsl(334, 60%, 45%)"
-    },
+  },
   {
     "id": "java",
     "title": "Java",
