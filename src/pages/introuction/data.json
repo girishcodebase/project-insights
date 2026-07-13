@@ -1,0 +1,19 @@
+[
+  {
+    "id": "about-me",
+    "title": "About Me",
+    "topics": [
+      {
+        "heading": "Introduce your self",
+        "points": [
+          "Good morning/afternoon. My name is Girish Shimpi.",
+          "I have around 2.6 years of experience as a Java Full Stack Developer and currently work at Jio Platforms Limited. I started my career as a backend developer and gradually expanded my role into full-stack development.",
+          "My primary technical skills include Core Java, Spring Boot, Spring Data JPA, Microservices, Oracle SQL, React, Next.js, TypeScript, Git, and RESTful web services.",
+          "In my current role, I am responsible for developing new features, building and maintaining backend services, designing REST APIs, writing optimized SQL queries, fixing production issues, participating in code reviews, and developing frontend modules using React and Next.js. I also write unit tests and work closely with cross-functional teams to deliver high-quality software.",
+          "Working in the fintech domain has given me experience in building scalable and reliable applications while focusing on performance, maintainability, and clean code practices.",
+          "I am now looking for an opportunity where I can work on challenging enterprise applications, enhance my technical skills, and contribute to the organization's growth while continuing to grow as a Full Stack Java Developer."
+        ]
+      }
+    ]
+  }
+]
