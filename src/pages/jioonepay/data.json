@@ -1,0 +1,172 @@
+[
+  {
+    "id": "overview",
+    "title": "Overview",
+    "topics": [
+      {
+        "heading": "Project Introduction",
+        "points": [
+          "JioOnePay is a **payment aggregation platform** by Jio Platforms — merchants integrate once with us instead of separately with every payment gateway or bank."
+        ]
+      },
+      {
+        "heading": "Business Problem",
+        "points": [
+          "Before aggregators, merchants integrated individually with every gateway — high effort, high complexity. JioOnePay is the single integration point that handles routing, processing, and response for them."
+        ]
+      },
+      {
+        "heading": "High-Level Flow",
+        "points": [
+          "Customer picks a payment method (UPI / Card / Wallet / Net Banking) on a merchant app.",
+          "Merchant sends the request to JioOnePay via REST APIs.",
+          "Platform validates it and routes it to the right payment gateway/bank.",
+          "Response (plus status updates, refunds, monitoring) flows back to the merchant."
+        ]
+      },
+      {
+        "heading": "Application Architecture",
+        "points": [
+          "**Microservices architecture** — each service is independently deployable, scalable, and easy to extend.",
+          "**API Gateway pattern** — `jop-gateway-service` is the single entry point for all traffic; it routes requests to the right microservice and handles resilience (circuit breaker, rate limiting)."
+        ]
+      },
+      {
+        "heading": "Technologies Used",
+        "points": [
+          "**Backend** — Core Java, Spring Boot, Spring Data JPA, Oracle Database, REST APIs",
+          "**Frontend** — React, Next.js, TypeScript"
+        ]
+      },
+      {
+        "heading": "Key Features",
+        "points": [
+          "Merchant Onboarding",
+          "Payment Gateway Integration",
+          "Multiple Payment Modes (UPI, Card, Wallet, Net Banking)",
+          "Dynamic Payment Routing",
+          "Refunds & Transaction Monitoring"
+        ]
+      },
+      {
+        "heading": "My Roles & Responsibilities",
+        "points": [
+          "Building REST APIs & business logic in Spring Boot, integrating new payment gateways, writing optimized Oracle SQL.",
+          "Frontend development in React/Next.js — building UI components and wiring them to backend APIs.",
+          "Code reviews, unit tests, debugging, and working with QA/Product/DevOps through release."
+        ]
+      },
+      {
+        "heading": "Challenges",
+        "points": [
+          "**Problem** — Integrating multiple payment gateways, where each gateway had different request/response formats, authentication mechanisms, and APIs.",
+          "**Solution** — Implemented a common abstraction layer that converts our internal request into the gateway-specific format and transforms the gateway response back into our standard response model.",
+          "**Impact** — Merchants use a single API, and new gateways can be integrated without impacting existing merchants."
+        ]
+      },
+      {
+        "heading": "Outcome",
+        "points": [
+          "Working on JioOnePay has given me hands-on experience building enterprise-scale payment systems, developing RESTful microservices, integrating third-party payment gateways, optimizing SQL queries, handling production issues, and working in a distributed microservices environment."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "api-gateway-architecture",
+    "title": "API Gateway Architecture",
+    "topics": [
+      {
+        "heading": "Overview",
+        "points": [
+          "**jop-gateway-service** is the single entry point for all JioOnePay traffic — an **API Gateway pattern** implementation. It only routes requests and protects the system (circuit breaker, rate limit, bulkhead); no business logic, no database.",
+          "Nothing is hardcoded — routes and resilience limits live in Zookeeper as JSON and refresh live, no restart needed.",
+          "Runs on **port 9985**."
+        ]
+      },
+      {
+        "heading": "Tech Stack (from pom.xml)",
+        "points": [
+          "**Core** — Spring Boot 3.1.5, Java 17, Spring Cloud 2022.0.2",
+          "**Gateway engine** — Spring Cloud Gateway (WebFlux + Netty, reactive, non-blocking)",
+          "**Config** — Spring Cloud Zookeeper Config — pulls routes + resilience limits from Zookeeper",
+          "**Resilience** — Resilience4j (Circuit Breaker, Rate Limiter, Bulkhead, Time Limiter)",
+          "**Observability** — Log4j2, Micrometer + Prometheus, Brave tracing"
+        ]
+      },
+      {
+        "heading": "How Routing Works",
+        "points": [
+          "All routes live in one Zookeeper key, `config-properties` (Base64 JSON) — each service's id, real URL, and path mappings.",
+          "`ApiRoutesLocatorService` builds the in-memory route table from this JSON on every lookup — no restart needed when routes change.",
+          "`ZookeeperRefreshListener` auto-refreshes the config when Zookeeper data changes.",
+          "**Important:** no Consul/Kubernetes discovery — target URLs are pre-configured directly in Zookeeper."
+        ]
+      },
+      {
+        "heading": "Request Flow (simple diagram)",
+        "image": "jop-gateway-architecture.svg",
+        "imageAlt": "jop-gateway-service architecture diagram showing client to gateway to resilience filters to downstream service or fallback",
+        "points": [
+          "Client → Gateway (:9985) → route match → path rewrite.",
+          "Circuit Breaker, Rate Limiter, and Bulkhead each check the call, in that order.",
+          "All checks pass → forwarded to the real service URL, response returned as-is.",
+          "Any check fails → redirected to `/fallback`, which returns a clean JSON error instead of a raw one."
+        ]
+      },
+      {
+        "heading": "Resilience Settings",
+        "points": [
+          "Circuit Breaker, Rate Limiter, Bulkhead, and Time Limiter can each be tuned **per route** (or fall back to global defaults) via a second Zookeeper key, `resilience-properties`.",
+          "Circuit Breaker fallback only triggers on HTTP 500/502/503/504. Rate Limiter and Bulkhead reject immediately with their own error message — they don't go through `/fallback`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "service-communication",
+    "title": "Service Communication",
+    "topics": [
+      {
+        "heading": "Overview",
+        "points": [
+          "JioOnePay is a **synchronous, REST-only** platform — every call, internal or external, is a direct HTTP request/response. There is no message broker (no Kafka, no RabbitMQ) anywhere in the ~60 microservices checked.",
+          "Internal calls (service-to-service) and external calls (to banks/payment gateways) use **two completely different HTTP client approaches** — that split is the main thing to remember."
+        ]
+      },
+      {
+        "heading": "Internal — Service to Service",
+        "points": [
+          "**Spring Cloud OpenFeign** is the client — a declarative REST client: you write a Java interface annotated `@FeignClient(name = \"service-name\")`, call it like a local method, and Feign builds the actual HTTP call underneath.",
+          "The `name` isn't a hardcoded URL — it's resolved at call-time via **Zookeeper-based service discovery**.",
+          "Example: `jop-core-service` calls `jop-payment-s2s-service`, the wallet service, and `jop-core-pg-details-service` — each through its own `@FeignClient` interface.",
+          "**Spring Retry** (`@Retryable`) is layered on top of some Feign clients for transient failures — e.g. a 3-second backoff on the PG-config client.",
+          "**Important:** these calls go **directly** service-to-service — they do **not** pass through `jop-gateway-service`. The gateway is only for external, client-facing traffic."
+        ]
+      },
+      {
+        "heading": "External — Banks & Payment Gateways",
+        "points": [
+          "Each bank/PG integration is its own microservice (`jop-core-razorpay-service`, `jop-core-citi-service`, `jop-core-phonepe-service`, etc.), and each one writes its **own Apache HttpClient 5 wrapper class** to call that PG's API.",
+          "There's **no shared HTTP client abstraction across PGs** — Razorpay's wrapper and Citi's wrapper are separate, independently-written classes, not implementations of one common interface.",
+          "**mTLS (mutual TLS)** is used for bank-grade integrations — e.g. Citi loads a **PKCS12 client certificate** over **TLS 1.2**, so the bank verifies the caller's identity too, not just the caller trusting the bank.",
+          "Timeouts, proxy URL/port, and certificate file paths are all pulled from **Zookeeper config** — so they can be tuned per environment without a redeploy."
+        ]
+      },
+      {
+        "heading": "Why No Message Broker",
+        "points": [
+          "Every request is synchronous end-to-end — simple to reason about and easy to trace one request through the whole chain, but it means a slow downstream call (e.g. a bank taking long to respond) blocks that entire chain.",
+          "This is exactly why the **Circuit Breaker / Bulkhead / Rate Limiter** layer exists at the gateway — to contain that blast radius since there's no async buffer (queue) to fall back on."
+        ]
+      },
+      {
+        "heading": "Shared Infrastructure",
+        "points": [
+          "**`jop-common-redis-lib`** — a shared Redis client used across services for caching and shared state (e.g. idempotency keys, temporary session data). It's for **caching, not messaging**.",
+          "**`jop-common-lib`** — the shared base library that pulls in Feign, Zookeeper config, and Spring Retry, so each service doesn't configure these from scratch."
+        ]
+      }
+    ]
+  }
+]

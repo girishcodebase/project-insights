@@ -1,0 +1,41 @@
+<svg width="100%" viewBox="0 0 680 300" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>Association, aggregation, and composition</title>
+  <desc>Association is a plain uses-a link, shown between Teacher and Student. Aggregation is a has-a relationship with weak ownership, shown with a hollow diamond between Department and Employee, since an Employee can exist without that Department. Composition is a has-a relationship with strong ownership, shown with a filled diamond between House and Room, since a Room cannot exist without its House.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .th { font-size: 14px; font-weight: 600; }
+    .ts { font-size: 12px; }
+    .arr { stroke: #999; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect x="40" y="40" width="180" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="130" y="70" text-anchor="middle" class="th" fill="#2c2c2a">Teacher</text>
+  <rect x="40" y="170" width="180" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="130" y="200" text-anchor="middle" class="th" fill="#2c2c2a">Student</text>
+  <line x1="130" y1="90" x2="130" y2="166" class="arr" marker-end="url(#arrow8)"/>
+  <text x="130" y="240" text-anchor="middle" class="th" fill="#2c2c2a">Association</text>
+  <text x="130" y="257" text-anchor="middle" class="ts" fill="#5f5e5a">"uses-a", independent</text>
+
+  <rect x="250" y="40" width="180" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="340" y="70" text-anchor="middle" class="th" fill="#2c2c2a">Department</text>
+  <rect x="250" y="170" width="180" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="340" y="200" text-anchor="middle" class="th" fill="#2c2c2a">Employee</text>
+  <line x1="340" y1="108" x2="340" y2="166" class="arr" marker-end="url(#arrow8)"/>
+  <polygon points="340,90 350,99 340,108 330,99" fill="#fff" stroke="#5f5e5a"/>
+  <text x="340" y="240" text-anchor="middle" class="th" fill="#2c2c2a">Aggregation</text>
+  <text x="340" y="257" text-anchor="middle" class="ts" fill="#5f5e5a">"has-a", weak ownership</text>
+
+  <rect x="460" y="40" width="180" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="550" y="70" text-anchor="middle" class="th" fill="#2c2c2a">House</text>
+  <rect x="460" y="170" width="180" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="550" y="200" text-anchor="middle" class="th" fill="#2c2c2a">Room</text>
+  <line x1="550" y1="108" x2="550" y2="166" class="arr" marker-end="url(#arrow8)"/>
+  <polygon points="550,90 560,99 550,108 540,99" fill="#5f5e5a" stroke="#5f5e5a"/>
+  <text x="550" y="240" text-anchor="middle" class="th" fill="#2c2c2a">Composition</text>
+  <text x="550" y="257" text-anchor="middle" class="ts" fill="#5f5e5a">"has-a", strong ownership</text>
+</svg>

@@ -1,11 +1,34 @@
 import { useParams, Link } from "react-router-dom";
 import { sections, flatSubsections } from "../sectionsConfig";
 
+// Auto-discovers every src/assets/*.svg — topics reference one by filename.
+const imageAssets = import.meta.glob("../assets/*.svg", {
+  eager: true,
+  import: "default",
+});
+
+function resolveImage(filename) {
+  const entry = Object.entries(imageAssets).find(([path]) =>
+    path.endsWith(`/${filename}`)
+  );
+  return entry?.[1];
+}
+
 function renderPoint(text) {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
+  const parts = text.split(/(\*\*`.*?`\*\*|\*\*.*?\*\*|`.*?`)/g);
   return parts.map((part, i) => {
+    if (part.startsWith("**`") && part.endsWith("`**")) {
+      return (
+        <strong key={i}>
+          <code>{part.slice(3, -3)}</code>
+        </strong>
+      );
+    }
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={i}>{part.slice(1, -1)}</code>;
     }
     return <span key={i}>{part}</span>;
   });
@@ -37,6 +60,13 @@ export default function ContentPage() {
           <h3 className="topic-heading" style={{ color: section.color }}>
             {topic.heading}
           </h3>
+          {topic.image && (
+            <img
+              className="topic-image"
+              src={resolveImage(topic.image)}
+              alt={topic.imageAlt || topic.heading}
+            />
+          )}
           <ul className="topic-points">
             {topic.points.map((point, pIdx) => (
               <li key={pIdx}>{renderPoint(point)}</li>

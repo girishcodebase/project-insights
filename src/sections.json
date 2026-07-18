@@ -5,6 +5,11 @@
     "color": "hsl(334, 60%, 45%)"
   },
   {
+    "id": "jioonepay",
+    "title": "JioOnePay",
+    "color": "#0a4d8c"
+  },
+  {
     "id": "java",
     "title": "Java",
     "color": "#e76f00"

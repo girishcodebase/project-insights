@@ -1,195 +1,215 @@
 [
   {
-    "id": "core-java",
-    "title": "Core Java",
+    "id": "core-java-basics",
+    "title": "Core Java Basics",
     "topics": [
       {
-        "heading": "OOP Principles",
+        "heading": "Origin & Why It's Popular",
         "points": [
-          "**Encapsulation** — Bundling data and methods within a single unit (class). Use access modifiers (private, protected, public) to control visibility.",
-          "**Inheritance** — A class inherits fields and methods from another using `extends`. Java supports single inheritance only. Use `super` to call parent.",
-          "**Polymorphism** — Same method behaves differently. Compile-time (method overloading) and Runtime (method overriding via `@Override`).",
-          "**Abstraction** — Hide implementation using abstract classes or interfaces. Focus on *what* not *how*."
+          "**Invented by** James Gosling at Sun Microsystems, released in **1995**. Originally called \"Oak\", renamed to Java. Now owned by Oracle.",
+          "**\"Write Once, Run Anywhere\" (WORA)** — Java code compiles to bytecode, not native machine code. The JVM (different per OS) runs that same bytecode, so one build runs on Windows, Linux, or Mac.",
+          "**Popular because** — mature ecosystem (Spring, Hibernate), strong backward compatibility, huge community and job market, built-in memory management (GC), and strong typing that catches bugs at compile time.",
+          "**Where it's used** — enterprise backend systems, Android apps, large-scale distributed/microservices systems, big data tools (Hadoop, Kafka, Spark are written in Java/Scala on the JVM), banking & fintech systems."
         ]
       },
       {
-        "heading": "Data Types & Variables",
+        "heading": "Key Features",
         "points": [
-          "**Primitive Types** — `byte`(1B), `short`(2B), `int`(4B), `long`(8B), `float`(4B), `double`(8B), `char`(2B), `boolean`.",
-          "**Wrapper Classes** — `Integer`, `Double`, `Boolean` etc. Autoboxing/Unboxing converts automatically between primitive and wrapper.",
-          "**String** — Immutable. `String pool` for memory optimization. Use `StringBuilder` for frequent modifications.",
-          "**var (Java 10+)** — Local variable type inference. `var list = new ArrayList<String>()`. Only for local variables.",
-          "**final** — Variable: constant value. Method: cannot override. Class: cannot extend."
-        ]
-      },
-      {
-        "heading": "Keywords & Concepts",
-        "points": [
-          "**static** — Belongs to class, not instance. Static methods can't access instance variables. `static` block runs once at class loading.",
-          "**this** — Refers to current instance. Used to resolve ambiguity, chain constructors `this()`, and pass current object.",
-          "**super** — Refers to parent class. Call parent constructor `super()`, access parent methods `super.method()`.",
-          "**instanceof** — Type checking. `if (obj instanceof String s)` — pattern matching (Java 16+).",
-          "**sealed (Java 17+)** — `sealed class Shape permits Circle, Square` — restrict which classes can extend."
-        ]
-      },
-      {
-        "heading": "Interfaces & Abstract Classes",
-        "points": [
-          "**Interface** — Contract with abstract methods. A class can implement multiple interfaces. Default methods allowed (Java 8+).",
-          "**Abstract Class** — Partial implementation. Can have constructors, fields, abstract + concrete methods. Single inheritance only.",
-          "**When to Use** — Interface: define capability (`Comparable`, `Serializable`). Abstract class: share code among related classes.",
-          "**Functional Interface** — Interface with single abstract method. `@FunctionalInterface`. Used with lambdas. e.g., `Runnable`, `Predicate<T>`."
+          "**Platform Independent** — via bytecode + JVM (see \"JDK, JRE, JVM\" page).",
+          "**Object-Oriented** — everything (except primitives) is modeled as an object.",
+          "**Simple & Secure** — no explicit pointers, automatic garbage collection, bytecode verifier checks code before running.",
+          "**Robust** — strong compile-time type checking, mandatory exception handling for checked exceptions.",
+          "**Multithreaded** — built-in support for concurrent execution (`Thread`, `Runnable`, `java.util.concurrent`).",
+          "**High Performance** — JIT compiler converts hot bytecode to native machine code at runtime.",
+          "**Example** — `javac Hello.java` produces `Hello.class`; that one file runs unchanged on Windows, Linux, and Mac, because each OS has its own JVM that understands the same bytecode."
         ]
       }
     ]
   },
   {
-    "id": "collections",
-    "title": "Collections Framework",
+    "id": "jvm-jdk-jre",
+    "title": "JDK, JRE & JVM",
     "topics": [
       {
-        "heading": "List Implementations",
+        "heading": "JDK vs JRE vs JVM",
+        "image": "jvm-jdk-jre-architecture.svg",
+        "imageAlt": "Diagram showing JDK containing JRE and dev tools, JRE containing the JVM, and the flow from .java source through javac, bytecode, ClassLoader, and the Execution Engine to native code",
         "points": [
-          "**ArrayList** — Dynamic array. O(1) random access, O(n) insert/delete in middle. Best for read-heavy operations.",
-          "**LinkedList** — Doubly-linked list. O(1) insert/delete at ends, O(n) random access. Also implements `Deque`.",
-          "**Vector** — Synchronized ArrayList. Thread-safe but slower. Use `Collections.synchronizedList()` instead.",
-          "**CopyOnWriteArrayList** — Thread-safe. Creates copy on write. Best for read-heavy concurrent scenarios.",
-          "**List.of()** — Immutable list factory (Java 9+). `List.of(\"a\", \"b\", \"c\")`. Throws `UnsupportedOperationException` on modification."
+          "**JVM (Java Virtual Machine)** — an abstract specification; the actual engine that loads and executes `.class` bytecode. Platform-specific implementation (a Windows JVM differs from a Linux JVM), but both run identical bytecode.",
+          "**JRE (Java Runtime Environment)** — JVM + the core class libraries (`java.lang`, `java.util`, etc.) needed to *run* a Java program. No compiler.",
+          "**JDK (Java Development Kit)** — JRE + development tools (`javac` compiler, `jdb` debugger, `javadoc`). Needed to *develop* Java programs."
         ]
       },
       {
-        "heading": "Set Implementations",
+        "heading": "ClassLoader Subsystem",
         "points": [
-          "**HashSet** — No duplicates, unordered. O(1) add/remove/contains. Backed by HashMap internally.",
-          "**LinkedHashSet** — Maintains insertion order. Slightly slower than HashSet due to linked list overhead.",
-          "**TreeSet** — Sorted order (natural or Comparator). O(log n) operations. Implements `NavigableSet`.",
-          "**EnumSet** — Specialized for enum types. Extremely fast. Use `EnumSet.of()`, `EnumSet.allOf()`."
+          "Loads `.class` files into the JVM in three phases: **Loading** (read bytecode) → **Linking** (verify, prepare, resolve) → **Initialization** (run static initializers).",
+          "**Bootstrap ClassLoader** — loads core JDK classes (`java.lang.*`) from the JVM's own runtime. Written in native code, has no parent.",
+          "**Platform/Extension ClassLoader** — loads classes from the JDK's extension libraries.",
+          "**Application ClassLoader** — loads classes from the application's classpath — your own code.",
+          "**Delegation model** — a class loader asks its parent to load a class first; only if the parent can't find it does the child try. Prevents core classes from being overridden accidentally.",
+          "**Example** — `System.out.println(String.class.getClassLoader());` prints `null`, because `String` is loaded by the Bootstrap ClassLoader, which is native code with no Java object representation."
         ]
       },
       {
-        "heading": "Map Implementations",
+        "heading": "Interpreter vs JIT Compiler",
         "points": [
-          "**HashMap** — Key-value pairs. O(1) get/put. Allows one null key, multiple null values. Not thread-safe.",
-          "**LinkedHashMap** — Maintains insertion order (or access order for LRU cache). Extends HashMap.",
-          "**TreeMap** — Sorted by keys. O(log n) operations. Implements `NavigableMap`. No null keys allowed.",
-          "**ConcurrentHashMap** — Thread-safe without locking entire map. Segment-level locking. No null keys/values.",
-          "**Map.of() / Map.entry()** — Immutable map factory (Java 9+). Max 10 entries with `Map.of()`, use `Map.ofEntries()` for more."
-        ]
-      },
-      {
-        "heading": "Queue & Deque",
-        "points": [
-          "**PriorityQueue** — Elements ordered by priority (natural order or Comparator). O(log n) insert, O(1) peek.",
-          "**ArrayDeque** — Double-ended queue. Faster than LinkedList as Queue/Stack. No capacity restrictions.",
-          "**BlockingQueue** — Thread-safe. `ArrayBlockingQueue` (bounded), `LinkedBlockingQueue`. Producer-consumer pattern.",
-          "**DelayQueue** — Elements available only after delay expires. Used for scheduled tasks."
-        ]
-      },
-      {
-        "heading": "Utility Methods",
-        "points": [
-          "**Collections.sort()** — Sort list. Use `Comparator.comparing()` for custom sorting. `list.sort(Comparator.comparing(User::getName))`.",
-          "**Collections.unmodifiableList()** — Returns read-only view. Prefer `List.copyOf()` (Java 10+) for true immutable copy.",
-          "**Collections.frequency()** — Count occurrences: `Collections.frequency(list, element)`.",
-          "**Streams on Collections** — `collection.stream().filter().map().collect()`. Prefer streams for transformation pipelines."
+          "**Interpreter** — reads and executes bytecode line-by-line. Starts fast, but slow for repeated execution since it re-interprets every time.",
+          "**JIT (Just-In-Time) Compiler** — watches for \"hot\" bytecode (methods/loops run frequently) and compiles just that part to native machine code, caching it for reuse. Much faster for long-running code.",
+          "**HotSpot JVM** (Oracle's default JVM) uses both — interprets first, then JIT-compiles hot paths. Tiered compilation: **C1** (client compiler, compiles quickly with light optimization) then **C2** (server compiler, slower to kick in but heavily optimized).",
+          "**Example** — a `for` loop that runs 5 million times starts out interpreted, but after HotSpot notices it's \"hot\" (invoked past a default threshold, ~10,000 times), it JIT-compiles that loop body to native code so the remaining iterations run much faster."
         ]
       }
     ]
   },
   {
-    "id": "java8-features",
-    "title": "Java 8+ Features",
+    "id": "memory-management",
+    "title": "Memory Management & GC",
     "topics": [
       {
-        "heading": "Lambda Expressions",
+        "heading": "Heap vs Stack",
+        "image": "java-memory-model.svg",
+        "imageAlt": "Diagram of the Java heap split into Young Generation (Eden, Survivor S0, Survivor S1) and Old Generation, alongside per-thread Stack and Metaspace",
         "points": [
-          "**Syntax** — `(params) -> expression` or `(params) -> { statements; }`. Replaces anonymous inner classes.",
-          "**Method References** — `Class::method`. Types: static (`String::valueOf`), instance (`str::length`), constructor (`ArrayList::new`).",
-          "**Effectively Final** — Lambdas can capture local variables that are effectively final (not reassigned).",
-          "**Common Functional Interfaces** — `Predicate<T>` (test), `Function<T,R>` (apply), `Consumer<T>` (accept), `Supplier<T>` (get)."
+          "**Heap** — shared across all threads. Stores all objects and arrays. Managed by the Garbage Collector. `OutOfMemoryError: Java heap space` if it fills up.",
+          "**Stack** — one per thread. Stores method call frames, local variables, and partial results. LIFO (last in, first out). `StackOverflowError` if it grows too deep (e.g. infinite recursion)."
         ]
       },
       {
-        "heading": "Stream API",
+        "heading": "Heap Generations",
         "points": [
-          "**Creating Streams** — `collection.stream()`, `Stream.of()`, `Arrays.stream()`, `Stream.generate()`, `Stream.iterate()`.",
-          "**Intermediate Ops** — `filter()`, `map()`, `flatMap()`, `distinct()`, `sorted()`, `peek()`, `limit()`, `skip()`. Lazy evaluation.",
-          "**Terminal Ops** — `collect()`, `forEach()`, `reduce()`, `count()`, `findFirst()`, `anyMatch()`, `toList()` (Java 16+).",
-          "**Collectors** — `Collectors.toList()`, `toMap()`, `groupingBy()`, `partitioningBy()`, `joining()`, `summarizingInt()`.",
-          "**Parallel Streams** — `parallelStream()` or `.parallel()`. Use for CPU-intensive tasks on large datasets. Avoid for I/O."
+          "**Young Generation** — Eden (where new objects are born) + two Survivor spaces (S0, S1). Most objects die young (weak generational hypothesis), so this area is collected frequently and cheaply (**Minor GC**).",
+          "**Promotion** — an object that survives enough Minor GC cycles in the Young Gen gets moved (\"promoted\") to the **Old Generation (Tenured)**.",
+          "**Old Generation** — holds long-lived objects. Collected less often, but the collection (**Major/Full GC**) is more expensive since it scans a larger area.",
+          "**Metaspace** (Java 8+) — native memory (not heap) that stores class metadata. Replaced the old PermGen; auto-grows by default instead of throwing `PermGen space` errors."
         ]
       },
       {
-        "heading": "Optional",
+        "heading": "Garbage Collection",
         "points": [
-          "**Creating** — `Optional.of(value)` (non-null), `Optional.ofNullable(value)` (may be null), `Optional.empty()`.",
-          "**Consuming** — `ifPresent()`, `orElse()`, `orElseGet()`, `orElseThrow()`. Never call `get()` without `isPresent()` check.",
-          "**Transforming** — `map()`, `flatMap()`, `filter()`. Chain operations on Optional values.",
-          "**Best Practice** — Use as return type, not as field or parameter. Don't use `Optional.of(null)` — it throws NPE."
-        ]
-      },
-      {
-        "heading": "Date & Time API (java.time)",
-        "points": [
-          "**LocalDate** — Date without time. `LocalDate.now()`, `LocalDate.of(2024, 1, 15)`, `plusDays()`, `minusMonths()`.",
-          "**LocalTime** — Time without date. `LocalTime.now()`, `LocalTime.of(14, 30)`. `isBefore()`, `isAfter()`.",
-          "**LocalDateTime** — Date + time without timezone. Combine: `LocalDateTime.of(date, time)`.",
-          "**ZonedDateTime** — With timezone. `ZonedDateTime.now(ZoneId.of(\"Asia/Kolkata\"))`. For global applications.",
-          "**Duration & Period** — `Duration` for time-based (hours, minutes). `Period` for date-based (years, months, days)."
-        ]
-      },
-      {
-        "heading": "Records, Sealed & Pattern Matching",
-        "points": [
-          "**Records (Java 14+)** — `record Point(int x, int y) {}`. Auto-generates constructor, getters, equals, hashCode, toString.",
-          "**Sealed Classes (Java 17+)** — `sealed class Shape permits Circle, Square {}`. Restrict class hierarchy.",
-          "**Pattern Matching instanceof (Java 16+)** — `if (obj instanceof String s)` — no explicit cast needed.",
-          "**Switch Expressions (Java 14+)** — `var result = switch(day) { case MON -> \"Monday\"; default -> \"Other\"; };`.",
-          "**Text Blocks (Java 15+)** — Multi-line strings with `\"\"\"`. Preserves formatting."
+          "**GC Roots** — local variables on the stack, active threads, static fields, JNI references. Anything reachable from a GC root is \"alive\"; everything else is garbage.",
+          "**Basic algorithm** — Mark (find reachable objects) → Sweep (reclaim unreachable ones) → Compact (defragment memory).",
+          "**GC algorithms** — Serial (single-threaded, small apps), Parallel (multi-threaded throughput-focused), **G1** (default since Java 9, balances throughput and pause time), **ZGC/Shenandoah** (Java 15+, very low pause times for huge heaps).",
+          "**Tuning flags** — `-Xms` (initial heap size), `-Xmx` (max heap size), `-XX:+UseG1GC`, `-XX:+PrintGCDetails`.",
+          "**`System.gc()`** is only a *suggestion* to the JVM — it doesn't force garbage collection to run immediately."
         ]
       }
     ]
   },
   {
-    "id": "multithreading",
-    "title": "Multithreading & Concurrency",
+    "id": "keywords",
+    "title": "Keywords",
     "topics": [
       {
-        "heading": "Thread Basics",
+        "heading": "General Purpose Keywords",
         "points": [
-          "**Creating Threads** — Extend `Thread` class or implement `Runnable`. Prefer `Runnable` (allows extending other classes).",
-          "**Thread Lifecycle** — NEW → RUNNABLE → RUNNING → BLOCKED/WAITING → TERMINATED.",
-          "**Thread Methods** — `start()`, `run()`, `sleep()`, `join()`, `yield()`, `interrupt()`. Never call `run()` directly.",
-          "**Daemon Threads** — Background threads. `thread.setDaemon(true)`. JVM exits when only daemon threads remain."
+          "**final** — variable: value can't be reassigned once set. Method: can't be overridden. Class: can't be extended.",
+          "**static** — belongs to the class, not an instance. Shared across all objects. A static method can't directly access instance (non-static) members.",
+          "**this** — refers to the current instance. Resolves naming ambiguity, chains constructors (`this(...)`).",
+          "**super** — refers to the parent class. Calls the parent constructor (`super(...)`) or a parent method (`super.method()`).",
+          "**abstract** — method: no body, must be implemented by a subclass. Class: can't be instantiated directly.",
+          "**transient** — marks a field to be skipped during serialization.",
+          "**instanceof** — runtime type check. Java 16+ supports pattern matching: `if (obj instanceof String s)` gives you `s` already cast.",
+          "**Example (this + super)** — `class Dog extends Animal { Dog(String name) { super(name); this.breed = \"Labrador\"; } }` — `super(name)` calls the parent constructor, `this.breed` sets the field on the current instance."
         ]
       },
       {
-        "heading": "Synchronization",
+        "heading": "Multithreading-Related Keywords",
         "points": [
-          "**synchronized keyword** — Method or block level. Only one thread accesses at a time. Intrinsic lock on object/class.",
-          "**volatile** — Ensures visibility across threads. Reads/writes go directly to main memory. Does NOT ensure atomicity.",
-          "**Deadlock** — Two threads each hold a lock the other needs. Prevent: consistent lock ordering, timeout, `tryLock()`.",
-          "**ReentrantLock** — Explicit lock with `lock()` / `unlock()`. Supports fairness, `tryLock()`, `lockInterruptibly()`."
+          "**synchronized** — method or block level; only one thread can hold the lock on that object/class at a time.",
+          "**volatile** — guarantees visibility of a variable's latest value across threads (reads/writes go to main memory, not a CPU cache). Does **not** guarantee atomicity — `volatile int count; count++;` is still a race condition.",
+          "**wait() / notify() / notifyAll()** — methods on `Object` (not keywords), used for inter-thread communication; must be called from inside a `synchronized` block."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "oops-concepts",
+    "title": "OOPs Concepts",
+    "topics": [
+      {
+        "heading": "Encapsulation",
+        "points": [
+          "Bundling data (fields) and behavior (methods) into one unit (a class), and controlling access via `private`/`protected`/`public`.",
+          "Example: a `BankAccount` class keeps `balance` `private` and only exposes it through `deposit()`/`withdraw()` methods — the caller can't set an invalid balance directly."
         ]
       },
       {
-        "heading": "Executor Framework",
+        "heading": "Inheritance",
         "points": [
-          "**ExecutorService** — Thread pool. `Executors.newFixedThreadPool(n)`, `newCachedThreadPool()`, `newSingleThreadExecutor()`.",
-          "**Future & Callable** — `Callable<V>` returns value. `Future<V>` holds result. `future.get()` blocks until done.",
-          "**CompletableFuture** — Async pipelines. `supplyAsync()`, `thenApply()`, `thenCompose()`, `thenCombine()`, `exceptionally()`.",
-          "**ScheduledExecutorService** — Schedule tasks: `scheduleAtFixedRate()`, `scheduleWithFixedDelay()`.",
-          "**Virtual Threads (Java 21+)** — Lightweight threads. `Thread.ofVirtual().start(task)`. Millions of concurrent threads."
+          "A class acquires fields and methods from another using `extends`. Java supports **single inheritance** for classes (one direct parent), but multiple inheritance of behavior via interfaces.",
+          "Example: `class Car extends Vehicle` — `Car` reuses `Vehicle`'s `start()`/`stop()` and adds its own `openTrunk()`."
         ]
       },
       {
-        "heading": "Concurrent Collections",
+        "heading": "Polymorphism",
         "points": [
-          "**ConcurrentHashMap** — Segment-level locking. `putIfAbsent()`, `computeIfAbsent()`, `merge()`. No null keys/values.",
-          "**CopyOnWriteArrayList** — Creates new copy on write. Thread-safe reads without locking. Best for read-heavy use.",
-          "**BlockingQueue** — `put()` blocks if full, `take()` blocks if empty. Producer-consumer pattern.",
-          "**Atomic Classes** — `AtomicInteger`, `AtomicLong`, `AtomicReference`. Lock-free thread-safe operations via CAS.",
-          "**CountDownLatch / CyclicBarrier** — Coordination. Latch: one-time wait for N events. Barrier: reusable sync point."
+          "**Compile-time (overloading)** — same method name, different parameter list, resolved at compile time. Example: `add(int, int)` vs `add(double, double)`.",
+          "**Runtime (overriding)** — a subclass provides its own version of a parent method (`@Override`), resolved at runtime based on the actual object type. Example: `Shape s = new Circle(); s.draw();` calls `Circle`'s `draw()`, even though `s` is typed as `Shape`."
+        ]
+      },
+      {
+        "heading": "Abstraction",
+        "points": [
+          "Hiding *how* something works and exposing only *what* it does, via abstract classes or interfaces.",
+          "Example: `List<String> list = new ArrayList<>();` — calling code only knows the `List` contract (`add`, `get`, `remove`), not how `ArrayList` implements it internally."
+        ]
+      },
+      {
+        "heading": "Association, Aggregation & Composition",
+        "image": "oop-relationships.svg",
+        "imageAlt": "Diagram contrasting association (a plain link between Teacher and Student), aggregation (a hollow-diamond has-a link between Department and Employee), and composition (a filled-diamond has-a link between House and Room)",
+        "points": [
+          "**Association** — a general \"uses-a\" relationship between two independent classes, e.g. a `Teacher` and a `Student`.",
+          "**Aggregation** — a \"has-a\" relationship where the parts can exist independently of the whole (weak ownership). E.g. a `Department` has `Employee`s, but an `Employee` can exist without that `Department`.",
+          "**Composition** — a stronger \"has-a\" where the part's lifecycle is tied to the whole (strong ownership). E.g. a `House` has `Room`s — destroy the `House`, and the `Room`s go with it."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "wrapper-classes",
+    "title": "Wrapper Classes",
+    "topics": [
+      {
+        "heading": "What & Why",
+        "points": [
+          "Every primitive type has a corresponding wrapper (object) class: `int`→`Integer`, `double`→`Double`, `boolean`→`Boolean`, `char`→`Character`, etc.",
+          "Needed because **generics don't work with primitives** — you can't write `List<int>`, only `List<Integer>`.",
+          "**Autoboxing** — compiler automatically converts primitive → wrapper (`Integer i = 5;` really calls `Integer.valueOf(5)`).",
+          "**Unboxing** — compiler automatically converts wrapper → primitive (`int x = i;` calls `i.intValue()`)."
+        ]
+      },
+      {
+        "heading": "Common Pitfalls",
+        "points": [
+          "**Integer cache** — `Integer` caches values from **-128 to 127**. So `Integer a = 100, b = 100; a == b` is `true` (same cached object), but `Integer a = 200, b = 200; a == b` is `false` (different objects) — always use `.equals()` to compare wrapper values, never `==`.",
+          "**NullPointerException risk** — unboxing a `null` wrapper throws NPE: `Integer i = null; int x = i;` blows up at `i.intValue()`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "strings",
+    "title": "String & String Pool",
+    "topics": [
+      {
+        "heading": "Immutability & the String Pool",
+        "points": [
+          "`String` is **immutable** — once created, its content never changes. Any \"modification\" (`concat`, `+`, `substring`) creates a *new* `String` object.",
+          "**String Constant Pool** — a special memory area (part of the heap since Java 7, was PermGen before) that stores string literals for reuse.",
+          "`String a = \"hi\"; String b = \"hi\";` — both point to the **same** object in the pool, so `a == b` is `true`.",
+          "`String c = new String(\"hi\");` — forces creation of a **new** object on the heap, outside the pool, so `a == c` is `false` even though `a.equals(c)` is `true`.",
+          "`.intern()` — manually looks up (or inserts) a string in the pool, returning the pooled reference."
+        ]
+      },
+      {
+        "heading": "String vs StringBuilder vs StringBuffer",
+        "points": [
+          "**String** — immutable. Best for fixed or rarely-changed text.",
+          "**StringBuilder** — mutable, **not thread-safe**, fast. Best for building strings in a single thread (e.g. in a loop).",
+          "**StringBuffer** — mutable, **thread-safe** (synchronized methods), slower than `StringBuilder`. Use only when multiple threads modify the same buffer.",
+          "**Example** — `String s = \"\"; for (int i = 0; i < 1000; i++) s += i;` creates **1000 throwaway String objects** (one per `+=`). `StringBuilder sb = new StringBuilder(); for (...) sb.append(i);` mutates one buffer instead — dramatically faster."
         ]
       }
     ]
@@ -200,63 +220,358 @@
     "topics": [
       {
         "heading": "Exception Hierarchy",
+        "image": "exception-hierarchy.svg",
+        "imageAlt": "Diagram of Throwable splitting into Error and Exception, where Error leads to OutOfMemoryError and StackOverflowError, and Exception splits into checked exceptions like IOException and the unchecked RuntimeException branch like NullPointerException",
         "points": [
-          "**Throwable** → `Error` (JVM issues, don't catch) and `Exception` (application-level).",
-          "**Checked Exceptions** — Must handle at compile time. `IOException`, `SQLException`, `ClassNotFoundException`.",
-          "**Unchecked Exceptions** — Runtime exceptions. `NullPointerException`, `ArrayIndexOutOfBoundsException`, `IllegalArgumentException`.",
-          "**Error** — `OutOfMemoryError`, `StackOverflowError`. Indicates serious JVM problems. Generally not recoverable."
+          "**Throwable** is the root, splitting into **Error** (serious JVM-level problems, e.g. `OutOfMemoryError`, `StackOverflowError` — don't try to catch these) and **Exception** (application-level problems you're expected to handle).",
+          "**Checked Exceptions** — must be handled or declared at compile time. E.g. `IOException`, `SQLException`, `ClassNotFoundException`.",
+          "**Unchecked Exceptions (`RuntimeException`)** — not enforced by the compiler, usually indicate a programming bug. E.g. `NullPointerException`, `ArrayIndexOutOfBoundsException`, `IllegalArgumentException`."
         ]
       },
       {
         "heading": "Try-Catch-Finally",
         "points": [
-          "**try-catch** — `try { risky code } catch (SpecificException e) { handle }`. Catch most specific exception first.",
-          "**Multi-catch (Java 7+)** — `catch (IOException | SQLException e)`. Single block for multiple exception types.",
-          "**finally** — Always executes (even after return). Used for cleanup. Avoid return/throw in finally block.",
-          "**try-with-resources (Java 7+)** — `try (var stream = new FileInputStream(f)) { }`. Auto-closes `AutoCloseable` resources."
+          "`try { risky code } catch (SpecificException e) { handle }` — catch the most specific exception type first.",
+          "**Multi-catch (Java 7+)** — `catch (IOException | SQLException e) { ... }` handles multiple types in one block.",
+          "**finally** — always runs (even if there's a `return` in `try`), typically used for cleanup. Avoid `return`/`throw` inside `finally` — it silently swallows the original exception.",
+          "**try-with-resources (Java 7+)** — `try (var stream = new FileInputStream(f)) { ... }` — automatically closes any `AutoCloseable` resource, even on exception."
+        ]
+      },
+      {
+        "heading": "Manual vs Global Exception Handling",
+        "points": [
+          "**Manual handling** — a `try-catch` written at the specific call site, deciding how to react right there. Good for one-off, context-specific recovery (e.g. retry a single network call).",
+          "**Global handling** — one centralized place catches exceptions across the whole app instead of repeating `try-catch` everywhere. In web apps (Spring), this is `@ControllerAdvice` + `@ExceptionHandler` — every controller's uncaught exception funnels through one handler that returns a consistent error response.",
+          "For threads specifically, `Thread.setDefaultUncaughtExceptionHandler(...)` catches any exception a thread doesn't handle itself before it dies silently."
         ]
       },
       {
         "heading": "Custom Exceptions & Best Practices",
         "points": [
-          "**Custom Checked** — `class BusinessException extends Exception { }`. For recoverable business errors.",
-          "**Custom Unchecked** — `class NotFoundException extends RuntimeException { }`. For programming errors.",
-          "**Best Practices** — Never catch generic `Exception`. Always log before re-throwing. Don't use exceptions for flow control.",
-          "**Exception Chaining** — `throw new ServiceException(\"msg\", originalException)`. Preserve root cause with `getCause()`."
+          "**Custom checked** — `class BusinessException extends Exception {}` — for recoverable business-rule violations the caller should be forced to handle.",
+          "**Custom unchecked** — `class NotFoundException extends RuntimeException {}` — for programming errors or conditions that don't need to be declared everywhere.",
+          "**Best practices** — never catch a bare `Exception` (too broad), always log before re-throwing, don't use exceptions for normal control flow.",
+          "**Exception chaining** — `throw new ServiceException(\"msg\", originalException)` preserves the root cause, retrievable via `getCause()`."
         ]
       }
     ]
   },
   {
-    "id": "jvm-memory",
-    "title": "JVM & Memory Management",
+    "id": "collections",
+    "title": "Collection Framework",
     "topics": [
       {
-        "heading": "JVM Architecture",
+        "heading": "Collection Hierarchy",
+        "image": "collection-hierarchy.svg",
+        "imageAlt": "Diagram showing Iterable at the top, Collection extending it, List/Set/Queue extending Collection, and Map as a separate hierarchy that does not extend Collection",
         "points": [
-          "**Class Loader** — Loading → Linking → Initialization. Bootstrap, Extension, Application class loaders.",
-          "**JIT Compiler** — Compiles hot bytecode to native code at runtime. C1 (client) and C2 (server) compilers.",
-          "**Bytecode** — `.java` → `javac` → `.class` (bytecode) → JVM interprets/JIT compiles. Platform independent.",
-          "**JVM vs JRE vs JDK** — JVM executes bytecode. JRE = JVM + libraries. JDK = JRE + dev tools (compiler, debugger)."
+          "**Iterable** is the root — anything implementing it can be used in a for-each loop.",
+          "**Collection** extends `Iterable` and adds `add`/`remove`/`size`/etc. **List**, **Set**, and **Queue** all extend `Collection`.",
+          "**Map** is a **separate hierarchy** — it does *not* extend `Collection`, because it stores key-value pairs, not single elements."
         ]
       },
       {
-        "heading": "Memory Areas",
+        "heading": "List / Set / Map / Queue Implementations",
         "points": [
-          "**Heap** — Objects and arrays. Shared across threads. Divided into Young Gen (Eden + Survivor) and Old Gen.",
-          "**Stack** — Per thread. Stores method frames, local variables, partial results. LIFO. `StackOverflowError` on overflow.",
-          "**Metaspace (Java 8+)** — Stores class metadata. Replaced PermGen. Auto-grows by default.",
-          "**String Pool** — Intern pool for string literals. `\"hello\" == \"hello\"` is true. `new String(\"hello\")` creates new object."
+          "**ArrayList** — dynamic array, O(1) random access, O(n) insert/delete in the middle. Best for read-heavy use.",
+          "**LinkedList** — doubly-linked list, O(1) insert/delete at the ends, O(n) random access. Also implements `Deque`.",
+          "**HashSet** — no duplicates, no order guarantee, O(1) add/remove/contains. Internally backed by a `HashMap`.",
+          "**TreeSet / TreeMap** — sorted order (natural or via `Comparator`), O(log n) operations.",
+          "**HashMap** — key-value pairs, O(1) average get/put, allows one null key. Not thread-safe.",
+          "**LinkedHashMap** — like `HashMap` but preserves insertion order (or access order — handy for building an LRU cache).",
+          "**PriorityQueue** — orders elements by priority, O(log n) insert, O(1) peek at the smallest/highest priority.",
+          "**Example** — `List<String> l = new ArrayList<>(); Set<String> s = new HashSet<>(); Map<String,Integer> m = new HashMap<>();` — always **declare with the interface, instantiate with the implementation**, so swapping implementations later doesn't touch calling code."
         ]
       },
       {
-        "heading": "Garbage Collection",
+        "heading": "ArrayList Internal Working",
+        "image": "arraylist-internal.svg",
+        "imageAlt": "Diagram of ArrayList's backing array filling up and resizing to 1.5x capacity via Arrays.copyOf when full",
         "points": [
-          "**GC Basics** — Automatic memory management. Identifies and removes unreachable objects. `System.gc()` is a suggestion only.",
-          "**GC Algorithms** — Serial (single thread), Parallel (multi-thread), G1 (default Java 9+), ZGC (low latency Java 15+).",
-          "**GC Roots** — Local variables, static fields, active threads, JNI references. Objects reachable from roots are alive.",
-          "**Memory Leaks** — Unclosed resources, static collections growing, inner class references, listeners not removed.",
-          "**JVM Flags** — `-Xms` (initial heap), `-Xmx` (max heap), `-XX:+UseG1GC`, `-XX:+PrintGCDetails`."
+          "Backed internally by a plain `Object[]` array with a default initial capacity of **10**.",
+          "When `add()` is called and the array is full, a new array of roughly **1.5x** the old capacity is allocated, and old elements are copied over via `Arrays.copyOf()` — this makes `add()` *amortized* O(1), not always O(1).",
+          "`get(index)` is O(1) — direct array access. `add`/`remove` in the middle is O(n) — every element after the index has to shift."
+        ]
+      },
+      {
+        "heading": "HashMap Internal Working",
+        "image": "hashmap-internal.svg",
+        "imageAlt": "Diagram showing a key's hashCode being spread and reduced to a bucket index, with a collision handled by a linked list of entries",
+        "points": [
+          "Backed by an array of **buckets** (`Node<K,V>[] table`), default capacity **16**, default load factor **0.75** (resize/rehash happens once `size > capacity × 0.75`).",
+          "To find a bucket: take `key.hashCode()`, spread it (`h ^ (h >>> 16)`) to reduce collisions from poor hash functions, then reduce to an index via `hash & (capacity - 1)`.",
+          "**Collisions** (two keys landing in the same bucket) are stored as a **linked list** of entries in that bucket.",
+          "**Treeification (Java 8+)** — if one bucket's chain grows to **8+** entries *and* the table has at least 64 buckets, that bucket converts into a **red-black tree** instead of a linked list, turning worst-case O(n) lookup into O(log n).",
+          "**Resize** — when the map grows past its load-factor threshold, capacity doubles and every entry is rehashed into the new, bigger table — an O(n) operation, which is why pre-sizing a `HashMap` when you know the expected size can help performance."
+        ]
+      },
+      {
+        "heading": "Fail-Fast vs Fail-Safe Iterators",
+        "points": [
+          "**Fail-fast** (`ArrayList`, `HashMap`, most `java.util` collections) — track a `modCount`; if the collection is structurally modified while iterating (outside the iterator's own `remove()`), the next `next()` call throws `ConcurrentModificationException`.",
+          "**Fail-safe** (`CopyOnWriteArrayList`, `ConcurrentHashMap`) — the iterator works over a snapshot/internal structure that tolerates concurrent modification. It never throws, but it also may not reflect the very latest changes made during iteration.",
+          "**Example** — `for (String s : list) { if (s.equals(\"x\")) list.remove(s); }` throws `ConcurrentModificationException` on a plain `ArrayList`. Fix: use `iterator.remove()` instead, or iterate over a `CopyOnWriteArrayList`."
+        ]
+      },
+      {
+        "heading": "Concurrent Collections",
+        "points": [
+          "**ConcurrentHashMap** — thread-safe without locking the whole map (bucket/segment-level locking). No null keys or values allowed.",
+          "**CopyOnWriteArrayList** — every write creates a new copy of the backing array. Reads never block. Best for read-heavy, write-rare scenarios.",
+          "**BlockingQueue** (`ArrayBlockingQueue`, `LinkedBlockingQueue`) — `put()` blocks if full, `take()` blocks if empty. The standard building block for producer-consumer pipelines."
+        ]
+      },
+      {
+        "heading": "Iterable & Iterator",
+        "points": [
+          "**Iterable** — the interface with a single `iterator()` method; implementing it is what makes a for-each loop possible.",
+          "**Iterator** — `hasNext()`, `next()`, `remove()`. The *only* safe way to remove elements from a collection while looping over it.",
+          "**ListIterator** — extends `Iterator` for `List`s specifically, adding backward traversal (`hasPrevious()`/`previous()`) and in-place `add()`/`set()`.",
+          "**Example** — `Iterator<String> it = list.iterator(); while (it.hasNext()) { String s = it.next(); if (s.isEmpty()) it.remove(); }` safely removes empty strings while looping."
+        ]
+      },
+      {
+        "heading": "Important Collection Methods",
+        "points": [
+          "**Common to all Collections** — `add()`, `remove()`, `contains()`, `size()`, `isEmpty()`, `clear()`, `addAll()`, `retainAll()` (intersection), `removeAll()` (difference), `forEach()`, `stream()`.",
+          "**Map-specific** — `put()`, `get()`, `getOrDefault()`, `putIfAbsent()`, `computeIfAbsent()`, `compute()`, `merge()`, `replace()`, `keySet()`, `values()`, `entrySet()`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "collections-utility",
+    "title": "Collections Utility",
+    "topics": [
+      {
+        "heading": "What Is java.util.Collections",
+        "points": [
+          "**`Collection`** (interface, singular) — the root interface of the framework; `List`, `Set`, and `Queue` all extend it. That's the *data structure*.",
+          "**`Collections`** (class, plural) — a separate utility class full of `static` helper methods that operate *on* those data structures — sorting, searching, wrapping, and creating them. That's the *toolbox*.",
+          "You never instantiate `Collections` — every method is called directly on the class, e.g. `Collections.sort(list)`."
+        ]
+      },
+      {
+        "heading": "Sorting & Searching",
+        "points": [
+          "**`sort(list)`** — sorts in natural order (elements must implement `Comparable`). `Collections.sort(names);`",
+          "**`sort(list, comparator)`** — custom order. `Collections.sort(users, Comparator.comparing(User::getAge));`",
+          "**`binarySearch(list, key)`** — O(log n) search, but **the list must already be sorted** the same way, or the result is undefined. `int i = Collections.binarySearch(sortedList, 42);`"
+        ]
+      },
+      {
+        "heading": "Reordering",
+        "points": [
+          "**`reverse(list)`** — reverses element order in place. `Collections.reverse(list);`",
+          "**`shuffle(list)`** — randomly permutes elements (uses a default `Random`, or pass your own for a repeatable seed). `Collections.shuffle(list, new Random(42));`",
+          "**`rotate(list, distance)`** — shifts every element `distance` positions to the right, wrapping around. `Collections.rotate(list, 2);` turns `[1,2,3,4,5]` into `[4,5,1,2,3]`.",
+          "**`swap(list, i, j)`** — swaps the elements at two indices in place. `Collections.swap(list, 0, 3);`"
+        ]
+      },
+      {
+        "heading": "Min, Max, Frequency & Comparison",
+        "points": [
+          "**`min(collection)` / `max(collection)`** — natural order, or pass a `Comparator` for a custom one. `Collections.max(scores);`",
+          "**`frequency(collection, element)`** — counts how many times an element appears. `Collections.frequency(list, \"apple\");`",
+          "**`disjoint(c1, c2)`** — returns `true` if the two collections share **no** common elements."
+        ]
+      },
+      {
+        "heading": "Immutable & Thread-Safe Wrappers",
+        "points": [
+          "**`unmodifiableList/Set/Map/Collection(c)`** — returns a **read-only view** over the original collection; calling `add()`/`remove()` on the view throws `UnsupportedOperationException`. Note: it's a *view* — if the underlying collection is still mutated directly, the view reflects that change.",
+          "**`synchronizedList/Set/Map/Collection(c)`** — wraps a collection so every method is `synchronized`, making it thread-safe for basic operations. You must still manually synchronize when **iterating** it: `synchronized (list) { for (var x : list) { ... } }`.",
+          "Prefer `List.copyOf(list)` (Java 10+) over `Collections.unmodifiableList(new ArrayList<>(list))` when you want a true immutable **copy**, not just a view."
+        ]
+      },
+      {
+        "heading": "Empty & Singleton Factories",
+        "points": [
+          "**`emptyList()` / `emptySet()` / `emptyMap()`** — returns a shared, immutable empty instance — cheaper than `new ArrayList<>()` when you just need \"nothing\".",
+          "**`singletonList(obj)` / `singleton(obj)` / `singletonMap(k, v)`** — an immutable collection containing exactly **one** element — useful when an API expects a `List`/`Set`/`Map` but you only have one value.",
+          "**`nCopies(n, obj)`** — an immutable list containing the same object repeated `n` times. `Collections.nCopies(3, \"x\")` → `[\"x\", \"x\", \"x\"]`."
+        ]
+      },
+      {
+        "heading": "Bulk Operations",
+        "points": [
+          "**`addAll(collection, elements...)`** — adds a varargs list of elements in one call: `Collections.addAll(list, \"a\", \"b\", \"c\");`",
+          "**`fill(list, obj)`** — replaces every element in the list with the same object.",
+          "**`copy(dest, src)`** — copies all elements from `src` into `dest`; `dest` must already be **at least as large** as `src` (its existing elements just get overwritten, size doesn't grow).",
+          "**`replaceAll(list, oldVal, newVal)`** — replaces every occurrence of `oldVal` with `newVal`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "java8-features",
+    "title": "Java 8+ Features",
+    "topics": [
+      {
+        "heading": "Functional Interfaces & Lambdas",
+        "points": [
+          "**Functional interface** — an interface with exactly **one** abstract method (can have default/static methods too). Annotated `@FunctionalInterface` (optional but recommended). Enables lambda expressions.",
+          "**Lambda syntax** — `(params) -> expression` or `(params) -> { statements; }`. Replaces verbose anonymous inner classes.",
+          "**Common built-in functional interfaces** — `Predicate<T>` (`test()` → boolean), `Function<T,R>` (`apply()` → R), `Consumer<T>` (`accept()` → void), `Supplier<T>` (`get()` → T).",
+          "**Method References** — `Class::method` as shorthand for a lambda that just calls one method. Types: static (`String::valueOf`), instance (`str::length`), constructor (`ArrayList::new`).",
+          "**Effectively final** — a lambda can only capture local variables that are never reassigned after their initial value."
+        ]
+      },
+      {
+        "heading": "Stream API",
+        "points": [
+          "**Creating streams** — `collection.stream()`, `Stream.of(...)`, `Arrays.stream(arr)`, `Stream.generate(...)`, `Stream.iterate(...)`.",
+          "**Intermediate operations** (lazy — build up a pipeline, don't run yet) — `filter()`, `map()`, `flatMap()`, `distinct()`, `sorted()`, `limit()`, `skip()`.",
+          "**Terminal operations** (trigger execution) — `collect()`, `forEach()`, `reduce()`, `count()`, `findFirst()`, `anyMatch()`, `toList()` (Java 16+).",
+          "**Collectors** — `Collectors.toList()`, `toMap()`, `groupingBy()`, `partitioningBy()`, `joining()`, `summarizingInt()`.",
+          "**Parallel streams** — `.parallelStream()` splits work across threads. Use for CPU-heavy work on large datasets; avoid for I/O-bound work.",
+          "**Full example** — `List<String> names = people.stream().filter(p -> p.getAge() > 18).map(Person::getName).sorted().collect(Collectors.toList());` — filter adults, extract their names, sort them, collect into a list. Nothing runs until `collect()` (the terminal op) is called."
+        ]
+      },
+      {
+        "heading": "Optional",
+        "points": [
+          "**Creating** — `Optional.of(value)` (value must be non-null), `Optional.ofNullable(value)` (value may be null), `Optional.empty()`.",
+          "**Consuming safely** — `ifPresent()`, `orElse()`, `orElseGet()`, `orElseThrow()`. Avoid calling `.get()` without checking `isPresent()` first.",
+          "**Transforming** — `.map()`, `.flatMap()`, `.filter()` chain operations on the wrapped value without manual null checks.",
+          "**Best practice** — use `Optional` as a **return type**, not as a field or a method parameter."
+        ]
+      },
+      {
+        "heading": "Method References Recap",
+        "points": [
+          "A shorthand for a lambda that does nothing but call an existing method — improves readability when the lambda body is just one call.",
+          "`list.forEach(System.out::println)` reads more clearly than `list.forEach(x -> System.out.println(x))`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "multithreading",
+    "title": "Multithreading & Concurrency",
+    "topics": [
+      {
+        "heading": "Thread Basics & Ways to Create a Thread",
+        "points": [
+          "**Extend `Thread`** — override `run()`, call `.start()`. Simple but uses up your only class-extension slot.",
+          "**Implement `Runnable`** — pass it to `new Thread(runnable)`. Preferred — your class can still extend something else.",
+          "**Implement `Callable<V>`** — like `Runnable` but can return a value and throw checked exceptions; submitted to an `ExecutorService` (see the Executors page), not run directly.",
+          "**Lambda as `Runnable`** (Java 8+) — `new Thread(() -> { ... }).start();` — shorthand when you don't need a named class.",
+          "**Never call `run()` directly** — that just runs the code on the current thread. Always call `start()` to actually create a new thread.",
+          "**Example (all 3 ways)** — `class MyThread extends Thread { public void run() { ... } }` vs `Runnable r = () -> { ... }; new Thread(r).start();` vs `Callable<Integer> c = () -> 42; Future<Integer> f = executor.submit(c);`"
+        ]
+      },
+      {
+        "heading": "Thread Lifecycle & Types",
+        "image": "thread-lifecycle.svg",
+        "imageAlt": "State diagram showing a thread moving from NEW to RUNNABLE to RUNNING to TERMINATED, with RUNNING able to move into a Blocked, Waiting, or Timed Waiting state and back",
+        "points": [
+          "**Lifecycle** — NEW → RUNNABLE → RUNNING → BLOCKED/WAITING/TIMED_WAITING → TERMINATED.",
+          "**User threads** — normal threads; the JVM keeps running as long as any user thread is alive.",
+          "**Daemon threads** — background threads (`thread.setDaemon(true)` before `start()`); the JVM exits once only daemon threads remain, regardless of whether they've finished.",
+          "**Key methods** — `sleep()` (pause, keeps the lock), `join()` (wait for another thread to finish), `yield()` (hint to give up CPU), `interrupt()` (request cancellation)."
+        ]
+      },
+      {
+        "heading": "Synchronization",
+        "points": [
+          "**`synchronized` keyword** — method or block level; only one thread can execute that method/block on a given object (or class, for `static synchronized`) at a time.",
+          "**`volatile`** — guarantees visibility of a variable's latest value across threads, but not atomicity of compound operations like `count++`.",
+          "**`ReentrantLock`** — explicit lock (`lock()`/`unlock()`), more flexible than `synchronized`: supports `tryLock()` (non-blocking attempt), `lockInterruptibly()`, and fairness policies.",
+          "**Deadlock** — two (or more) threads each hold a lock the other needs. Prevented by consistent lock ordering, using timeouts, or `tryLock()`."
+        ]
+      },
+      {
+        "heading": "Inter-Thread Communication",
+        "points": [
+          "**`wait()`** — releases the object's lock and pauses the current thread until notified. Must be called inside a `synchronized` block on that object.",
+          "**`notify()`** — wakes up **one** waiting thread on that object's monitor (unspecified which one).",
+          "**`notifyAll()`** — wakes up **all** waiting threads; they then re-compete for the lock.",
+          "**`wait()` vs `sleep()`** — `wait()` releases the lock while paused; `sleep()` does **not** release any lock it holds.",
+          "**Spurious wakeups** — a thread can wake from `wait()` without being notified, which is why `wait()` should always be called inside a `while (!condition)` loop, not an `if`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "executors",
+    "title": "Executor & ExecutorService",
+    "topics": [
+      {
+        "heading": "Why Executors",
+        "points": [
+          "Creating a new `Thread` per task is expensive and unbounded — a thread pool reuses a fixed set of worker threads and queues excess tasks, avoiding resource exhaustion.",
+          "`Executor` is the simplest interface (`execute(Runnable)`, fire-and-forget). `ExecutorService` extends it with lifecycle management and task tracking (`submit()`, `shutdown()`, `Future` results).",
+          "**Example** — `for (int i = 0; i < 10000; i++) new Thread(task).start();` can crash the JVM (10,000 OS threads). `ExecutorService pool = Executors.newFixedThreadPool(10); for (...) pool.submit(task);` reuses just 10 threads, queuing the rest."
+        ]
+      },
+      {
+        "heading": "Creating an ExecutorService",
+        "points": [
+          "**`Executors.newFixedThreadPool(n)`** — a fixed number of reusable threads; extra tasks wait in an unbounded queue.",
+          "**`Executors.newCachedThreadPool()`** — grows as needed, reuses idle threads, kills threads idle for 60s. Good for many short-lived tasks.",
+          "**`Executors.newSingleThreadExecutor()`** — one worker thread, tasks run strictly in order.",
+          "**`Executors.newScheduledThreadPool(n)`** — supports delayed/periodic tasks (`scheduleAtFixedRate`, `scheduleWithFixedDelay`).",
+          "**`Executors.newVirtualThreadPerTaskExecutor()`** (Java 21+) — one lightweight virtual thread per task; scales to millions of concurrent tasks."
+        ]
+      },
+      {
+        "heading": "Submitting & Running Tasks",
+        "points": [
+          "**`execute(Runnable)`** — fire-and-forget; no result, and an uncaught exception just kills that worker thread silently.",
+          "**`submit(Runnable/Callable)`** — returns a `Future`, so you can retrieve a result (for `Callable`) or check for exceptions (via `future.get()`).",
+          "**`invokeAll(tasks)`** — runs a collection of `Callable`s, blocks until **all** complete, returns a `List<Future>`.",
+          "**`invokeAny(tasks)`** — runs a collection of `Callable`s, returns the result of whichever **finishes first**, cancels the rest."
+        ]
+      },
+      {
+        "heading": "Shutdown & Lifecycle",
+        "points": [
+          "**`shutdown()`** — graceful: stops accepting new tasks, lets already-submitted tasks finish.",
+          "**`shutdownNow()`** — aggressive: attempts to interrupt running tasks, returns the list of tasks that never started.",
+          "**`awaitTermination(timeout, unit)`** — blocks until all tasks finish or the timeout elapses.",
+          "**Rejected tasks** — if the pool and queue are both full, a `RejectedExecutionHandler` decides what happens: `AbortPolicy` (default, throws), `CallerRunsPolicy` (runs it on the calling thread instead), `DiscardPolicy`, `DiscardOldestPolicy`."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "future-completablefuture",
+    "title": "Future & CompletableFuture",
+    "topics": [
+      {
+        "heading": "Future",
+        "points": [
+          "Returned by `executorService.submit(Callable)`. Represents a result that will be available *eventually*.",
+          "**`get()`** — blocks until the result is ready (or throws if the task failed). `get(timeout, unit)` avoids blocking forever.",
+          "**`isDone()` / `isCancelled()` / `cancel(mayInterrupt)`** — check or attempt to stop the task.",
+          "**Limitation** — no way to chain (\"when this finishes, then do that\") or combine multiple `Future`s without manually blocking on `get()`, which defeats the purpose of async code."
+        ]
+      },
+      {
+        "heading": "CompletableFuture Basics",
+        "points": [
+          "Solves `Future`'s chaining problem — a `CompletableFuture<T>` can be composed, combined, and completed without blocking.",
+          "**`supplyAsync(supplier)`** — runs a task asynchronously and returns its result. **`runAsync(runnable)`** — same, but no return value.",
+          "Can also be completed manually: `future.complete(value)`."
+        ]
+      },
+      {
+        "heading": "Chaining & Combining",
+        "points": [
+          "**`thenApply(fn)`** — transform the result (like `map`) once it's available.",
+          "**`thenAccept(consumer)`** — consume the result, return nothing.",
+          "**`thenCompose(fn)`** — chain to *another* `CompletableFuture` and flatten the result (like `flatMap` — use this when the next step is itself async).",
+          "**`thenCombine(other, fn)`** — combine the results of **two independent** `CompletableFuture`s once both are done.",
+          "**`allOf(...)` / `anyOf(...)`** — wait for all of a group of futures, or just the first one to complete."
+        ]
+      },
+      {
+        "heading": "Exception Handling",
+        "points": [
+          "**`exceptionally(fn)`** — supply a fallback value if the pipeline threw an exception; only runs on failure.",
+          "**`handle(fn)`** — runs regardless of success or failure, receiving both the result and the exception (one will be null), and can transform the outcome.",
+          "**`whenComplete(consumer)`** — like `handle`, but only observes the outcome (result + exception) without transforming it — useful for logging."
         ]
       }
     ]

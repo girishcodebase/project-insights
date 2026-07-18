@@ -1,0 +1,44 @@
+<svg width="100%" viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>Java thread lifecycle</title>
+  <desc>A thread moves from NEW to RUNNABLE when start() is called, then the scheduler switches it into RUNNING. From RUNNING it can be preempted back to RUNNABLE, move to TERMINATED when it finishes, or move into a Blocked, Waiting, or Timed Waiting state while it waits for a lock, a notification, or a timeout, before returning to RUNNABLE.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .th { font-size: 14px; font-weight: 600; }
+    .ts { font-size: 12px; }
+    .arr { stroke: #999; stroke-width: 1.5; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect x="40" y="90" width="140" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="110" y="120" text-anchor="middle" class="th" fill="#2c2c2a">NEW</text>
+
+  <rect x="200" y="90" width="140" height="50" rx="4" fill="#e6f1fb" stroke="#185fa5"/>
+  <text x="270" y="120" text-anchor="middle" class="th" fill="#0c447c">RUNNABLE</text>
+
+  <rect x="360" y="90" width="140" height="50" rx="4" fill="#e6f1fb" stroke="#185fa5"/>
+  <text x="430" y="120" text-anchor="middle" class="th" fill="#0c447c">RUNNING</text>
+
+  <rect x="520" y="90" width="110" height="50" rx="4" fill="#f1efe8" stroke="#b4b2a9"/>
+  <text x="575" y="120" text-anchor="middle" class="th" fill="#2c2c2a">TERMINATED</text>
+
+  <rect x="320" y="220" width="240" height="60" rx="4" fill="#fdece0" stroke="#e76f00"/>
+  <text x="440" y="244" text-anchor="middle" class="th" fill="#8a4200">BLOCKED / WAITING /</text>
+  <text x="440" y="261" text-anchor="middle" class="th" fill="#8a4200">TIMED_WAITING</text>
+
+  <line x1="180" y1="115" x2="196" y2="115" class="arr" marker-end="url(#arrow7)"/>
+  <line x1="340" y1="115" x2="356" y2="115" class="arr" marker-end="url(#arrow7)"/>
+  <line x1="500" y1="115" x2="516" y2="115" class="arr" marker-end="url(#arrow7)"/>
+
+  <path d="M430,90 C430,55 270,55 270,90" class="arr" marker-end="url(#arrow7)"/>
+  <text x="350" y="50" text-anchor="middle" class="ts" fill="#5f5e5a">preempted / time slice ends</text>
+
+  <line x1="430" y1="140" x2="430" y2="216" class="arr" marker-start="url(#arrow7)" marker-end="url(#arrow7)"/>
+  <text x="460" y="175" class="ts" fill="#5f5e5a">lock needed / wait() / sleep()</text>
+  <text x="460" y="195" class="ts" fill="#5f5e5a">lock free / notify() / timeout</text>
+
+  <text x="340" y="310" text-anchor="middle" class="ts" fill="#5f5e5a">Blue = active states &#183; Orange = waiting states &#183; Gray = start/end</text>
+</svg>

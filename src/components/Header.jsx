@@ -36,7 +36,7 @@ export default function Header({ onToggleSidebar, onAddContent }) {
       <div className="header-search">
         <input
           type="text"
-          placeholder="Quick Search..."
+          placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onFocus={() => setFocused(true)}
