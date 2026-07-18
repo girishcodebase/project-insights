@@ -23,6 +23,19 @@
           "**High Performance** — JIT compiler converts hot bytecode to native machine code at runtime.",
           "**Example** — `javac Hello.java` produces `Hello.class`; that one file runs unchanged on Windows, Linux, and Mac, because each OS has its own JVM that understands the same bytecode."
         ]
+      },
+      {
+        "heading": "How the JVM Calls main()",
+        "points": [
+          "The required signature is exactly **`public static void main(String[] args)`** — every keyword in it exists for a reason, not by convention.",
+          "**`public`** — the JVM sits outside your class (and outside your package), so it needs access from anywhere.",
+          "**`static`** — the JVM calls `main` **before any object of the class exists**. A non-static method can only be called on an instance, and there's no instance yet — so `main` must not require one.",
+          "**`void`** — the program doesn't hand a return value back to the JVM. To signal a result (e.g. an exit code to the OS), you call `System.exit(int code)` explicitly instead.",
+          "**`String[] args`** — command-line arguments come in as an array of strings. Running `java MyApp foo bar` gives `args = {\"foo\", \"bar\"}` inside `main`.",
+          "**How it's actually invoked** — after `java MyApp` loads `MyApp.class` via the ClassLoader, the JVM uses reflection (roughly `MyApp.class.getMethod(\"main\", String[].class).invoke(null, args)`) to find and call this exact method. The `null` is the instance argument — irrelevant here since the method is `static`.",
+          "**If the signature doesn't match exactly** (missing `static`, wrong return type, `String args[]` naming aside — that part's fine, but e.g. lowercase `Main` or a `String` instead of `String[]`), the JVM fails immediately with `Error: Main method not found in class MyApp`, before any of your code runs.",
+          "**You can overload `main`** — e.g. add `public static void main(String arg)` — it's a perfectly valid method, but the JVM will still only ever invoke the one exact entry-point signature; your overload would need to be called manually from within the program."
+        ]
       }
     ]
   },
@@ -35,7 +48,7 @@
         "image": "jvm-jdk-jre-architecture.svg",
         "imageAlt": "Diagram showing JDK containing JRE and dev tools, JRE containing the JVM, and the flow from .java source through javac, bytecode, ClassLoader, and the Execution Engine to native code",
         "points": [
-          "**JVM (Java Virtual Machine)** — an abstract specification; the actual engine that loads and executes `.class` bytecode. Platform-specific implementation (a Windows JVM differs from a Linux JVM), but both run identical bytecode.",
+          "**JVM (Java Virtual Machine)** — an abstract specification; the actual engine that loads `.class` bytecode and **converts it into machine code the CPU can run** (via its Execution Engine — see below). Platform-specific implementation (a Windows JVM differs from a Linux JVM), but both accept identical bytecode as input.",
           "**JRE (Java Runtime Environment)** — JVM + the core class libraries (`java.lang`, `java.util`, etc.) needed to *run* a Java program. No compiler.",
           "**JDK (Java Development Kit)** — JRE + development tools (`javac` compiler, `jdb` debugger, `javadoc`). Needed to *develop* Java programs."
         ]
@@ -53,11 +66,15 @@
       },
       {
         "heading": "Interpreter vs JIT Compiler",
+        "image": "interpreter-vs-jit.svg",
+        "imageAlt": "Diagram showing the Interpreter and JIT Compiler as two separate, equal components inside the JVM's Execution Engine, not one nested inside the other, with the Interpreter running bytecode immediately and profiling calls, and the JIT Compiler compiling hot methods to cached native code that later calls run directly",
         "points": [
-          "**Interpreter** — reads and executes bytecode line-by-line. Starts fast, but slow for repeated execution since it re-interprets every time.",
-          "**JIT (Just-In-Time) Compiler** — watches for \"hot\" bytecode (methods/loops run frequently) and compiles just that part to native machine code, caching it for reuse. Much faster for long-running code.",
-          "**HotSpot JVM** (Oracle's default JVM) uses both — interprets first, then JIT-compiles hot paths. Tiered compilation: **C1** (client compiler, compiles quickly with light optimization) then **C2** (server compiler, slower to kick in but heavily optimized).",
-          "**Example** — a `for` loop that runs 5 million times starts out interpreted, but after HotSpot notices it's \"hot\" (invoked past a default threshold, ~10,000 times), it JIT-compiles that loop body to native code so the remaining iterations run much faster."
+          "Bytecode is **not** machine code — the CPU can't run it directly. The JVM's **Execution Engine** is what actually turns bytecode into machine code, and it does that in one of two ways: interpreting it, or JIT-compiling it.",
+          "**Important:** the Interpreter and the JIT Compiler are **two separate, equal components** inside the Execution Engine — **siblings, not parent → child**. The JIT compiler is not \"part of\" the interpreter; it's an independent compiler that runs alongside it.",
+          "**Interpreter** — translates each bytecode instruction into machine code and executes it immediately, one instruction at a time, every single time it's reached. Nothing is saved — the exact same bytecode gets translated all over again on the next call. Starts fast (no upfront compile step), but repeated execution is slow.",
+          "**JIT (Just-In-Time) Compiler** — watches for \"hot\" bytecode (a method/loop invoked many times) and, instead of interpreting it again, compiles that **entire method** into **native machine code once**, caches it, and reuses that cached native code directly on every later call — skipping translation entirely after that point. This is what makes long-running Java programs fast despite starting on bytecode.",
+          "**HotSpot JVM** (Oracle's default JVM) uses both together — interprets a method the first several times, and only promotes it to JIT-compiled native code once it's proven \"hot\" enough to be worth the compilation cost. Tiered compilation: **C1** (client compiler, compiles quickly with light optimization) then **C2** (server compiler, slower to kick in but heavily optimized).",
+          "**Example** — a `for` loop that runs 5 million times starts out interpreted (translated line-by-line each pass). After HotSpot notices it's \"hot\" (invoked past a default threshold, ~10,000 times), the JIT compiler compiles that loop body into native machine code **once**; every remaining iteration then runs that cached native code directly instead of being re-interpreted."
         ]
       }
     ]
