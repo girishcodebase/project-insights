@@ -1,162 +1,170 @@
 [
   {
-    "id": "core-annotations",
-    "title": "Core Concepts & Annotations",
+    "id": "core-spring",
+    "title": "Core Spring & Spring Boot",
     "topics": [
       {
-        "heading": "Stereotype Annotations",
+        "heading": "What Is Spring Boot & Why It Exists",
         "points": [
-          "**@SpringBootApplication** — Combines `@Configuration` + `@EnableAutoConfiguration` + `@ComponentScan`. Application entry point.",
-          "**@Component** — Generic Spring-managed bean. Base for all stereotype annotations.",
-          "**@Service** — Business logic layer. Semantic marker for service classes. Same as @Component functionally.",
-          "**@Repository** — Data access layer. Adds automatic exception translation for persistence exceptions.",
-          "**@Controller / @RestController** — Web layer. `@RestController` = `@Controller` + `@ResponseBody`."
+          "Spring Boot is built **on top of** the Spring Framework — it doesn't replace Spring, it removes Spring's setup pain. You still use Spring's DI/IoC container, AOP, and MVC underneath.",
+          "**The problem before Spring Boot** — plain Spring needed heavy XML configuration (`applicationContext.xml`), you had to manually pick compatible versions of every library, and you deployed a WAR file to an externally-installed Tomcat. Lots of ceremony before writing any business logic.",
+          "**What Spring Boot solves** — **auto-configuration** (guesses sensible defaults from what's on the classpath), **starter dependencies** (one `spring-boot-starter-web` pulls in a whole version-matched set of libraries), an **embedded server** (Tomcat bundled inside the JAR — `java -jar app.jar` just runs), and **Actuator** for production monitoring out of the box."
         ]
       },
       {
-        "heading": "Dependency Injection",
+        "heading": "Spring vs Spring Boot",
         "points": [
-          "**@Autowired** — Inject dependencies. Constructor injection (preferred), setter injection, field injection (avoid).",
-          "**Constructor Injection** — Immutable, testable, fail-fast. If single constructor, `@Autowired` is optional.",
-          "**@Qualifier** — Resolve ambiguity when multiple beans of same type. `@Qualifier(\"emailService\")`.",
-          "**@Primary** — Mark one bean as default when multiple candidates exist. Overridden by `@Qualifier`.",
-          "**@Lazy** — Bean created on first use, not at startup. Use for expensive initialization."
+          "**Spring Framework** — the core: DI/IoC container, AOP, Spring MVC. You wire almost everything yourself, typically via XML or manual `@Configuration` classes.",
+          "**Spring Boot** — Spring Framework + auto-configuration + embedded server + starter POMs + opinionated defaults. It's Spring, pre-configured for you.",
+          "**Example** — the exact same `@RestController` class works in both. The difference is deployment: Spring Boot runs as `java -jar app.jar` with zero XML; plain Spring often needs a `web.xml`, an external Tomcat install, and manual bean XML wiring."
         ]
       },
       {
-        "heading": "Bean Lifecycle & Scope",
+        "heading": "Entry Point",
+        "image": "springboot-startup-flow.svg",
+        "imageAlt": "Diagram showing main() calling SpringApplication.run(), which triggers component scanning, auto-configuration, and embedded server startup, all feeding into the ApplicationContext IoC container before the app is running",
         "points": [
-          "**Bean Scopes** — `singleton` (default), `prototype` (new instance each time), `request`, `session`, `application`.",
-          "**@PostConstruct** — Method runs after dependency injection. Initialization logic. Called once.",
-          "**@PreDestroy** — Method runs before bean destruction. Cleanup resources, close connections.",
-          "**@Bean** — Declare bean in `@Configuration` class. Use for third-party library classes you can't annotate.",
-          "**@Conditional** — Conditional bean creation. `@ConditionalOnProperty`, `@ConditionalOnClass`, `@ConditionalOnMissingBean`."
+          "**`@SpringBootApplication`** — a combination of 3 annotations: `@Configuration` (this class can define beans) + `@EnableAutoConfiguration` (turn on auto-config) + `@ComponentScan` (scan this package and below for `@Component` classes).",
+          "**Example** — `@SpringBootApplication public class App { public static void main(String[] args) { SpringApplication.run(App.class, args); } }` — that's the entire entry point.",
+          "**What `SpringApplication.run()` does** — scans for components, applies auto-configuration based on the classpath, starts the embedded server, and builds the `ApplicationContext` (the IoC container) that holds every bean."
         ]
       }
     ]
   },
   {
-    "id": "spring-mvc-rest",
-    "title": "Spring MVC & REST API",
+    "id": "dependency-injection",
+    "title": "DI & IoC",
     "topics": [
       {
-        "heading": "Request Mapping",
+        "heading": "IoC — What It Is",
         "points": [
-          "**@GetMapping** — `@GetMapping(\"/users/{id}\")`. Shortcut for `@RequestMapping(method = GET)`.",
-          "**@PostMapping** — Create resource. `@PostMapping(\"/users\")`. Request body contains new resource data.",
-          "**@PutMapping** — Full update. `@PutMapping(\"/users/{id}\")`. Replace entire resource.",
-          "**@PatchMapping** — Partial update. Only send fields to update.",
-          "**@DeleteMapping** — Delete resource. `@DeleteMapping(\"/users/{id}\")`. Return 204 No Content on success."
+          "**Inversion of Control** is a *principle*: the control of creating objects and wiring their dependencies is taken away (\"inverted\") from your own code and handed to a framework/container.",
+          "**How it looks — before IoC**: `class OrderService { private PaymentGateway gateway = new RazorpayGateway(); }` — `OrderService` itself decides what implementation it gets, and creates it. Tightly coupled; swapping gateways means editing this class.",
+          "**How it looks — after IoC**: `class OrderService { private final PaymentGateway gateway; OrderService(PaymentGateway gateway) { this.gateway = gateway; } }` — `OrderService` no longer creates anything or knows which implementation it will get. Something *outside* it — the IoC container — decides and hands it in.",
+          "**Types of IoC (implementation styles)** — **Dependency Injection** (what Spring uses: the container pushes dependencies into your class) vs. **Dependency Lookup** (the older Service Locator style: your class actively asks a registry for what it needs, e.g. `context.getBean(...)` or a JNDI lookup). DI is preferred because the class stays completely unaware of the container; with Dependency Lookup, the class still has to know about and call the registry."
         ]
       },
       {
-        "heading": "Request & Response",
+        "heading": "IoC Container: BeanFactory vs ApplicationContext",
+        "image": "beanfactory-vs-applicationcontext.svg",
+        "imageAlt": "Diagram showing BeanFactory as the root IoC container interface with lazy initialization, and ApplicationContext extending it with eager singleton initialization, events, internationalization, and AOP, which is what Spring Boot uses",
         "points": [
-          "**@RequestBody** — Deserialize JSON request body to Java object.",
-          "**@PathVariable** — Extract from URL path. `@GetMapping(\"/users/{id}\")` → `@PathVariable Long id`.",
-          "**@RequestParam** — Query parameters. `@RequestParam(defaultValue = \"0\") int page`.",
-          "**@RequestHeader** — Access HTTP headers. `@RequestHeader(\"Authorization\") String token`.",
-          "**ResponseEntity** — Full control over response. `ResponseEntity.ok(body)`, `ResponseEntity.status(201).body(created)`."
+          "The **IoC container** is the concrete engine that actually performs the inversion described above — it creates objects and wires their dependencies, based on bean definitions it discovers (component scanning or `@Bean` methods). Spring ships **two** container implementations.",
+          "**`BeanFactory`** — the root, most basic container interface. **Lazy** — a bean is only created the first time it's actually requested via `getBean()`. Lightweight, but a broken bean's error only surfaces when something finally asks for it, possibly deep into runtime.",
+          "**`ApplicationContext`** — extends `BeanFactory`, adding what real applications need: **eager initialization** of all `singleton` beans at startup (a broken bean fails fast, at boot, not mid-request), event publishing (`ApplicationEventPublisher`), internationalization (`MessageSource`), and AOP integration.",
+          "**What we actually use today** — always `ApplicationContext`. Spring Boot's `SpringApplication.run()` creates and returns one (specifically an `AnnotationConfigServletWebServerApplicationContext` for web apps). Raw `BeanFactory` is essentially legacy — you won't reach for it directly in modern code.",
+          "**Do you use it manually?** — rarely. Beans get their dependencies injected automatically; you never call `getBean()` yourself in normal code. The main exceptions: implementing `ApplicationContextAware` (or `@Autowired ApplicationContext ctx`) to programmatically fetch a bean whose name/type isn't known until runtime (e.g. a plugin-style factory), or grabbing the context returned by `SpringApplication.run()` in a short-lived CLI-style app to pull out one bean and run some logic before exiting.",
+          "**Key methods (from `BeanFactory`, used via `ApplicationContext`)** — `getBean(Class<T> type)` / `getBean(String name)` — fetch a bean; `containsBean(String name)` — check it exists; `isSingleton(String name)` — check its scope; `getBeanNamesForType(Class<?> type)` — find all beans of a type.",
+          "**Methods added by `ApplicationContext` itself** — `publishEvent(ApplicationEvent event)` — fire an event any `@EventListener` can react to; `getMessage(String code, Object[] args, Locale locale)` — resolve an i18n message key."
+        ]
+      },
+      {
+        "heading": "DI — What It Is & Types of Injection",
+        "image": "ioc-container-di.svg",
+        "imageAlt": "Diagram showing the IoC container turning bean definitions into wired objects, with a concrete example of UserController depending on UserService depending on UserRepository, all injected automatically",
+        "points": [
+          "**Dependency Injection** is the specific *technique* Spring's IoC container uses to do the inversion: the container supplies (\"injects\") a class's dependencies via its constructor, a setter, or a field — DI is *how* IoC gets implemented, not a separate concept.",
+          "**Constructor injection (preferred)** — `class UserService { private final UserRepository repo; UserService(UserRepository repo) { this.repo = repo; } }`. Fields can be `final` (immutable), a missing dependency fails fast at startup, and it's trivial to unit test (`new UserService(mockRepo)`, no Spring needed at all).",
+          "**Setter injection** — `@Autowired void setRepo(UserRepository repo) { this.repo = repo; }`. Use only for genuinely **optional** dependencies that may need to be reassigned later.",
+          "**Field injection (avoid)** — `@Autowired private UserRepository repo;`. Can't be `final`, hides the class's real dependencies from its constructor signature, and is awkward to unit test without spinning up a Spring context or using reflection."
+        ]
+      },
+      {
+        "heading": "How Spring Boot Actually Wires It Up",
+        "points": [
+          "**Resolution order** — for `@Autowired`, Spring first matches **by type**. If more than one bean of that type exists, it then matches **by field/parameter name** against the bean names; if that's still ambiguous, it throws `NoUniqueBeanDefinitionException` unless you help it (see below).",
+          "**Implicit constructor injection** — if a class has exactly **one** constructor, `@Autowired` on it is optional (Spring 4.3+) — Spring uses that constructor automatically. Multiple constructors need an explicit `@Autowired` to say which one to use.",
+          "**`@Qualifier(\"emailService\")`** — resolves ambiguity when multiple beans of the same type exist, by matching a specific bean name. Pairs with `@Autowired` on the same field/parameter.",
+          "**`@Primary`** — marks one bean as the default candidate when multiple exist, so callers *without* a `@Qualifier` get this one. `@Qualifier` on a specific injection point still overrides `@Primary`.",
+          "**`@Lazy`** — defers creating a bean until it's first used, instead of at startup — useful for genuinely expensive beans that aren't always needed."
+        ]
+      },
+      {
+        "heading": "Ways to Configure Beans for DI",
+        "points": [
+          "**Component scanning** (most common in Spring Boot) — annotate a class `@Component` (or `@Service`/`@Repository`/`@Controller`), and `@ComponentScan` (implied by `@SpringBootApplication`) auto-discovers it, making it available for injection everywhere.",
+          "**Java Config** — `@Configuration class AppConfig { @Bean public RestTemplate restTemplate() { return new RestTemplate(); } }`. Needed for third-party classes you can't put `@Component` on yourself.",
+          "**XML config** (legacy) — `<bean id=\"userService\" class=\"...\"/>` in `applicationContext.xml`. Rarely used in new code today, but still supported and occasionally seen in older codebases."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "annotations",
+    "title": "Annotations Deep Dive",
+    "topics": [
+      {
+        "heading": "Stereotype Annotations",
+        "points": [
+          "**`@Component`** — generic Spring-managed bean; the base annotation every other stereotype builds on. **Problem it solves**: tells the container \"create and manage an instance of this class for me.\"",
+          "**`@Service`** — same behavior as `@Component`, but semantically marks the **business logic layer**. Example: `@Service class OrderService { ... }`.",
+          "**`@Repository`** — marks the **data access layer**, and additionally enables automatic translation of persistence exceptions (e.g. a raw JDBC `SQLException`) into Spring's unified `DataAccessException` hierarchy — so calling code doesn't need to know which database driver threw the error.",
+          "**`@Controller` / `@RestController`** — marks the **web layer**. `@RestController` = `@Controller` + `@ResponseBody`, so every method's return value is serialized straight to the HTTP response body (JSON) instead of being resolved to a view template."
+        ]
+      },
+      {
+        "heading": "Request Mapping",
+        "points": [
+          "**`@GetMapping(\"/users/{id}\")`** — read a resource. Shorthand for `@RequestMapping(method = GET)`. **Solves**: maps an incoming HTTP GET + URL pattern to a specific Java method.",
+          "**`@PostMapping(\"/users\")`** — create a resource; the request body carries the new resource's data.",
+          "**`@PutMapping(\"/users/{id}\")`** — full replace of an existing resource.",
+          "**`@PatchMapping(\"/users/{id}\")`** — partial update; only the fields being changed are sent.",
+          "**`@DeleteMapping(\"/users/{id}\")`** — delete a resource, typically returning `204 No Content` on success."
+        ]
+      },
+      {
+        "heading": "Request & Response Handling",
+        "points": [
+          "**`@RequestBody`** — `@PostMapping User create(@RequestBody UserDto dto)` — deserializes the incoming JSON body straight into a Java object. **Solves**: manual JSON parsing boilerplate.",
+          "**`@PathVariable`** — `@GetMapping(\"/users/{id}\") User get(@PathVariable Long id)` — extracts a value embedded in the URL path itself.",
+          "**`@RequestParam`** — `@RequestParam(defaultValue = \"0\") int page` — reads a query-string parameter (`?page=2`), with an optional default.",
+          "**`@RequestHeader`** — `@RequestHeader(\"Authorization\") String token` — reads a specific HTTP header.",
+          "**`ResponseEntity<T>`** — `ResponseEntity.status(201).body(created)` — full control over status code, headers, and body together, instead of just returning a plain object."
         ]
       },
       {
         "heading": "Validation",
         "points": [
-          "**@Valid / @Validated** — Trigger bean validation on `@RequestBody`. Add `spring-boot-starter-validation`.",
-          "**@NotNull / @NotBlank / @NotEmpty** — Null checks. `@NotBlank` for strings (not null, not empty, not whitespace).",
-          "**@Size / @Min / @Max** — `@Size(min=2, max=50) String name`, `@Min(0) int age`.",
-          "**@Email / @Pattern** — `@Email String email`, `@Pattern(regexp = \"^[0-9]{10}$\") String phone`.",
-          "**Custom Validator** — Implement `ConstraintValidator<Annotation, Type>`. Create custom annotation + validator class."
+          "**`@Valid` / `@Validated`** — put on a `@RequestBody` parameter to trigger bean validation before the method body runs. **Solves**: rejecting bad input before it reaches business logic, without writing manual `if` checks.",
+          "**`@NotNull` / `@NotBlank` / `@NotEmpty`** — `@NotBlank` for `String`s specifically (rejects `null`, `\"\"`, and whitespace-only).",
+          "**`@Size` / `@Min` / `@Max`** — `@Size(min = 2, max = 50) String name`, `@Min(0) int age`.",
+          "**`@Email` / `@Pattern`** — `@Email String email`, `@Pattern(regexp = \"^[0-9]{10}$\") String phone`.",
+          "**Custom validator** — implement `ConstraintValidator<MyAnnotation, String>` when a built-in rule isn't enough (e.g. \"this username isn't already taken\")."
         ]
       },
       {
-        "heading": "Exception Handling",
+        "heading": "Global Exception Handling",
         "points": [
-          "**@ControllerAdvice** — Global exception handler. Centralized error handling across all controllers.",
-          "**@ExceptionHandler** — Handle specific exceptions. `@ExceptionHandler(NotFoundException.class)`.",
-          "**ProblemDetail (Spring 6+)** — RFC 7807 error response format. Type, title, status, detail, instance.",
-          "**Custom Error Response** — Create `ErrorResponse` DTO with timestamp, message, status, path."
+          "**`@ControllerAdvice`** — a single class that centralizes exception handling across **every** controller, instead of repeating `try-catch` in each one.",
+          "**`@ExceptionHandler(NotFoundException.class)`** — inside a `@ControllerAdvice`, maps a specific exception type to a specific HTTP response. **Solves**: one consistent error-response shape for the whole API.",
+          "**`ProblemDetail`** (Spring 6+) — built-in RFC 7807 error format (`type`, `title`, `status`, `detail`, `instance`) instead of hand-rolling your own error DTO."
         ]
       }
     ]
   },
   {
-    "id": "spring-data-jpa",
-    "title": "Spring Data JPA",
+    "id": "bean-lifecycle-scopes",
+    "title": "Bean Lifecycle & Scopes",
     "topics": [
       {
-        "heading": "Entity Mapping",
+        "heading": "Bean Lifecycle",
+        "image": "bean-lifecycle.svg",
+        "imageAlt": "Diagram showing a bean's constructor being called, then dependencies injected, then PostConstruct running, then the bean staying ready for the app's lifetime, then PreDestroy running on shutdown",
         "points": [
-          "**@Entity** — Marks class as JPA entity. Must have no-arg constructor. `@Entity @Table(name = \"users\")`.",
-          "**@Id + @GeneratedValue** — Primary key. Strategies: `IDENTITY` (auto-increment), `SEQUENCE`, `UUID`.",
-          "**@Column** — `@Column(name = \"user_name\", nullable = false, unique = true, length = 100)`.",
-          "**@Enumerated** — `@Enumerated(EnumType.STRING)`. Always use STRING, not ORDINAL.",
-          "**Auditing** — `@CreatedDate`, `@LastModifiedDate`, `@CreatedBy`. Enable with `@EnableJpaAuditing`."
+          "**1. Constructor called** — the instance is created (dependencies passed in if using constructor injection).",
+          "**2. Dependencies injected** — setter/field injection happens here (constructor injection already happened in step 1).",
+          "**3. `@PostConstruct`** (or `InitializingBean.afterPropertiesSet()`) — runs once, right after all dependencies are set. Good place for validation or one-time setup logic.",
+          "**4. Bean ready** — used for the rest of the application's life (for a `singleton`, that's the whole app run).",
+          "**5. `@PreDestroy`** (or `DisposableBean.destroy()`) — runs once, when the container shuts down. Good place to close connections, flush caches, release resources."
         ]
       },
       {
-        "heading": "Relationships",
+        "heading": "Bean Scopes",
         "points": [
-          "**@OneToMany / @ManyToOne** — Parent-child. `@OneToMany(mappedBy = \"user\")`. `@ManyToOne @JoinColumn(name = \"user_id\")`.",
-          "**@ManyToMany** — `@ManyToMany @JoinTable(name = \"user_roles\")`. Use `Set` to avoid Hibernate bag issues.",
-          "**@OneToOne** — `@OneToOne(cascade = CascadeType.ALL) @JoinColumn(name = \"profile_id\")`.",
-          "**FetchType** — `LAZY` (load on access, default for collections) vs `EAGER` (load immediately). Prefer LAZY always.",
-          "**Cascade** — `CascadeType.ALL`, `PERSIST`, `MERGE`, `REMOVE`. Propagate operations to related entities."
-        ]
-      },
-      {
-        "heading": "Repository & Queries",
-        "points": [
-          "**JpaRepository** — `extends JpaRepository<User, Long>`. Provides `save()`, `findById()`, `findAll()`, `deleteById()`.",
-          "**Derived Queries** — `findByNameAndAge()`, `findByEmailContaining()`, `findByStatusOrderByCreatedDesc()`.",
-          "**@Query (JPQL)** — `@Query(\"SELECT u FROM User u WHERE u.email = :email\")`. Object-oriented SQL.",
-          "**@Query (Native)** — `@Query(value = \"SELECT * FROM users WHERE email = ?1\", nativeQuery = true)`.",
-          "**Pagination** — `Page<User> findByStatus(Status s, Pageable p)`. Call: `PageRequest.of(0, 20, Sort.by(\"name\"))`."
-        ]
-      },
-      {
-        "heading": "Transactions & Performance",
-        "points": [
-          "**@Transactional** — Declarative transaction management. Default: REQUIRED propagation, rollback on RuntimeException.",
-          "**Read-Only** — `@Transactional(readOnly = true)`. Optimizes Hibernate flush mode.",
-          "**N+1 Problem** — Lazy loading causes extra queries. Fix: `@EntityGraph`, `JOIN FETCH` in JPQL, `@BatchSize`.",
-          "**Projections** — Interface or DTO projections to select specific columns. Reduces data transfer.",
-          "**Specifications** — Dynamic queries with `Specification<T>`. Combine predicates with `and()`, `or()`."
-        ]
-      }
-    ]
-  },
-  {
-    "id": "spring-security",
-    "title": "Spring Security",
-    "topics": [
-      {
-        "heading": "Authentication",
-        "points": [
-          "**SecurityFilterChain** — Configure security via `@Bean SecurityFilterChain`. Replaces `WebSecurityConfigurerAdapter`.",
-          "**UserDetailsService** — Load user by username. Implement to connect to your user database.",
-          "**PasswordEncoder** — `BCryptPasswordEncoder`. Never store plain text. `encoder.encode()`, `encoder.matches()`.",
-          "**Form Login** — `.formLogin(form -> form.loginPage(\"/login\").defaultSuccessUrl(\"/dashboard\"))`.",
-          "**HTTP Basic** — `.httpBasic(Customizer.withDefaults())`. Base64 encoded credentials. Use only with HTTPS."
-        ]
-      },
-      {
-        "heading": "JWT Authentication",
-        "points": [
-          "**JWT Structure** — Header (algorithm) + Payload (claims) + Signature. Base64 encoded, dot-separated.",
-          "**Flow** — Login → validate credentials → generate JWT → client stores token → send in `Authorization: Bearer <token>`.",
-          "**Token Generation** — Use `io.jsonwebtoken:jjwt`. Set subject, claims, expiration, sign with secret key.",
-          "**JWT Filter** — Extend `OncePerRequestFilter`. Extract token, validate, set `SecurityContext`.",
-          "**Refresh Token** — Short-lived access token + long-lived refresh token. Rotate refresh tokens for security."
-        ]
-      },
-      {
-        "heading": "Authorization",
-        "points": [
-          "**URL-Based** — `.requestMatchers(\"/admin/**\").hasRole(\"ADMIN\")`. `.requestMatchers(\"/api/**\").authenticated()`.",
-          "**Method Security** — `@EnableMethodSecurity`. `@PreAuthorize(\"hasRole('ADMIN')\")`, `@PreAuthorize(\"#id == principal.id\")`.",
-          "**Role vs Authority** — Role: `ROLE_ADMIN` (prefixed). Authority: `READ_PRIVILEGE` (fine-grained).",
-          "**CORS** — `@CrossOrigin` or global config. `allowedOrigins`, `allowedMethods`, `allowCredentials`."
+          "**`singleton`** (default) — exactly **one** instance per container, shared by every injection point.",
+          "**`prototype`** — a **new** instance every time the bean is requested/injected.",
+          "**`request` / `session` / `application`** — web-aware scopes: one instance per HTTP request, per HTTP session, or per `ServletContext`.",
+          "**The classic gotcha** — injecting a `prototype` bean directly into a `singleton` bean only creates **one** prototype instance (at wiring time), because the singleton is only wired once! Fix: use a scoped proxy (`@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)`) or inject an `ObjectProvider<T>`/`@Lookup` method to fetch a fresh instance on every call instead."
         ]
       }
     ]
@@ -168,30 +176,121 @@
       {
         "heading": "Property Configuration",
         "points": [
-          "**application.properties / application.yml** — Default config file. YAML supports hierarchical structure.",
-          "**@Value** — Inject single property. `@Value(\"${app.name:default}\") String appName`.",
-          "**@ConfigurationProperties** — Type-safe binding. `@ConfigurationProperties(prefix = \"app\")` on POJO class.",
-          "**Environment Variables** — Override properties. `SERVER_PORT=9090` overrides `server.port`.",
-          "**Custom Config File** — `@PropertySource(\"classpath:custom.properties\")`. Load additional property files."
+          "**`application.properties` / `application.yml`** — the default config file; YAML additionally supports nested/hierarchical structure.",
+          "**`@Value`** — inject a single property: `@Value(\"${app.name:default}\") String appName` (the `:default` part is a fallback if the key is missing).",
+          "**`@ConfigurationProperties(prefix = \"app\")`** — type-safe binding of a whole group of related properties onto one POJO, instead of many individual `@Value` fields.",
+          "**Custom property file** — `@PropertySource(\"classpath:custom.properties\")` loads an extra file beyond the default `application.yml`."
+        ]
+      },
+      {
+        "heading": "Property Source Precedence",
+        "image": "property-precedence.svg",
+        "imageAlt": "Diagram showing a stack of property sources from highest to lowest priority: command-line arguments, environment variables, profile-specific application yml, base application yml, and PropertySource or code defaults",
+        "points": [
+          "When the **same property** is defined in more than one place, the higher one in the stack wins.",
+          "From highest to lowest: **command-line arguments** (`--server.port=9090`) → **environment variables** (`SERVER_PORT=9090`) → **`application-{profile}.yml`** → **`application.yml`** → **`@PropertySource`/code defaults**.",
+          "**Example** — setting `SERVER_PORT=9090` as an env var overrides `server.port: 8080` sitting in `application.yml`, without editing any file."
         ]
       },
       {
         "heading": "Profiles",
         "points": [
-          "**Activating** — `spring.profiles.active=dev`. Via env var: `SPRING_PROFILES_ACTIVE=prod`.",
-          "**Profile-Specific Files** — `application-dev.yml`, `application-prod.yml`. Automatically loaded when profile is active.",
-          "**@Profile** — `@Profile(\"dev\") @Bean DataSource devDataSource()`. Bean only created for specific profile.",
-          "**Multiple Profiles** — `spring.profiles.active=dev,metrics`. Multiple profiles can be active simultaneously."
+          "**Activating** — `spring.profiles.active=dev` in config, or `SPRING_PROFILES_ACTIVE=prod` as an environment variable (handy for containers).",
+          "**Profile-specific files** — `application-dev.yml`, `application-prod.yml` are automatically layered on top of the base `application.yml` when that profile is active.",
+          "**`@Profile(\"dev\")`** on a `@Bean` method — that bean is only created when the `dev` profile is active. Common use: a mock/in-memory `DataSource` for `dev`, a real one for `prod`.",
+          "**Multiple profiles at once** — `spring.profiles.active=dev,metrics` — both are active simultaneously."
         ]
       },
       {
         "heading": "Actuator & Monitoring",
         "points": [
-          "**Spring Actuator** — Add `spring-boot-starter-actuator`. Exposes operational endpoints.",
-          "**Key Endpoints** — `/actuator/health`, `/actuator/info`, `/actuator/metrics`, `/actuator/env`, `/actuator/beans`.",
-          "**Custom Health** — Implement `HealthIndicator`. Return `Health.up().withDetail(\"key\", \"value\").build()`.",
-          "**Metrics** — Micrometer integration. Custom metrics: `meterRegistry.counter(\"api.calls\").increment()`.",
-          "**Securing Actuator** — Expose only needed endpoints: `management.endpoints.web.exposure.include=health,info,metrics`."
+          "**`spring-boot-starter-actuator`** — adds operational HTTP endpoints for a running app, with zero custom code.",
+          "**Key endpoints** — `/actuator/health`, `/actuator/info`, `/actuator/metrics`, `/actuator/env`, `/actuator/beans`.",
+          "**Custom health check** — implement `HealthIndicator`, return `Health.up().withDetail(\"key\", \"value\").build()` — useful for reporting \"is my downstream dependency reachable?\".",
+          "**Securing it** — expose only what's needed: `management.endpoints.web.exposure.include=health,info,metrics` — never expose everything (like `/beans` or `/env`) on a public network."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "spring-data-jpa",
+    "title": "Spring Data JPA",
+    "topics": [
+      {
+        "heading": "Entity Mapping",
+        "points": [
+          "**`@Entity`** — `@Entity @Table(name = \"users\") class User { ... }` — marks a class as a JPA entity backed by a database table; requires a no-arg constructor.",
+          "**`@Id` + `@GeneratedValue`** — primary key. Strategies: `IDENTITY` (DB auto-increment), `SEQUENCE`, `UUID`.",
+          "**`@Column`** — `@Column(name = \"user_name\", nullable = false, unique = true, length = 100)`.",
+          "**`@Enumerated(EnumType.STRING)`** — always use `STRING`, never `ORDINAL` — reordering the enum's constants would silently corrupt existing `ORDINAL` data.",
+          "**Auditing** — `@CreatedDate`, `@LastModifiedDate`, `@CreatedBy`, enabled via `@EnableJpaAuditing` — automatic timestamping without manual code in every service."
+        ]
+      },
+      {
+        "heading": "Relationships",
+        "points": [
+          "**`@OneToMany` / `@ManyToOne`** — `@OneToMany(mappedBy = \"user\") List<Order> orders;` on `User`, `@ManyToOne @JoinColumn(name = \"user_id\") User user;` on `Order`.",
+          "**`@ManyToMany`** — `@ManyToMany @JoinTable(name = \"user_roles\")`. Prefer `Set` over `List` here to avoid Hibernate's \"multiple bag\" fetch exception.",
+          "**`@OneToOne`** — `@OneToOne(cascade = CascadeType.ALL) @JoinColumn(name = \"profile_id\") Profile profile;`.",
+          "**`FetchType.LAZY` vs `EAGER`** — `LAZY` loads the related data only when accessed (default for collections); `EAGER` loads it immediately. **Prefer `LAZY` almost always** — `EAGER` silently pulls in extra data on every query.",
+          "**`CascadeType`** — `ALL`, `PERSIST`, `MERGE`, `REMOVE` — propagates an operation on the parent to its related child entities automatically."
+        ]
+      },
+      {
+        "heading": "Repository & Queries",
+        "points": [
+          "**`JpaRepository<User, Long>`** — extend it and get `save()`, `findById()`, `findAll()`, `deleteById()` for free, no implementation needed.",
+          "**Derived queries** — Spring generates the query from the method name: `findByNameAndAge(...)`, `findByEmailContaining(...)`, `findByStatusOrderByCreatedDesc(...)`.",
+          "**`@Query` (JPQL)** — `@Query(\"SELECT u FROM User u WHERE u.email = :email\") User findByEmail(@Param(\"email\") String email);` — object-oriented, works against entities not raw tables.",
+          "**`@Query` (native SQL)** — `@Query(value = \"SELECT * FROM users WHERE email = ?1\", nativeQuery = true)` — for when JPQL can't express what you need (e.g. a DB-specific function).",
+          "**Pagination** — `Page<User> findByStatus(Status s, Pageable p);` called as `repo.findByStatus(ACTIVE, PageRequest.of(0, 20, Sort.by(\"name\")));`."
+        ]
+      },
+      {
+        "heading": "Transactions & Performance",
+        "points": [
+          "**`@Transactional`** — declarative transaction boundary. Default: `REQUIRED` propagation (joins an existing transaction or starts a new one), rolls back automatically on any unchecked (`RuntimeException`) — **not** on checked exceptions, by default.",
+          "**`@Transactional(readOnly = true)`** — hints Hibernate to skip dirty-checking/flushing, a meaningful performance win for pure read operations.",
+          "**The N+1 problem** — fetching a list of `N` parents with a `LAZY` child collection triggers **1 query for the parents + N queries**, one per child collection access. **Fix**: `@EntityGraph`, `JOIN FETCH` in JPQL, or `@BatchSize` to batch the follow-up queries.",
+          "**Projections** — interface or DTO projections select only the columns you actually need, instead of hydrating full entities.",
+          "**`Specification<T>`** — build dynamic, composable queries at runtime, combining predicates with `.and()` / `.or()` instead of writing dozens of near-duplicate derived query methods."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "spring-security",
+    "title": "Spring Security",
+    "topics": [
+      {
+        "heading": "Authentication Basics",
+        "points": [
+          "**`SecurityFilterChain`** — configure security via a `@Bean SecurityFilterChain filterChain(HttpSecurity http)` method. This replaced the older `WebSecurityConfigurerAdapter` class-extension style.",
+          "**`UserDetailsService`** — implement `loadUserByUsername(String username)` to tell Spring Security how to fetch a user from **your** database.",
+          "**`PasswordEncoder`** — always `BCryptPasswordEncoder`, never plain text. `encoder.encode(raw)` to store, `encoder.matches(raw, stored)` to check on login.",
+          "**Form login** — `.formLogin(form -> form.loginPage(\"/login\").defaultSuccessUrl(\"/dashboard\"))` — classic session-based, browser-rendered login.",
+          "**HTTP Basic** — `.httpBasic(Customizer.withDefaults())` — credentials sent Base64-encoded on every request; only ever use this over HTTPS."
+        ]
+      },
+      {
+        "heading": "JWT Authentication",
+        "image": "jwt-auth-flow.svg",
+        "imageAlt": "Diagram showing the JWT login flow (client sends credentials, server validates and issues a token, client stores it) and the request flow (client sends the token, a filter validates it, and the controller runs authenticated)",
+        "points": [
+          "**JWT structure** — `Header.Payload.Signature`, each Base64-encoded and dot-separated. Header names the signing algorithm; Payload holds claims (user id, roles, expiry); Signature proves it wasn't tampered with.",
+          "**Why JWT** — it's **stateless**: the server doesn't store a session for each logged-in user, so it scales horizontally without shared session storage.",
+          "**Token generation** — typically with `io.jsonwebtoken:jjwt`: set subject, custom claims, expiration, and sign with a secret key.",
+          "**JWT filter** — extend `OncePerRequestFilter`: extract the token from the `Authorization: Bearer <token>` header, validate its signature/expiry, and if valid, populate Spring Security's `SecurityContext` for that request.",
+          "**Refresh tokens** — pair a short-lived access token with a long-lived refresh token; rotate the refresh token on each use to limit the damage if one leaks."
+        ]
+      },
+      {
+        "heading": "Authorization",
+        "points": [
+          "**URL-based** — `.requestMatchers(\"/admin/**\").hasRole(\"ADMIN\")`, `.requestMatchers(\"/api/**\").authenticated()` — coarse-grained, decided at the security-filter level before the request even reaches a controller.",
+          "**Method security** — `@EnableMethodSecurity` then `@PreAuthorize(\"hasRole('ADMIN')\")` or `@PreAuthorize(\"#id == principal.id\")` directly on a service/controller method — fine-grained, can reference method arguments.",
+          "**Role vs Authority** — a Role (`ROLE_ADMIN`, always prefixed) is a coarse label; an Authority (`READ_PRIVILEGE`) is a fine-grained permission. Roles are really just authorities with a naming convention.",
+          "**CORS** — `@CrossOrigin` on a controller, or a global `CorsConfigurationSource` bean — configures which origins/methods/headers a browser is allowed to call your API with."
         ]
       }
     ]
