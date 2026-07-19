@@ -2,79 +2,463 @@
   {
     "id": "unit-testing",
     "title": "Unit Testing",
-    "topics": [
+    "overview": [
+      "Unit testing means testing one small unit of code — usually a single method or class — in complete isolation.",
+      "In a Java backend, that's typically one service method with all its dependencies replaced by fakes.",
+      "**JUnit 5** runs the tests. **Mockito** fakes the dependencies so the unit stays isolated."
+    ],
+    "why": [
+      "A backend service almost always depends on other classes — repositories, gateways, other services.",
+      "If a test exercises the real dependencies too, it stops testing one unit and starts testing a whole chain.",
+      "Unit tests need a way to run fast, in isolation, and pinpoint exactly which class broke."
+    ],
+    "problem": [
+      "Without isolation, testing `OrderService.placeOrder()` also runs the real `OrderRepository`, which hits a real database.",
+      "That test is now slow, needs a database connection, and can fail for reasons unrelated to `OrderService` itself.",
+      "**JUnit 5** solves *how to structure and run* the test.",
+      "**Mockito** solves *how to fake the dependencies* so only `OrderService`'s own logic is under test."
+    ],
+    "internalWorking": {
+      "intro": ["JUnit 5 provides the test framework; Mockito provides the fake dependencies. Together they isolate one unit."],
+      "topics": [
+        {
+          "heading": "JUnit 5",
+          "points": [
+            "**Core annotations** — `@Test`, `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll` control setup and teardown around each test.",
+            "`@DisplayName` gives a test a readable name in reports. `@Disabled` skips a test without deleting it.",
+            "**Assertions** — `assertEquals`, `assertNotNull`, `assertThrows`, `assertAll` (groups multiple assertions), `assertTimeout`.",
+            "AssertJ's `assertThat(...)` is often preferred for its fluent, chainable API over plain JUnit assertions.",
+            "**Parameterized tests** — `@ParameterizedTest` runs the same test body against many inputs, supplied by `@ValueSource`, `@CsvSource`, `@MethodSource`, or `@EnumSource`.",
+            "**`@Nested`** inner classes group related tests by scenario or state, and still share setup from the outer class.",
+            "**Lifecycle** — by default JUnit creates a new test instance per method. `@TestInstance(Lifecycle.PER_CLASS)` shares one instance and its state across all methods.",
+            "`@TestMethodOrder` forces a specific execution order, for the rare case where test order actually matters."
+          ]
+        },
+        {
+          "heading": "Mockito",
+          "points": [
+            "**Creating mocks** — `@Mock` plus `@ExtendWith(MockitoExtension.class)`, or `Mockito.mock(PaymentGateway.class)` directly.",
+            "A fresh mock returns defaults for everything — `null`, `0`, `false` — until you stub it.",
+            "**Stubbing** — `when(gateway.charge(request)).thenReturn(receipt)` defines what a mock returns.",
+            "`thenThrow()` makes a mock throw an exception; `thenAnswer()` computes a dynamic response based on the arguments passed in.",
+            "**Verification** — `verify(repository).save(any(Order.class))` confirms an interaction actually happened.",
+            "`verify(repository, times(2)).findAll()` checks a call count; `verify(repository, never()).delete(any())` confirms something never happened.",
+            "**`ArgumentCaptor`** — `@Captor ArgumentCaptor<Order> captor` captures the actual argument passed to a mock method.",
+            "Used as `verify(repository).save(captor.capture())`, then `captor.getValue()` to inspect what was actually saved.",
+            "**`@Spy`** wraps a real object — real methods run unless explicitly stubbed. Useful for partial mocking.",
+            "Stubbing a spy requires `doReturn(value).when(spy).method()`, not the usual `when(...).thenReturn(...)` syntax."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Arrange: build request, stub gateway.charge()\"] --> B[\"Act: call paymentService.pay(request)\"]\n    B --> C[\"Assert: verify returned Receipt\"]\n    C --> D[\"Verify: gateway.charge() was called once\"]\n    D --> E{\"All assertions pass?\"}\n    E -->|Yes| F[\"Test green\"]\n    E -->|No| G[\"Test fails, points at PaymentService\"]",
+      "caption": "The AAA flow for a unit test: Arrange the mocks and data, Act on the class under test, then Assert and Verify the outcome."
+    },
+    "simpleExample": {
+      "scenario": "Testing a `PaymentService` that calls a `PaymentGateway` to charge a customer.",
+      "code": "@ExtendWith(MockitoExtension.class)\nclass PaymentServiceTest {\n\n    @Mock\n    PaymentGateway gateway;\n\n    @InjectMocks\n    PaymentService paymentService;\n\n    @Test\n    void shouldReturnReceipt_whenChargeSucceeds() {\n        // Arrange\n        PaymentRequest request = new PaymentRequest(\"order-1\", 500);\n        Receipt receipt = new Receipt(\"txn-99\", \"SUCCESS\");\n        when(gateway.charge(request)).thenReturn(receipt);\n\n        // Act\n        Receipt result = paymentService.pay(request);\n\n        // Assert\n        assertEquals(\"SUCCESS\", result.status());\n        verify(gateway).charge(request);\n    }\n}",
+      "input": "A `PaymentRequest` for order `order-1` worth 500, with `gateway.charge()` stubbed to return a successful `Receipt`.",
+      "execution": "`paymentService.pay(request)` runs its own logic and delegates the charge to the mocked `gateway` — no real gateway or network call happens.",
+      "output": "A `Receipt` with status `SUCCESS`, and Mockito confirms `gateway.charge(request)` was called exactly once.",
+      "explanation": "The real `PaymentGateway` never runs. Only `PaymentService`'s own logic is exercised, so a failure here can only mean a bug in `PaymentService`."
+    },
+    "realWorldExample": {
+      "scenario": "Testing an `OrderService.placeOrder()` that checks stock, saves the order, and captures exactly what got saved.",
+      "code": "@ExtendWith(MockitoExtension.class)\nclass OrderServiceTest {\n\n    @Mock\n    OrderRepository orderRepository;\n    @Mock\n    InventoryClient inventoryClient;\n    @Captor\n    ArgumentCaptor<Order> orderCaptor;\n    @InjectMocks\n    OrderService orderService;\n\n    @ParameterizedTest\n    @CsvSource({\"5, true\", \"0, false\"})\n    void shouldPlaceOrder_onlyWhenStockAvailable(int stock, boolean expectedSuccess) {\n        when(inventoryClient.stockFor(\"sku-1\")).thenReturn(stock);\n\n        boolean placed = orderService.placeOrder(\"sku-1\", 1);\n\n        assertEquals(expectedSuccess, placed);\n        if (expectedSuccess) {\n            verify(orderRepository).save(orderCaptor.capture());\n            assertEquals(\"sku-1\", orderCaptor.getValue().sku());\n        } else {\n            verify(orderRepository, never()).save(any());\n        }\n    }\n}",
+      "input": "Two rows from `@CsvSource`: stock of 5 (should succeed) and stock of 0 (should fail), each run as its own test.",
+      "execution": "`OrderService` asks the mocked `InventoryClient` for stock, decides whether to place the order, and — only on success — calls `orderRepository.save()`.",
+      "output": "For stock 5, `placeOrder` returns `true` and the captured `Order` has SKU `sku-1`. For stock 0, it returns `false` and `save()` is never called.",
+      "explanation": "One parameterized test replaces two nearly-identical test methods, and `ArgumentCaptor` proves not just that `save()` ran, but exactly what was passed to it."
+    },
+    "comparisonTables": [
       {
-        "heading": "JUnit 5",
-        "points": [
-          "**Core Annotations** — `@Test`, `@BeforeEach`, `@AfterEach`, `@BeforeAll`, `@AfterAll`. `@DisplayName` for readable test names. `@Disabled` to skip tests.",
-          "**Assertions** — `assertEquals`, `assertNotNull`, `assertThrows`, `assertAll` (grouped assertions), `assertTimeout`. Use `assertThat` from AssertJ for fluent API.",
-          "**Parameterized Tests** — `@ParameterizedTest` with sources: `@ValueSource`, `@CsvSource`, `@MethodSource`, `@EnumSource`. Run same test with different inputs.",
-          "**Nested Tests** — `@Nested` inner classes for hierarchical test organization. Group related tests by scenario or state. Shares setup from outer class.",
-          "**Lifecycle** — Test instance per method (default). `@TestInstance(Lifecycle.PER_CLASS)` for shared state. `@TestMethodOrder` controls execution order when needed."
+        "title": "Mock vs Spy",
+        "columns": ["Aspect", "Mock", "Spy"],
+        "rows": [
+          ["Real methods", "Never run — everything is faked", "Run for real unless explicitly stubbed"],
+          ["Default behavior", "Returns null / 0 / false for everything", "Delegates to the real object's actual logic"],
+          ["Stubbing syntax", "`when(mock.method()).thenReturn(x)`", "`doReturn(x).when(spy).method()`"],
+          ["Use case", "Fully isolate the class under test", "Partial mocking — fake only specific methods"],
+          ["Risk", "Low — completely controlled", "Higher — can trigger real side effects if unstubbed"]
         ]
       },
       {
-        "heading": "Mockito",
-        "points": [
-          "**Creating Mocks** — `@Mock` annotation + `@ExtendWith(MockitoExtension.class)`. Or `Mockito.mock(MyService.class)`. Mocks return defaults (null, 0, false).",
-          "**Stubbing** — `when(service.findById(1L)).thenReturn(user)`. `thenThrow()` for exceptions. `thenAnswer()` for dynamic responses based on arguments.",
-          "**Verification** — `verify(repo).save(any(User.class))`. `verify(repo, times(2)).findAll()`. `verify(repo, never()).delete(any())`. Confirms interactions occurred.",
-          "**ArgumentCaptor** — `@Captor ArgumentCaptor<User> captor`. Capture arguments passed to mock methods. `verify(repo).save(captor.capture())` then `captor.getValue()`.",
-          "**Spy** — `@Spy` wraps real object. Real methods called unless stubbed. Useful for partial mocking. `doReturn(value).when(spy).method()` syntax required."
+        "title": "@Mock vs @MockBean",
+        "columns": ["Aspect", "@Mock (Mockito)", "@MockBean (Spring Boot)"],
+        "rows": [
+          ["Scope", "Plain Mockito object, no Spring involved", "Replaces a real bean inside the Spring `ApplicationContext`"],
+          ["Requires", "`@ExtendWith(MockitoExtension.class)`", "A loaded Spring test context, e.g. `@SpringBootTest` or `@WebMvcTest`"],
+          ["Speed", "Fast — no context loading at all", "Slower — Spring context must start"],
+          ["Typical use", "Pure unit tests", "Integration tests that need one collaborator faked"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Keep one unit test focused on one class — mock every collaborator it depends on.",
+      "Prefer constructor injection so `@InjectMocks` can wire mocks in without reflection tricks.",
+      "Use `@ParameterizedTest` instead of copy-pasting near-identical test methods for different inputs."
+    ],
+    "commonMistakes": [
+      "Mocking a class you don't own the boundary of, e.g. mocking a simple value object instead of just constructing it.",
+      "Forgetting `doReturn().when()` syntax on a `@Spy` and getting the real method's side effects by accident.",
+      "Verifying too many trivial interactions, turning the test into a rigid mirror of the implementation instead of its behavior."
+    ],
+    "interviewTips": [
+      "If asked to distinguish Mock and Spy, lead with: a mock fakes everything, a spy fakes only what you stub — the rest runs for real.",
+      "Be ready to explain why `ArgumentCaptor` is needed even after `verify()` already confirms a method was called."
+    ],
+    "faq": [
+      {
+        "q": "Why use Mockito instead of writing fake classes by hand?",
+        "a": "Mockito generates the fake at runtime with one annotation, so there's no extra class to maintain, and stubbing/verification stay expressive and consistent across the codebase."
+      },
+      {
+        "q": "Can a unit test use a real database?",
+        "a": "It shouldn't. The moment a real database, network call, or file system is involved, the test is no longer isolated — that's the job of an integration test, not a unit test."
+      },
+      {
+        "q": "What does @InjectMocks actually do?",
+        "a": "It creates an instance of the class under test and injects the `@Mock`-annotated fields into it, preferring a constructor if one is available."
+      }
+    ],
+    "summary": [
+      "Unit testing isolates one class or method using JUnit 5 as the framework and Mockito to fake its dependencies.",
+      "JUnit 5 provides annotations, assertions, and parameterized tests; Mockito provides mocks, stubs, verification, and argument capture.",
+      "A good unit test is fast, deterministic, and fails only when the class under test itself has a bug."
+    ],
+    "quickRevision": [
+      "JUnit 5 = test framework; Mockito = fake dependencies. Used together for isolated unit tests.",
+      "`@Test`, `@BeforeEach`, `@BeforeAll` control lifecycle; `@DisplayName` and `@Disabled` control readability/skipping.",
+      "`@ParameterizedTest` + `@CsvSource`/`@ValueSource`/`@MethodSource` run one test body against many inputs.",
+      "`@Nested` groups related tests hierarchically while still sharing outer setup.",
+      "`when(...).thenReturn(...)` stubs a mock; `thenThrow()` and `thenAnswer()` cover exceptions and dynamic responses.",
+      "`verify(mock, times(n))` / `never()` confirm how many times an interaction happened.",
+      "`ArgumentCaptor` captures the actual argument passed to a mock to assert on its contents.",
+      "`@Spy` runs real methods unless stubbed with `doReturn().when()` — the opposite default of a mock."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the difference between JUnit and Mockito?",
+        "What does `@Mock` do, and what value does a fresh mock return by default?",
+        "What is the AAA pattern in a unit test?"
+      ],
+      "intermediate": [
+        "How would you test the same method with five different input combinations without writing five methods?",
+        "What's the difference between `verify()` and `assertEquals()` in a Mockito-based test?",
+        "When would you reach for `ArgumentCaptor` instead of just `verify()`?"
+      ],
+      "advanced": [
+        "Why does stubbing a `@Spy` require `doReturn().when()` instead of the usual `when().thenReturn()`?",
+        "How does `@TestInstance(Lifecycle.PER_CLASS)` change how shared state behaves between test methods?",
+        "What are the risks of over-mocking a class's collaborators in a unit test?"
+      ]
+    }
   },
   {
     "id": "integration-testing",
     "title": "Integration Testing",
-    "topics": [
+    "overview": [
+      "Integration testing checks that multiple real pieces of the system work together correctly.",
+      "Instead of faking the database or message broker, it uses a real (or near-real) one.",
+      "**Spring Boot Test** wires up real Spring context slices; **Testcontainers** supplies real infrastructure via Docker."
+    ],
+    "why": [
+      "Unit tests prove each class works in isolation, but they can't prove the pieces fit together.",
+      "A repository can pass every mocked unit test and still fail against the actual SQL dialect of a real database.",
+      "Integration tests catch wiring problems, query bugs, and serialization issues that mocks are blind to."
+    ],
+    "problem": [
+      "Before **Testcontainers**, integration tests either used a shared test database (flaky, stateful, hard to reset) or an in-memory substitute like H2 that doesn't behave exactly like production Postgres.",
+      "Before **Spring Boot's test slices**, every integration test loaded the *entire* application context, even to test just one controller — slow and wasteful.",
+      "Both problems needed a fix: load only what's needed, and test against infrastructure that matches production."
+    ],
+    "internalWorking": {
+      "intro": ["Spring Boot Test controls how much of the app loads; Testcontainers controls what real infrastructure backs it."],
+      "topics": [
+        {
+          "heading": "Spring Boot Test",
+          "points": [
+            "**`@SpringBootTest`** loads the full application context. `webEnvironment = RANDOM_PORT` starts a real embedded server for the test.",
+            "`@AutoConfigureMockMvc` adds `MockMvc` on top of `@SpringBootTest`, letting you send fake HTTP requests without starting an actual server.",
+            "**`@WebMvcTest`** loads only the web layer — controllers, filters, `@ControllerAdvice` — and nothing else.",
+            "The service layer is faked with `@MockBean` in a `@WebMvcTest`, keeping the test fast and focused on HTTP behavior.",
+            "**`@DataJpaTest`** configures an in-memory database and scans only `@Entity` and `@Repository` classes.",
+            "Each `@DataJpaTest` auto-rolls back its transaction after the test. `@AutoConfigureTestDatabase(replace = NONE)` swaps in a real database instead of the in-memory one.",
+            "**`@MockBean`** replaces a bean inside the `ApplicationContext` with a Mockito mock; `@SpyBean` wraps the existing real bean instead.",
+            "Both are scoped to the test class and reset between tests.",
+            "**Test slices** beyond the common ones — `@JsonTest` (Jackson serialization), `@RestClientTest` (REST clients), `@JdbcTest` (raw JDBC) — each load a minimal context for speed."
+          ]
+        },
+        {
+          "heading": "Testcontainers",
+          "points": [
+            "**Purpose** — spin up real Docker containers for tests: PostgreSQL, MySQL, Kafka, Redis, Elasticsearch. Disposable and consistent every run.",
+            "**PostgreSQL example** — `@Container static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>(\"postgres:16\")` gets a dynamic port and an auto-created database.",
+            "**`@ServiceConnection`** (Spring Boot 3.1+) auto-configures the datasource/connection properties straight from the running container.",
+            "It replaces the older, more manual `@DynamicPropertySource` wiring.",
+            "**Reusable containers** — `.withReuse(true)` keeps a container alive between test runs instead of tearing it down each time.",
+            "Requires `testcontainers.reuse.enable=true` in `~/.testcontainers.properties` — makes local and CI runs noticeably faster.",
+            "**Kafka Testcontainer** — `KafkaContainer` (Confluent image) lets producers, consumers, and stream processing be tested against a real broker."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Test class starts\"] --> B[\"Testcontainers launches PostgreSQL in Docker\"]\n    B --> C[\"ServiceConnection injects datasource properties\"]\n    C --> D[\"Spring context loads (full or a slice)\"]\n    D --> E[\"Test runs real queries against the container\"]\n    E --> F[\"Container disposed after test class\"]",
+      "caption": "Testcontainers starts real infrastructure before the Spring context loads, and tears it down when the test class finishes."
+    },
+    "simpleExample": {
+      "scenario": "A `@DataJpaTest` verifying `OrderRepository.findByStatus()` against a real query.",
+      "code": "@DataJpaTest\nclass OrderRepositoryTest {\n\n    @Autowired\n    OrderRepository orderRepository;\n\n    @Test\n    void shouldReturnOnlyPendingOrders() {\n        orderRepository.save(new Order(\"order-1\", \"PENDING\"));\n        orderRepository.save(new Order(\"order-2\", \"SHIPPED\"));\n\n        List<Order> pending = orderRepository.findByStatus(\"PENDING\");\n\n        assertEquals(1, pending.size());\n        assertEquals(\"order-1\", pending.get(0).id());\n    }\n}",
+      "input": "Two saved orders — one `PENDING`, one `SHIPPED` — inserted into an in-memory database configured by `@DataJpaTest`.",
+      "execution": "`findByStatus(\"PENDING\")` runs as a real JPA query against the in-memory database, then the transaction auto-rolls back after the test.",
+      "output": "A list containing exactly one order, `order-1`, with status `PENDING`.",
+      "explanation": "Unlike a unit test with a mocked repository, this proves the actual query method returns the correct rows — a real database executed it."
+    },
+    "realWorldExample": {
+      "scenario": "Testing `PaymentRepository` against a real PostgreSQL container instead of an in-memory substitute, using Testcontainers.",
+      "code": "@SpringBootTest\n@Testcontainers\nclass PaymentRepositoryIT {\n\n    @Container\n    @ServiceConnection\n    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(\"postgres:16\");\n\n    @Autowired\n    PaymentRepository paymentRepository;\n\n    @Test\n    void shouldPersistAndReloadPayment() {\n        Payment payment = new Payment(\"txn-1\", 2500, \"SUCCESS\");\n        paymentRepository.save(payment);\n\n        Optional<Payment> reloaded = paymentRepository.findById(\"txn-1\");\n\n        assertTrue(reloaded.isPresent());\n        assertEquals(2500, reloaded.get().amount());\n    }\n}",
+      "input": "A `Payment` with ID `txn-1` and amount 2500, saved through the repository, with a live PostgreSQL 16 container backing the datasource.",
+      "execution": "Testcontainers starts a real Postgres instance in Docker, `@ServiceConnection` wires the datasource to it automatically, then the save and reload run against that real database engine.",
+      "output": "The reloaded `Payment` is present and its amount matches exactly what was saved — validated against real Postgres SQL semantics, not an approximation.",
+      "explanation": "This catches issues an in-memory H2 database would miss — Postgres-specific column types, constraints, or SQL dialect differences — while still being fully disposable and CI-safe."
+    },
+    "comparisonTables": [
       {
-        "heading": "Spring Boot Test",
-        "points": [
-          "**@SpringBootTest** — Loads full application context. Use `webEnvironment = RANDOM_PORT` for server tests. `@AutoConfigureMockMvc` for MockMvc without starting server.",
-          "**@WebMvcTest** — Loads only web layer (controllers, filters, advice). Mock service layer with `@MockBean`. Fast, focused controller testing.",
-          "**@DataJpaTest** — Configures in-memory database, scans `@Entity` and `@Repository`. Auto-rollback after each test. Use `@AutoConfigureTestDatabase(replace = NONE)` for real DB.",
-          "**@MockBean** — Replaces bean in ApplicationContext with Mockito mock. `@SpyBean` wraps existing bean. Scoped to test class. Resets between tests.",
-          "**Test Slices** — `@JsonTest` (Jackson), `@RestClientTest` (REST clients), `@JdbcTest` (JDBC). Each loads minimal context for faster execution."
+        "title": "@WebMvcTest vs @SpringBootTest vs @DataJpaTest",
+        "columns": ["Aspect", "@WebMvcTest", "@SpringBootTest", "@DataJpaTest"],
+        "rows": [
+          ["Loads", "Only the web layer (controllers, filters)", "The entire application context", "Only JPA entities and repositories"],
+          ["Server", "No real server — uses MockMvc", "Optional real embedded server (`RANDOM_PORT`)", "No server involved"],
+          ["Database", "Not involved", "Real or configured database", "In-memory database by default"],
+          ["Speed", "Fast", "Slowest — full context", "Fast — minimal context"],
+          ["Typical use", "Controller/HTTP behavior only", "Full end-to-end flow through the app", "Repository query correctness"]
         ]
       },
       {
-        "heading": "Testcontainers",
-        "points": [
-          "**Purpose** — Spin up real Docker containers for integration tests. PostgreSQL, MySQL, Kafka, Redis, Elasticsearch. Disposable, consistent test environments.",
-          "**PostgreSQL Example** — `@Container static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>(\"postgres:16\")`. Dynamic port, auto-created database.",
-          "**@ServiceConnection** — Spring Boot 3.1+. Auto-configures datasource/connection properties from container. Replaces manual `@DynamicPropertySource` setup.",
-          "**Reusable Containers** — `.withReuse(true)` keeps containers running between test runs. Add `testcontainers.reuse.enable=true` in `~/.testcontainers.properties`. Faster CI.",
-          "**Kafka Testcontainer** — `KafkaContainer` with Confluent image. Test producers, consumers, and stream processing with real Kafka broker in tests."
+        "title": "Mocks vs Testcontainers",
+        "columns": ["Aspect", "Mocks (Mockito/@MockBean)", "Testcontainers"],
+        "rows": [
+          ["What runs", "Fake objects, no real infrastructure", "Real Docker containers (Postgres, Kafka, Redis, etc.)"],
+          ["Confidence", "Only tests your code's logic", "Also validates real driver/SQL/broker behavior"],
+          ["Speed", "Very fast", "Slower — a container has to start"],
+          ["Requires", "Nothing extra", "Docker running on the test machine or CI runner"],
+          ["Best for", "Unit tests, isolating one class", "Integration tests, validating real interactions"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Pick the narrowest test slice that answers the question — `@WebMvcTest` for controllers, `@DataJpaTest` for repositories, `@SpringBootTest` only when you truly need the whole context.",
+      "Prefer `@ServiceConnection` over manually wiring `@DynamicPropertySource` for container-backed datasources.",
+      "Enable reusable containers locally to avoid restarting Postgres/Kafka on every test run during development."
+    ],
+    "commonMistakes": [
+      "Reaching for `@SpringBootTest` by default when a lighter test slice would answer the same question faster.",
+      "Testing against an in-memory database like H2 for logic that depends on Postgres-specific behavior, then being surprised in production.",
+      "Not disposing or reusing Testcontainers properly, leaving containers running and slowing down CI."
+    ],
+    "interviewTips": [
+      "If asked why Testcontainers over H2, lead with: H2 approximates a database, Testcontainers runs the actual one your production system uses.",
+      "Be ready to name the specific test slice you'd use for a given class — controller, repository, or JSON serialization — and why."
+    ],
+    "faq": [
+      {
+        "q": "Do I need Docker installed to use Testcontainers?",
+        "a": "Yes — Testcontainers launches real Docker containers, so Docker (or a compatible runtime) must be available on whatever machine or CI runner executes the tests."
+      },
+      {
+        "q": "Why not just use an in-memory database like H2 for everything?",
+        "a": "H2 doesn't perfectly replicate Postgres or MySQL's SQL dialect, constraints, or data types, so tests can pass against H2 and still fail in production against the real engine."
+      },
+      {
+        "q": "What's the difference between @MockBean and using a real dependency in an integration test?",
+        "a": "`@MockBean` fakes one specific collaborator inside an otherwise real Spring context — useful when you want everything real except one external system you can't run in tests, like a third-party payment gateway."
+      }
+    ],
+    "summary": [
+      "Integration testing verifies that real components work together, using Spring Boot's test slices to control how much context loads and Testcontainers to supply real infrastructure.",
+      "Test slices — `@WebMvcTest`, `@DataJpaTest`, `@SpringBootTest` — trade off context size against how end-to-end the test is.",
+      "Testcontainers replaces approximations like H2 with real, disposable Docker containers for databases and brokers."
+    ],
+    "quickRevision": [
+      "`@SpringBootTest` loads the full context; `@WebMvcTest` and `@DataJpaTest` load narrow slices for speed.",
+      "`@AutoConfigureMockMvc` adds MockMvc on top of `@SpringBootTest` without starting a real server.",
+      "`@DataJpaTest` auto-rolls back each test's transaction; use `replace = NONE` to point it at a real database.",
+      "`@MockBean` replaces a bean with a mock; `@SpyBean` wraps the real bean — both scoped to the test class.",
+      "Testcontainers spins up real Docker containers — Postgres, MySQL, Kafka, Redis — for integration tests.",
+      "`@ServiceConnection` (Spring Boot 3.1+) auto-wires datasource properties from a container, replacing manual `@DynamicPropertySource`.",
+      "`.withReuse(true)` plus `~/.testcontainers.properties` keeps containers alive between runs for speed.",
+      "Pick the narrowest test slice or container setup that actually answers the question being tested."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the difference between `@SpringBootTest` and `@WebMvcTest`?",
+        "What does Testcontainers actually do?",
+        "What happens to the transaction after each `@DataJpaTest` method?"
+      ],
+      "intermediate": [
+        "When would you choose `@DataJpaTest` over `@SpringBootTest` for testing a repository?",
+        "How does `@ServiceConnection` simplify wiring a Testcontainers-backed datasource?",
+        "What's the tradeoff between using H2 and using a real database via Testcontainers?"
+      ],
+      "advanced": [
+        "How would you speed up a CI pipeline that's slow because every test spins up a fresh Testcontainers instance?",
+        "What's the difference between `@MockBean` and `@SpyBean`, and when would you pick one over the other in an integration test?",
+        "How would you structure test slices across a large codebase to keep the overall test suite fast?"
+      ]
+    }
   },
   {
     "id": "best-practices",
     "title": "Best Practices",
-    "topics": [
+    "overview": [
+      "Writing tests that run isn't the same as writing tests that are worth keeping.",
+      "Good test design, a healthy test pyramid, and real coverage measurement all determine whether a test suite helps or slows a team down.",
+      "This section covers the habits and tools that keep a suite fast, trustworthy, and maintainable."
+    ],
+    "why": [
+      "A test suite is code too, and bad test code compounds — one flaky or unclear test can waste hours of debugging time.",
+      "Teams need a shared standard for what a *good* test looks like, not just what makes the build pass.",
+      "Coverage tools and the test pyramid exist to make test quality measurable, not just a matter of opinion."
+    ],
+    "problem": [
+      "Without agreed-on test design, tests end up unreadable, order-dependent, or duplicating the same assertion five different ways.",
+      "Without a test pyramid, teams either write too few tests (bugs slip through) or too many slow end-to-end tests (the ice-cream-cone anti-pattern — slow, brittle, and expensive to maintain).",
+      "Without coverage measurement, there's no objective signal for which code paths are actually exercised by any test at all."
+    ],
+    "internalWorking": {
+      "intro": ["Two areas matter most: how individual tests are written, and how the whole suite is shaped and measured."],
+      "topics": [
+        {
+          "heading": "Test Design",
+          "points": [
+            "**Naming convention** — `shouldReturnUser_whenIdExists()` or `givenValidId_whenFindById_thenReturnUser()`. The name alone should describe the scenario and expected outcome.",
+            "**AAA pattern** — Arrange (set up data and mocks), Act (call the method under test), Assert (verify results). The separation keeps tests scannable.",
+            "**One concept per test** — each test verifies one behavior. Multiple assertions are fine as long as they all check that same concept.",
+            "This avoids one failing test hiding three unrelated bugs behind a single red X.",
+            "**Test independence** — tests must not depend on execution order or shared mutable state; each test builds its own data, typically via `@BeforeEach`.",
+            "**Avoid test smells** — no branching logic (`if`/loops) inside a test, no testing private methods directly, no interdependent tests, and no tolerating flaky tests — fix them or quarantine them."
+          ]
+        },
+        {
+          "heading": "Test Pyramid & Coverage",
+          "points": [
+            "**Test pyramid** — many fast, isolated unit tests at the base; fewer, slower integration tests in the middle; a minimal number of full end-to-end tests at the top.",
+            "Inverting this shape — few unit tests, many slow E2E tests — is the ice-cream-cone anti-pattern: slow feedback and expensive maintenance.",
+            "**JaCoCo** — a Java code coverage tool, typically run as a Maven/Gradle plugin. Reports line, branch, and instruction coverage, with configurable minimum thresholds.",
+            "**Mutation testing** — PIT (PITest) deliberately mutates the source code and checks whether the existing tests catch the change.",
+            "It measures test *quality* beyond simple line coverage — a test can execute a line and still not actually assert anything meaningful about it.",
+            "**Test data builders** — a builder pattern for constructing test objects, e.g. `TestOrderBuilder.anOrder().withStatus(\"PENDING\").build()`. Cuts boilerplate and keeps test setup readable.",
+            "**CI integration** — run tests on every PR, fail the build on test failure or a coverage drop, and publish reports as build artifacts.",
+            "Splitting fast (unit) and slow (integration) tests into separate pipeline stages keeps feedback quick without skipping thorough checks."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Many Unit Tests - fast, isolated\"] --> B[\"Fewer Integration Tests - slower, real dependencies\"]\n    B --> C[\"Few End-to-End Tests - slowest, full system\"]\n    C --> D[\"Confidence to ship\"]\n    E[\"Ice-cream-cone anti-pattern: shape inverted\"] -.->|avoid| D",
+      "caption": "The test pyramid: most confidence should come from cheap, fast unit tests, with progressively fewer and slower tests above."
+    },
+    "simpleExample": {
+      "scenario": "Rewriting an unclear test for `CustomerService.isEligibleForDiscount()` using the AAA pattern and a clear name.",
+      "code": "@Test\nvoid shouldReturnTrue_whenCustomerHasLoyaltyStatus() {\n    // Arrange\n    Customer customer = new Customer(\"cust-1\", \"LOYALTY\");\n\n    // Act\n    boolean eligible = customerService.isEligibleForDiscount(customer);\n\n    // Assert\n    assertTrue(eligible);\n}",
+      "input": "A `Customer` with status `LOYALTY`, passed directly into `isEligibleForDiscount()` — no mocks needed since the method is pure logic.",
+      "execution": "The three sections — arrange, act, assert — are visibly separated, and the test name states the exact scenario and expected result before you even read the body.",
+      "output": "`isEligibleForDiscount()` returns `true`, matching what the test name promised.",
+      "explanation": "Anyone reading just the test name and the assert line understands the requirement being verified, with no need to trace through unrelated setup."
+    },
+    "realWorldExample": {
+      "scenario": "Using a test data builder plus JaCoCo/PIT in a `PaymentService` suite to keep tests readable and catch a weak assertion.",
+      "code": "class TestPaymentBuilder {\n    private String status = \"SUCCESS\";\n    private int amount = 1000;\n\n    static TestPaymentBuilder aPayment() { return new TestPaymentBuilder(); }\n    TestPaymentBuilder withStatus(String status) { this.status = status; return this; }\n    TestPaymentBuilder withAmount(int amount) { this.amount = amount; return this; }\n    Payment build() { return new Payment(\"txn-1\", amount, status); }\n}\n\n@Test\nvoid shouldFlagPayment_whenAmountExceedsLimit() {\n    Payment payment = TestPaymentBuilder.aPayment().withAmount(999_999).build();\n\n    boolean flagged = fraudService.isSuspicious(payment);\n\n    assertTrue(flagged);\n}",
+      "input": "A `Payment` built via `TestPaymentBuilder` with a suspiciously large amount, everything else defaulted to sensible values.",
+      "execution": "The builder hides irrelevant fields, so the test only calls out `withAmount(999_999)` — the one thing that actually matters for this scenario.",
+      "output": "`fraudService.isSuspicious(payment)` returns `true`. Running PIT against this suite would separately confirm that mutating the limit threshold in `FraudService` actually breaks this test — proving the assertion is meaningful, not just line coverage.",
+      "explanation": "The builder keeps the arrange step short and intention-revealing; PIT then verifies this test would actually catch a real regression, which JaCoCo's line coverage alone can't guarantee."
+    },
+    "comparisonTables": [
       {
-        "heading": "Test Design",
-        "points": [
-          "**Naming Convention** — `shouldReturnUser_whenIdExists()` or `givenValidId_whenFindById_thenReturnUser()`. Test name describes scenario and expected outcome.",
-          "**AAA Pattern** — Arrange (setup data and mocks), Act (call method under test), Assert (verify results). Clear separation makes tests readable.",
-          "**One Concept Per Test** — Each test verifies one behavior. Multiple assertions are fine if they verify the same concept. Avoids debugging multiple failures at once.",
-          "**Test Independence** — Tests should not depend on execution order or shared mutable state. Each test sets up its own data. Use `@BeforeEach` for common setup.",
-          "**Avoid Test Smells** — No logic in tests (no if/loops). No testing private methods directly. No test interdependencies. No flaky tests (fix or quarantine)."
+        "title": "Unit vs Integration vs E2E Testing",
+        "columns": ["Aspect", "Unit", "Integration", "E2E"],
+        "rows": [
+          ["Scope", "One class/method, isolated", "Multiple real components together", "The entire system, as a user would use it"],
+          ["Speed", "Milliseconds", "Seconds", "Can be minutes"],
+          ["Dependencies", "All mocked", "Some real (DB, broker via Testcontainers)", "All real, often through the actual UI/API"],
+          ["Quantity in the suite", "Most tests", "Fewer tests", "Fewest tests"],
+          ["Failure signal", "Pinpoints the exact class", "Points at a component boundary", "Only tells you something, somewhere, broke"]
         ]
       },
       {
-        "heading": "Test Pyramid & Coverage",
-        "points": [
-          "**Test Pyramid** — Many unit tests (fast, isolated), fewer integration tests (slower, real dependencies), minimal E2E tests (slowest, full system). Invert = ice cream cone anti-pattern.",
-          "**JaCoCo** — Code coverage tool for Java. Maven/Gradle plugin. Generates reports (line, branch, instruction coverage). Set minimum thresholds in build config.",
-          "**Mutation Testing** — PIT (PITest) mutates source code and checks if tests catch changes. Measures test quality beyond line coverage. Finds weak assertions.",
-          "**Test Data Builders** — Builder pattern for test objects. `TestUserBuilder.aUser().withName(\"John\").build()`. Reduces boilerplate, makes tests readable and maintainable.",
-          "**CI Integration** — Run tests on every PR. Fail build on test failure or coverage drop. Publish reports as build artifacts. Separate fast (unit) and slow (integration) pipelines."
+        "title": "Line Coverage vs Mutation Testing",
+        "columns": ["Aspect", "Line Coverage (JaCoCo)", "Mutation Testing (PIT)"],
+        "rows": [
+          ["Measures", "Whether a line of code executed during tests", "Whether tests actually catch a change to that code"],
+          ["Blind spot", "A line can run with zero meaningful assertions on it", "N/A — a surviving mutant reveals exactly that gap"],
+          ["Speed", "Fast", "Much slower — recompiles and re-runs for each mutation"],
+          ["Typical use", "A baseline gate in CI (e.g. 80% minimum)", "Periodic deep quality check, not every single PR"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Write the test name first — if you can't name the scenario clearly, the test is probably testing too much at once.",
+      "Keep the test pyramid shape: most tests at the unit level, progressively fewer as you move toward full E2E.",
+      "Treat a flaky test as a bug to fix immediately, not something to re-run until it passes."
+    ],
+    "commonMistakes": [
+      "Chasing a high line-coverage percentage while leaving weak or missing assertions that mutation testing would expose.",
+      "Letting tests share mutable state or run in a required order, so the suite silently breaks when tests are reordered or run in parallel.",
+      "Writing mostly slow E2E tests because they feel more 'real', inverting the pyramid into the ice-cream-cone anti-pattern."
+    ],
+    "interviewTips": [
+      "If asked about the test pyramid, be ready to explain the ice-cream-cone anti-pattern as the concrete failure mode of getting it backwards.",
+      "If asked how to judge test quality beyond coverage percentage, mention mutation testing (PIT) by name."
+    ],
+    "faq": [
+      {
+        "q": "Is 100% code coverage a good goal?",
+        "a": "Not by itself — a line can execute during a test with no meaningful assertion checking its result. High coverage with weak assertions gives false confidence; mutation testing is a better quality signal."
+      },
+      {
+        "q": "Why is the ice-cream-cone anti-pattern bad if E2E tests test the whole system?",
+        "a": "E2E tests are slow, brittle, and hard to debug — a failure could be caused by dozens of components, so pinpointing the actual bug takes far longer than a failing unit test would."
+      },
+      {
+        "q": "What's the practical benefit of a test data builder over just calling the constructor directly?",
+        "a": "It lets each test set only the fields relevant to its scenario, while everything else defaults sensibly — keeping the arrange step short and making the actual point of the test obvious."
+      }
+    ],
+    "summary": [
+      "Good test design means clear names, the AAA pattern, one concept per test, and independence from execution order.",
+      "The test pyramid keeps the suite fast and maintainable: many unit tests, fewer integration tests, minimal E2E tests.",
+      "JaCoCo measures how much code ran under test; PIT (mutation testing) measures whether the tests would actually catch a real bug."
+    ],
+    "quickRevision": [
+      "Name tests by scenario and expected outcome, e.g. `shouldReturnUser_whenIdExists()`.",
+      "AAA pattern: Arrange, Act, Assert — keeps every test readable in the same shape.",
+      "One test verifies one concept; independent tests never rely on execution order or shared state.",
+      "Avoid test smells: no logic in tests, no testing private methods, no flaky tests left unfixed.",
+      "Test pyramid: many unit, fewer integration, minimal E2E. Inverted shape = ice-cream-cone anti-pattern.",
+      "JaCoCo reports line/branch/instruction coverage; set minimum thresholds in the build.",
+      "PIT (mutation testing) mutates code to check whether tests actually catch the change — reveals weak assertions.",
+      "Test data builders reduce setup boilerplate and keep the arrange step focused on what matters.",
+      "CI should fail on test failure or coverage drop, with fast (unit) and slow (integration) pipelines separated."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What does the AAA pattern stand for, and why does it help?",
+        "What is the test pyramid, and why does it have that shape?",
+        "What does JaCoCo measure?"
+      ],
+      "intermediate": [
+        "Why can 100% line coverage still leave real bugs uncaught?",
+        "What's the ice-cream-cone anti-pattern, and what problems does it cause?",
+        "How does a test data builder improve test readability compared to calling constructors directly?"
+      ],
+      "advanced": [
+        "How would you convince a team to fix a flaky test instead of just re-running the CI job?",
+        "What's the tradeoff of running mutation testing (PIT) on every PR versus periodically?",
+        "How would you structure CI pipelines to keep fast feedback while still running slower integration and E2E suites?"
+      ]
+    }
   }
 ]

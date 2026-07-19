@@ -2,161 +2,766 @@
   {
     "id": "core-principles",
     "title": "Core Principles",
-    "topics": [
+    "overview": [
+      "Microservices architecture structures an application as a collection of small, independently deployable services.",
+      "Each service owns a single business capability, its own data, and its own release cycle.",
+      "Services talk to each other over the network instead of through in-process method calls."
+    ],
+    "why": [
+      "A single growing codebase eventually becomes hard for many teams to change safely at once.",
+      "Different parts of a system often need to scale, deploy, or evolve at different rates.",
+      "Splitting along business boundaries lets teams own, deploy, and scale their piece independently."
+    ],
+    "problem": [
+      "A **monolith** starts simple but grows into one large deployable unit over time.",
+      "Every team shares the same codebase, the same build, and the same release train.",
+      "One team's bug or slow deploy can block or break every other team's release.",
+      "Scaling means scaling the entire application, even if only one module is under load.",
+      "Adopting a new tech stack for one module means rewriting the whole monolith."
+    ],
+    "internalWorking": {
+      "intro": ["Microservices are built around a small set of non-negotiable principles."],
+      "topics": [
+        {
+          "heading": "Fundamentals",
+          "points": [
+            "**Single Responsibility** — each microservice owns one business capability, enabling independent development, testing, and scaling.",
+            "**Loose Coupling** — services interact only through well-defined APIs; internal implementation changes must never break consumers.",
+            "**Independent Deployment** — each service has its own CI/CD pipeline, release cycle, and versioning, with no coordinated deployments needed.",
+            "**Decentralized Data** — each service owns its database (**Database per Service** pattern); no direct DB access across service boundaries.",
+            "**Domain-Driven Design** — use **Bounded Contexts** to define service boundaries, modeled with aggregate roots, entities, and value objects."
+          ]
+        },
+        {
+          "heading": "Monolith vs Microservices",
+          "points": [
+            "**Monolith** — a single deployable unit; simple to develop initially, but scaling and team autonomy become bottlenecks as it grows.",
+            "**Microservices** — a distributed system of small services enabling polyglot tech stacks, independent scaling, and team ownership.",
+            "**Migration Strategy** — the **Strangler Fig** pattern incrementally extracts services from a monolith, starting with least-coupled modules first.",
+            "**When to Use Monolith** — small teams, early-stage products, simple domains; avoid premature microservices (the distributed monolith anti-pattern).",
+            "**When to Use Microservices** — large teams, complex domains, and a need for independent scaling and deployment, accepting operational complexity in return."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Monolith: Order, Payment, Inventory in one codebase\"] --> B{\"Identify least-coupled module\"}\n    B --> C[\"Extract Payment as its own service\"]\n    C --> D[\"Route Payment traffic through Strangler Facade\"]\n    D --> E[\"Extract Inventory service\"]\n    E --> F[\"Extract Order service\"]\n    F --> G[\"Monolith fully replaced by microservices\"]",
+      "caption": "Strangler Fig migration: services are extracted one at a time behind a facade until nothing of the monolith remains."
+    },
+    "simpleExample": {
+      "scenario": "Splitting a single `OrderApp` monolith into two independently deployable services.",
+      "code": "// Before: one monolith handling everything\nclass OrderApp {\n    void placeOrder(Order order) {\n        inventoryModule.reserveStock(order);\n        paymentModule.charge(order);\n        orderRepository.save(order);\n    }\n}\n\n// After: Order service calls Payment service over REST\n@Service\nclass OrderService {\n    private final PaymentClient paymentClient; // calls payment-service over HTTP\n\n    void placeOrder(Order order) {\n        paymentClient.charge(order.getPaymentDetails());\n        orderRepository.save(order);\n    }\n}",
+      "input": "A customer submits an order with payment details.",
+      "execution": "`OrderService` no longer calls payment logic in-process — it calls `PaymentClient`, which makes a network call to a separately deployed `payment-service`.",
+      "output": "The order is saved only after the independently deployed `payment-service` confirms the charge succeeded.",
+      "explanation": "The two capabilities can now be deployed, scaled, and owned by separate teams, at the cost of a network call replacing a method call."
+    },
+    "realWorldExample": {
+      "scenario": "An e-commerce platform organized as bounded contexts: `order-service`, `payment-service`, `inventory-service`, and `merchant-service`.",
+      "code": "// order-service — owns its own database, exposes an API, knows nothing of Payment's internals\n@RestController\n@RequestMapping(\"/orders\")\nclass OrderController {\n\n    private final OrderService orderService;\n\n    @PostMapping\n    OrderResponse create(@RequestBody OrderRequest request) {\n        return orderService.placeOrder(request); // delegates to payment-service via API call\n    }\n}",
+      "input": "A checkout request arrives at `order-service` for a `Cart` belonging to a `Customer`.",
+      "execution": "`order-service` persists to its own **order database**, then calls `payment-service`'s API to charge the `Merchant`'s configured `Gateway`. Each service is deployed, scaled, and owned independently.",
+      "output": "An `Order` record with status `CONFIRMED`, created without `order-service` ever touching the payment database directly.",
+      "explanation": "This mirrors **Database per Service** and **Bounded Context**: `order-service` and `payment-service` can be released on different days by different teams without coordinating a single deployment."
+    },
+    "comparisonTables": [
       {
-        "heading": "Fundamentals",
-        "points": [
-          "**Single Responsibility** — Each microservice owns one business capability. Allows independent development, testing, and scaling by separate teams.",
-          "**Loose Coupling** — Services interact only through well-defined APIs. Internal implementation changes should never break consumers.",
-          "**Independent Deployment** — Each service has its own CI/CD pipeline, release cycle, and versioning. No coordinated deployments needed.",
-          "**Decentralized Data** — Each service owns its database (Database per Service pattern). No direct DB access across service boundaries.",
-          "**Domain-Driven Design** — Use Bounded Contexts to define service boundaries. Aggregate roots, entities, and value objects model the domain."
-        ]
-      },
-      {
-        "heading": "Monolith vs Microservices",
-        "points": [
-          "**Monolith** — Single deployable unit. Simple to develop initially, but scaling and team autonomy become bottlenecks as it grows.",
-          "**Microservices** — Distributed system of small services. Enables polyglot tech stacks, independent scaling, and team ownership.",
-          "**Migration Strategy** — Strangler Fig pattern: incrementally extract services from monolith. Start with least-coupled modules first.",
-          "**When to Use Monolith** — Small teams, early-stage products, simple domains. Avoid premature microservices (distributed monolith anti-pattern).",
-          "**When to Use Microservices** — Large teams, complex domains, need for independent scaling and deployment. Accept operational complexity trade-off."
+        "title": "Monolith vs Microservices",
+        "columns": ["Aspect", "Monolith", "Microservices"],
+        "rows": [
+          ["Deployment", "Single unit, one release train", "Independent per service"],
+          ["Scaling", "Scale the whole app", "Scale only the bottleneck service"],
+          ["Data ownership", "Shared database", "Database per service"],
+          ["Tech stack", "One stack for everything", "Polyglot — different stacks per service"],
+          ["Team autonomy", "Coordinated releases across teams", "Teams own and release independently"],
+          ["Operational cost", "Low — one thing to run", "High — distributed system complexity"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Use the **Strangler Fig** pattern to migrate incrementally rather than a risky big-bang rewrite.",
+      "Define service boundaries around **Bounded Contexts**, not around technical layers like \"database\" or \"UI\".",
+      "Start with a monolith for a new, simple, small-team product — extract services only once real pain appears."
+    ],
+    "commonMistakes": [
+      "Splitting services by technical layer (e.g. a separate \"database service\") instead of by business capability.",
+      "Building a **distributed monolith** — many services that must still be deployed together because they're tightly coupled.",
+      "Adopting microservices prematurely for a small team with a simple domain, taking on operational cost with no real benefit."
+    ],
+    "interviewTips": [
+      "If asked \"why microservices\", lead with team autonomy and independent scaling — not \"it's more modern\".",
+      "Be ready to name the trade-off explicitly: microservices trade simplicity for scalability and team independence.",
+      "Know the **Strangler Fig** pattern by name — it's the standard answer for \"how do you migrate a monolith\"."
+    ],
+    "faq": [
+      {
+        "q": "Should every new project start with microservices?",
+        "a": "No. Most teams should start with a well-structured monolith and extract services only once specific modules show real scaling or team-ownership pain."
+      },
+      {
+        "q": "What is a distributed monolith?",
+        "a": "It's microservices in name only — services are still so tightly coupled that they must be deployed together, giving you all the operational complexity of a distributed system with none of the independence benefits."
+      },
+      {
+        "q": "How do Bounded Contexts relate to service boundaries?",
+        "a": "A Bounded Context from Domain-Driven Design defines where one model's meaning ends and another begins — it's the recommended way to decide where one microservice ends and the next begins."
+      }
+    ],
+    "summary": [
+      "Microservices split an application into small, independently deployable services, each owning one business capability and its own data.",
+      "The core principles are single responsibility, loose coupling, independent deployment, and decentralized data ownership.",
+      "Monoliths are simpler to start with; microservices pay off once team size, domain complexity, and scaling needs outgrow a single deployable unit."
+    ],
+    "quickRevision": [
+      "Microservices = small, independently deployable services, each owning one business capability.",
+      "Database per Service — no service reaches directly into another service's database.",
+      "Bounded Context (DDD) is the recommended way to draw service boundaries.",
+      "Strangler Fig pattern — migrate a monolith incrementally, least-coupled modules first.",
+      "Distributed monolith = anti-pattern where services still must deploy together.",
+      "Use monolith for small teams/simple domains; use microservices for large teams/complex domains.",
+      "Independent deployment means each service has its own CI/CD pipeline and versioning."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is a microservice, in one sentence?",
+        "What is the main difference between a monolith and microservices?",
+        "Why does each microservice need its own database?"
+      ],
+      "intermediate": [
+        "What is the Strangler Fig pattern, and when would you use it?",
+        "How do Bounded Contexts help define microservice boundaries?",
+        "What operational costs do microservices introduce that a monolith doesn't have?"
+      ],
+      "advanced": [
+        "How would you decide whether a given module should be extracted into its own service?",
+        "What is a distributed monolith, and what causes a system to end up as one?",
+        "How would you migrate a tightly-coupled monolith to microservices without a big-bang rewrite?"
+      ]
+    }
   },
   {
     "id": "communication",
     "title": "Communication Patterns",
-    "topics": [
+    "overview": [
+      "Once an application is split into services, those services must talk to each other over the network.",
+      "Communication can be synchronous (request waits for a response) or asynchronous (fire-and-forget via events).",
+      "An API Gateway typically sits in front of all of this as the single entry point for external clients."
+    ],
+    "why": [
+      "In a monolith, one module calling another is just a method call — fast and always available.",
+      "In microservices, that same call crosses a network, which can be slow, fail, or time out.",
+      "Different use cases need different trade-offs between immediacy and resilience, hence multiple communication styles."
+    ],
+    "problem": [
+      "A naive approach makes every inter-service call synchronous, like a local method call.",
+      "This creates **tight temporal coupling** — the caller blocks until the callee responds.",
+      "If the callee is slow or down, the failure cascades up the entire call chain.",
+      "Clients calling many services directly also have to know every service's location and API shape."
+    ],
+    "internalWorking": {
+      "intro": ["There are three broad areas: synchronous calls, asynchronous messaging, and the gateway that fronts them."],
+      "topics": [
+        {
+          "heading": "Synchronous Communication",
+          "points": [
+            "**REST (HTTP/JSON)** — the most common inter-service communication; simple, stateless, cacheable, using proper HTTP methods and status codes.",
+            "**gRPC** — high-performance RPC using Protocol Buffers, with binary serialization, HTTP/2, and bidirectional streaming; ideal for internal service-to-service calls.",
+            "**OpenFeign** — declarative REST client for Spring: `@FeignClient(name = \"user-service\")` with interface methods, auto load-balanced via Spring Cloud.",
+            "**WebClient** — non-blocking, reactive HTTP client from Spring WebFlux with streaming support; preferred over `RestTemplate` (deprecated in Spring 6).",
+            "**Drawbacks** — tight temporal coupling, cascading failures, and increased latency; use async patterns when a real-time response isn't required."
+          ]
+        },
+        {
+          "heading": "Asynchronous Communication",
+          "points": [
+            "**Message Queues** — decouple producer from consumer using RabbitMQ (AMQP) or ActiveMQ, point-to-point or pub/sub, guaranteeing delivery with acknowledgments.",
+            "**Apache Kafka** — a distributed event streaming platform with topics, partitions, and consumer groups; high throughput, durable, replayable event log.",
+            "**Event-Driven Architecture** — services emit domain events that other services react to asynchronously, enabling loose coupling and eventual consistency.",
+            "**CQRS** — Command Query Responsibility Segregation separates read and write models, often paired with Event Sourcing for audit trails.",
+            "**Saga Pattern** — manages distributed transactions across services via **Choreography** (events) or **Orchestration** (central coordinator), using compensating transactions on failure."
+          ]
+        },
+        {
+          "heading": "API Gateway",
+          "points": [
+            "**Purpose** — a single entry point for clients that handles routing, authentication, rate limiting, SSL termination, and request aggregation.",
+            "**Spring Cloud Gateway** — a reactive gateway built on WebFlux with route predicates, pre/post filters, circuit breaker integration, and request rate limiting.",
+            "**Backend for Frontend (BFF)** — separate gateways per client type (web, mobile, IoT), each tailoring API responses to its client's needs.",
+            "**Service Mesh** — an infrastructure layer for service-to-service communication (Istio, Linkerd) that handles mTLS, retries, and observability without app code changes.",
+            "**API Versioning** — via URL path (`/v1/users`), header (`Accept-Version`), or query param; the gateway can route to different service versions."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    subgraph Synchronous\n    A[\"Order Service\"] -->|\"REST call, waits\"| B[\"Payment Service\"]\n    B -->|\"response\"| A\n    end\n    subgraph Asynchronous\n    C[\"Order Service\"] -->|\"publishes OrderPlaced event\"| D[\"Kafka Topic\"]\n    D -->|\"consumes event\"| E[\"Inventory Service\"]\n    D -->|\"consumes event\"| F[\"Notification Service\"]\n    end",
+      "caption": "Synchronous calls block for a response; asynchronous events fan out to multiple consumers without the producer waiting."
+    },
+    "simpleExample": {
+      "scenario": "An `Order` service calling a `Payment` service synchronously with OpenFeign.",
+      "code": "@FeignClient(name = \"payment-service\")\ninterface PaymentClient {\n\n    @PostMapping(\"/payments\")\n    PaymentResponse charge(@RequestBody PaymentRequest request);\n}\n\n@Service\nclass OrderService {\n    private final PaymentClient paymentClient;\n\n    OrderResponse placeOrder(OrderRequest request) {\n        PaymentResponse payment = paymentClient.charge(request.toPaymentRequest());\n        return new OrderResponse(request, payment);\n    }\n}",
+      "input": "A checkout request for a `Cart` with a total amount and a `Customer`'s payment method.",
+      "execution": "`OrderService` calls `paymentClient.charge(...)`, which Feign turns into an HTTP `POST` to `payment-service`'s `/payments` endpoint, resolved via the service registry.",
+      "output": "A `PaymentResponse` with status `SUCCESS`, returned synchronously before the order is confirmed.",
+      "explanation": "Feign hides the HTTP plumbing behind a plain interface, but the caller still blocks until `payment-service` responds — a synchronous, tightly-coupled call."
+    },
+    "realWorldExample": {
+      "scenario": "Decoupling `order-service` from `inventory-service` and `notification-service` using Kafka events instead of direct calls.",
+      "code": "@Service\nclass OrderService {\n    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;\n\n    void placeOrder(Order order) {\n        orderRepository.save(order);\n        kafkaTemplate.send(\"order-placed\", new OrderPlacedEvent(order.getId(), order.getItems()));\n    }\n}\n\n@KafkaListener(topics = \"order-placed\", groupId = \"inventory-group\")\nclass InventoryEventListener {\n    void onOrderPlaced(OrderPlacedEvent event) {\n        inventoryService.reserveStock(event.getItems());\n    }\n}",
+      "input": "A `Customer` completes checkout, creating an `Order` for several `Product` items.",
+      "execution": "`order-service` saves the order and publishes an `OrderPlacedEvent` to the `order-placed` Kafka topic, then returns immediately without waiting on any consumer.",
+      "output": "`inventory-service` and `notification-service` each independently consume the same event from their own consumer group and react on their own schedule.",
+      "explanation": "This is **Event-Driven Architecture**: `order-service` doesn't know or care who's listening, and a slow or temporarily-down consumer never blocks the checkout response."
+    },
+    "comparisonTables": [
       {
-        "heading": "Synchronous Communication",
-        "points": [
-          "**REST (HTTP/JSON)** — Most common inter-service communication. Simple, stateless, cacheable. Use proper HTTP methods and status codes.",
-          "**gRPC** — High-performance RPC using Protocol Buffers. Binary serialization, HTTP/2, bidirectional streaming. Ideal for internal service-to-service calls.",
-          "**OpenFeign** — Declarative REST client for Spring. `@FeignClient(name = \"user-service\")` with interface methods. Auto load-balanced via Spring Cloud.",
-          "**WebClient** — Non-blocking, reactive HTTP client from Spring WebFlux. Supports streaming. Preferred over RestTemplate (deprecated in Spring 6).",
-          "**Drawbacks** — Tight temporal coupling, cascading failures, increased latency. Use async patterns when real-time response is not required."
+        "title": "REST vs gRPC",
+        "columns": ["Aspect", "REST (HTTP/JSON)", "gRPC"],
+        "rows": [
+          ["Payload format", "Text-based JSON", "Binary Protocol Buffers"],
+          ["Protocol", "HTTP/1.1 typically", "HTTP/2"],
+          ["Streaming", "Limited (SSE, chunked)", "Native bidirectional streaming"],
+          ["Human readability", "Easy to read/debug", "Requires tooling to inspect"],
+          ["Best fit", "Public APIs, browser clients", "Internal service-to-service calls"]
         ]
       },
       {
-        "heading": "Asynchronous Communication",
-        "points": [
-          "**Message Queues** — Decouple producer from consumer. RabbitMQ (AMQP), ActiveMQ. Point-to-point or pub/sub. Guarantees delivery with acknowledgments.",
-          "**Apache Kafka** — Distributed event streaming platform. Topics, partitions, consumer groups. High throughput, durable, replayable event log.",
-          "**Event-Driven Architecture** — Services emit domain events. Other services react asynchronously. Enables loose coupling and eventual consistency.",
-          "**CQRS** — Command Query Responsibility Segregation. Separate read and write models. Often paired with Event Sourcing for audit trails.",
-          "**Saga Pattern** — Manage distributed transactions across services. Choreography (events) or Orchestration (central coordinator). Compensating transactions on failure."
+        "title": "Synchronous vs Asynchronous Communication",
+        "columns": ["Aspect", "Synchronous", "Asynchronous"],
+        "rows": [
+          ["Caller behavior", "Blocks waiting for response", "Fires event and moves on"],
+          ["Coupling", "Tight temporal coupling", "Loosely coupled via broker"],
+          ["Failure impact", "Can cascade to caller", "Isolated — consumer can retry later"],
+          ["Consistency", "Immediate/strong", "Eventual consistency"],
+          ["Typical tech", "REST, gRPC, OpenFeign", "Kafka, RabbitMQ"]
         ]
       },
       {
-        "heading": "API Gateway",
-        "points": [
-          "**Purpose** — Single entry point for clients. Handles routing, authentication, rate limiting, SSL termination, and request aggregation.",
-          "**Spring Cloud Gateway** — Reactive gateway built on WebFlux. Route predicates, filters (pre/post), circuit breaker integration, request rate limiting.",
-          "**Backend for Frontend (BFF)** — Separate gateways per client type (web, mobile, IoT). Each BFF tailors API responses for its client's needs.",
-          "**Service Mesh** — Infrastructure layer for service-to-service communication. Istio, Linkerd. Handles mTLS, retries, observability without app code changes.",
-          "**API Versioning** — URL path (`/v1/users`), header (`Accept-Version`), or query param. Gateway can route to different service versions."
+        "title": "Saga: Choreography vs Orchestration",
+        "columns": ["Aspect", "Choreography", "Orchestration"],
+        "rows": [
+          ["Coordination", "Services react to each other's events", "Central orchestrator directs each step"],
+          ["Coupling", "Looser — no single controller", "Services coupled to orchestrator's commands"],
+          ["Visibility", "Harder to trace the full flow", "Flow is explicit in one place"],
+          ["Failure handling", "Each service emits compensating events", "Orchestrator triggers compensating transactions"],
+          ["Best fit", "Few services, simple flows", "Many services, complex multi-step transactions"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Prefer asynchronous events for anything that doesn't need an immediate response, to avoid cascading failures.",
+      "Use gRPC for high-throughput internal calls and REST for public-facing or browser-consumed APIs.",
+      "Put cross-cutting concerns (auth, rate limiting, SSL termination) at the **API Gateway**, not in every service."
+    ],
+    "commonMistakes": [
+      "Making every service-to-service call synchronous by default, recreating monolith-style coupling over the network.",
+      "Letting clients call every microservice directly instead of going through a Gateway or BFF.",
+      "Choosing Choreography for a complex multi-step Saga, making the overall transaction flow impossible to trace."
+    ],
+    "interviewTips": [
+      "Be ready to explain why synchronous calls cause **cascading failures** and how async communication avoids that.",
+      "Know the Saga pattern's two flavors by name — Choreography vs Orchestration — and when to use each.",
+      "Mention that WebClient replaced RestTemplate (deprecated in Spring 6) if asked about Spring's HTTP clients."
+    ],
+    "faq": [
+      {
+        "q": "When should I use gRPC instead of REST?",
+        "a": "Use gRPC for high-throughput, low-latency internal service-to-service calls where you control both ends; use REST when the API needs to be easily consumed by browsers, third parties, or ad-hoc tools."
+      },
+      {
+        "q": "Does asynchronous communication mean the data is inconsistent?",
+        "a": "It means eventual consistency, not incorrect data — all consumers will eventually see the event and update their own state, just not at the exact same instant as the producer."
+      },
+      {
+        "q": "Why use an API Gateway instead of exposing every service directly?",
+        "a": "A Gateway centralizes cross-cutting concerns like auth, rate limiting, and routing, so clients only need to know one entry point instead of every service's address and API contract."
+      }
+    ],
+    "summary": [
+      "Services communicate synchronously (REST, gRPC, OpenFeign, WebClient) when an immediate response is needed, and asynchronously (Kafka, RabbitMQ) to decouple producers from consumers.",
+      "The Saga pattern coordinates distributed transactions across services via Choreography or Orchestration.",
+      "An API Gateway or Service Mesh centralizes routing, security, and observability so individual services stay focused on business logic."
+    ],
+    "quickRevision": [
+      "Synchronous: REST, gRPC, OpenFeign, WebClient — caller blocks for a response.",
+      "Asynchronous: Kafka, RabbitMQ, event-driven — producer doesn't wait.",
+      "gRPC uses Protocol Buffers + HTTP/2; ideal for internal calls.",
+      "Saga Choreography = events react to events; Orchestration = central coordinator.",
+      "CQRS separates read and write models, often paired with Event Sourcing.",
+      "API Gateway = single entry point: routing, auth, rate limiting, SSL termination.",
+      "BFF = separate gateway per client type (web, mobile, IoT).",
+      "Service Mesh (Istio, Linkerd) handles mTLS/retries without app code changes."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What's the difference between synchronous and asynchronous communication?",
+        "What is an API Gateway used for?",
+        "Name two synchronous and two asynchronous communication technologies."
+      ],
+      "intermediate": [
+        "Why can synchronous calls cause cascading failures across services?",
+        "What is the Saga pattern, and why is it needed in microservices?",
+        "How does a Service Mesh differ from an API Gateway?"
+      ],
+      "advanced": [
+        "How would you choose between Saga Choreography and Orchestration for a multi-step checkout flow?",
+        "How does CQRS combined with Event Sourcing change how you model reads vs writes?",
+        "What trade-offs would push you to pick gRPC over REST for a new internal service?"
+      ]
+    }
   },
   {
     "id": "resilience",
     "title": "Resilience Patterns",
-    "topics": [
+    "overview": [
+      "Resilience patterns keep a system functioning, or failing gracefully, when a dependency is slow or unavailable.",
+      "The core patterns are Circuit Breaker, Retry, Timeout, Bulkhead, and Fallback.",
+      "Rate limiting protects services from being overwhelmed by too many requests, from clients or from other services."
+    ],
+    "why": [
+      "In a distributed system, any of dozens of services can be slow, overloaded, or temporarily down at any moment.",
+      "Without protection, one failing dependency can exhaust threads and connections in every service that calls it.",
+      "Resilience patterns contain that failure so it doesn't spread across the whole system."
+    ],
+    "problem": [
+      "A calling service that waits indefinitely on a slow dependency ties up its own threads.",
+      "As more requests pile up waiting, the calling service itself runs out of resources and becomes unresponsive.",
+      "This is a **cascading failure** — one unhealthy service drags down every service that depends on it.",
+      "Retrying blindly without any backoff can make an already-struggling service even worse (the **thundering herd**)."
+    ],
+    "internalWorking": {
+      "intro": ["Fault tolerance patterns and rate limiting work together to keep failures contained."],
+      "topics": [
+        {
+          "heading": "Fault Tolerance",
+          "points": [
+            "**Circuit Breaker** — prevents cascading failures with three states: Closed (normal), Open (fail-fast), Half-Open (test recovery); use Resilience4j `@CircuitBreaker`.",
+            "**Retry** — automatically retries failed requests with backoff: `@Retry(name = \"myService\", fallbackMethod = \"fallback\")`, using exponential backoff to avoid a thundering herd.",
+            "**Timeout** — sets a max wait time for external calls via `@TimeLimiter(name = \"myService\")`, preventing threads from blocking indefinitely on slow services.",
+            "**Bulkhead** — isolates failures by limiting concurrent calls (thread pool or semaphore based), preventing one slow service from exhausting all resources.",
+            "**Fallback** — provides a degraded response when a service is unavailable, such as cached data, default values, or a graceful error message."
+          ]
+        },
+        {
+          "heading": "Rate Limiting",
+          "points": [
+            "**Token Bucket** — tokens are added at a fixed rate and consumed per request, allowing burst traffic up to bucket capacity; the most common algorithm.",
+            "**Sliding Window** — tracks request count in a rolling time window; a fixed window has boundary issues, while a sliding window is more accurate.",
+            "**Gateway Rate Limiting** — apply rate limits at the API Gateway level using Spring Cloud Gateway's `RequestRateLimiter` filter with a Redis backend.",
+            "**HTTP 429 Too Many Requests** — the standard response for rate-limited requests, including a `Retry-After` header telling clients when to retry.",
+            "**Per-Client Limiting** — different rate limits per API key, user tier, or IP, using Redis sorted sets or in-memory caches for tracking."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "stateDiagram-v2\n    [*] --> Closed\n    Closed --> Open: failure threshold exceeded\n    Open --> HalfOpen: wait duration elapses\n    HalfOpen --> Closed: test call succeeds\n    HalfOpen --> Open: test call fails\n    Closed --> Closed: call succeeds",
+      "caption": "Circuit Breaker state machine: Closed allows calls, Open fails fast, Half-Open cautiously tests if the dependency has recovered."
+    },
+    "simpleExample": {
+      "scenario": "Protecting an `Order` service's call to a flaky `Payment` service with a Circuit Breaker and a Fallback.",
+      "code": "@Service\nclass OrderService {\n    private final PaymentClient paymentClient;\n\n    @CircuitBreaker(name = \"paymentService\", fallbackMethod = \"fallbackCharge\")\n    PaymentResponse charge(PaymentRequest request) {\n        return paymentClient.charge(request);\n    }\n\n    PaymentResponse fallbackCharge(PaymentRequest request, Throwable ex) {\n        return PaymentResponse.pending(request.getOrderId());\n    }\n}",
+      "input": "A `PaymentRequest` for an `Order`, sent while `payment-service` is intermittently failing.",
+      "execution": "Resilience4j counts recent failures; once the failure rate crosses the configured threshold, the circuit trips to **Open** and every subsequent call short-circuits straight to `fallbackCharge` without hitting the network.",
+      "output": "A `PaymentResponse` marked `PENDING` returned instantly, instead of the caller hanging until a real timeout.",
+      "explanation": "The Circuit Breaker stops `order-service` from repeatedly hammering an already-struggling `payment-service`, and the Fallback keeps the checkout flow responsive."
+    },
+    "realWorldExample": {
+      "scenario": "Combining Retry, Timeout, and Bulkhead around a call from `order-service` to a third-party `Gateway` for a `Merchant`'s payment.",
+      "code": "@Retry(name = \"gatewayService\")\n@TimeLimiter(name = \"gatewayService\")\n@Bulkhead(name = \"gatewayService\", type = Bulkhead.Type.THREADPOOL)\n@CircuitBreaker(name = \"gatewayService\", fallbackMethod = \"fallback\")\nCompletableFuture<PaymentResponse> chargeViaGateway(PaymentRequest request) {\n    return CompletableFuture.supplyAsync(() -> gatewayClient.charge(request));\n}\n\nPaymentResponse fallback(PaymentRequest request, Throwable ex) {\n    return PaymentResponse.failed(request.getOrderId(), \"gateway_unavailable\");\n}",
+      "input": "A `PaymentRequest` routed to an external payment `Gateway` that is occasionally slow under load.",
+      "execution": "**Timeout** caps how long each attempt can take; **Retry** retries a failed attempt with exponential backoff; **Bulkhead** caps how many concurrent gateway calls can run at once so one slow burst can't exhaust every thread; **Circuit Breaker** stops calling entirely once failures spike.",
+      "output": "Either a successful `PaymentResponse`, or a clean `failed` response from the fallback — never a thread hung indefinitely on the gateway.",
+      "explanation": "Layering all four patterns together is standard production practice: each one guards against a different failure mode (slow response, transient blip, resource exhaustion, sustained outage)."
+    },
+    "comparisonTables": [
       {
-        "heading": "Fault Tolerance",
-        "points": [
-          "**Circuit Breaker** — Prevents cascading failures. States: Closed (normal), Open (fail-fast), Half-Open (test recovery). Use Resilience4j `@CircuitBreaker`.",
-          "**Retry** — Automatically retry failed requests with backoff. `@Retry(name = \"myService\", fallbackMethod = \"fallback\")`. Use exponential backoff to avoid thundering herd.",
-          "**Timeout** — Set max wait time for external calls. `@TimeLimiter(name = \"myService\")`. Prevents threads from blocking indefinitely on slow services.",
-          "**Bulkhead** — Isolate failures by limiting concurrent calls. Thread pool or semaphore based. Prevents one slow service from exhausting all resources.",
-          "**Fallback** — Provide degraded response when service is unavailable. Return cached data, default values, or graceful error messages."
+        "title": "Retry vs Circuit Breaker vs Bulkhead",
+        "columns": ["Pattern", "Protects against", "Mechanism"],
+        "rows": [
+          ["Retry", "Transient, short-lived failures", "Re-attempt the call with backoff"],
+          ["Circuit Breaker", "Sustained/repeated failures", "Fail fast once a threshold is crossed"],
+          ["Bulkhead", "Resource exhaustion from one dependency", "Cap concurrent calls via thread pool/semaphore"]
         ]
       },
       {
-        "heading": "Rate Limiting",
-        "points": [
-          "**Token Bucket** — Tokens added at fixed rate, consumed per request. Allows burst traffic up to bucket capacity. Most common algorithm.",
-          "**Sliding Window** — Track request count in a rolling time window. Fixed window has boundary issues; sliding window is more accurate.",
-          "**Gateway Rate Limiting** — Apply rate limits at API Gateway level. Spring Cloud Gateway `RequestRateLimiter` filter with Redis backend.",
-          "**HTTP 429 Too Many Requests** — Standard response for rate-limited requests. Include `Retry-After` header to tell clients when to retry.",
-          "**Per-Client Limiting** — Different rate limits per API key, user tier, or IP. Use Redis sorted sets or in-memory caches for tracking."
+        "title": "Token Bucket vs Sliding Window",
+        "columns": ["Aspect", "Token Bucket", "Sliding Window"],
+        "rows": [
+          ["Burst handling", "Allows bursts up to bucket capacity", "Smooths requests across the window"],
+          ["Accuracy", "Simple, can allow short bursts", "More accurate than a fixed window"],
+          ["Boundary issue", "Not applicable", "Fixes the fixed-window boundary problem"],
+          ["Typical use", "General-purpose API rate limiting", "Precise per-client limiting"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Layer Timeout, Retry, Circuit Breaker, and Bulkhead together — each guards against a different failure mode.",
+      "Always use exponential backoff on Retry to avoid a thundering herd against a recovering service.",
+      "Return a `Retry-After` header alongside HTTP 429 so well-behaved clients know exactly when to retry."
+    ],
+    "commonMistakes": [
+      "Retrying without backoff, which can overwhelm a service that's already struggling to recover.",
+      "Setting no Timeout at all, letting a slow dependency block threads indefinitely.",
+      "Applying rate limits only at the service level and not at the Gateway, letting bad traffic reach every downstream service."
+    ],
+    "interviewTips": [
+      "Know the three Circuit Breaker states by name — Closed, Open, Half-Open — and what triggers each transition.",
+      "Be ready to explain the thundering herd problem and why exponential backoff fixes it.",
+      "If asked to design resilience for a call chain, mention layering multiple patterns, not just one."
+    ],
+    "faq": [
+      {
+        "q": "What's the difference between a Timeout and a Circuit Breaker?",
+        "a": "A Timeout limits how long a single call can take; a Circuit Breaker tracks failures across many calls over time and stops calling entirely once a threshold is crossed."
+      },
+      {
+        "q": "Why does a Circuit Breaker have a Half-Open state instead of just going straight back to Closed?",
+        "a": "Half-Open lets a small number of test calls through to check if the dependency has actually recovered, without immediately sending it the full load again."
+      },
+      {
+        "q": "Is Bulkhead the same thing as a Circuit Breaker?",
+        "a": "No — Bulkhead limits concurrent calls to prevent resource exhaustion, while Circuit Breaker stops calls entirely based on failure rate; they're often used together, not as alternatives."
+      }
+    ],
+    "summary": [
+      "Circuit Breaker, Retry, Timeout, Bulkhead, and Fallback each guard against a different way a dependency can fail.",
+      "The Circuit Breaker's Closed/Open/Half-Open state machine is the central mechanism for stopping cascading failures.",
+      "Rate limiting (Token Bucket, Sliding Window) protects services from being overwhelmed, usually enforced at the API Gateway."
+    ],
+    "quickRevision": [
+      "Circuit Breaker states: Closed (normal) → Open (fail-fast) → Half-Open (test recovery).",
+      "Retry needs exponential backoff to avoid a thundering herd.",
+      "Timeout prevents threads blocking indefinitely on slow calls.",
+      "Bulkhead isolates concurrent calls via thread pool or semaphore.",
+      "Fallback returns a degraded response instead of an error.",
+      "Token Bucket allows bursts; Sliding Window is more accurate over time.",
+      "HTTP 429 + `Retry-After` header is the standard rate-limit response.",
+      "Resilience4j annotations: `@CircuitBreaker`, `@Retry`, `@TimeLimiter`, `@Bulkhead`."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What problem does a Circuit Breaker solve?",
+        "What are the three states of a Circuit Breaker?",
+        "What is rate limiting, and why is it needed?"
+      ],
+      "intermediate": [
+        "Why is exponential backoff important when implementing Retry?",
+        "How does Bulkhead prevent one slow dependency from affecting the whole service?",
+        "What's the difference between Token Bucket and Sliding Window rate limiting?"
+      ],
+      "advanced": [
+        "How would you combine Retry, Timeout, Circuit Breaker, and Bulkhead for a single external call?",
+        "How do you decide the failure threshold and wait duration for a Circuit Breaker in production?",
+        "How would you design per-client rate limiting at the API Gateway level using Redis?"
+      ]
+    }
   },
   {
     "id": "spring-cloud",
     "title": "Spring Cloud Stack",
-    "topics": [
+    "overview": [
+      "Spring Cloud provides the building blocks for running microservices: service discovery, centralized configuration, and distributed tracing.",
+      "Services need to find each other by name instead of hardcoded addresses.",
+      "Configuration and tracing need to work consistently across many independently deployed services."
+    ],
+    "why": [
+      "Service instances come and go constantly — scaled up, scaled down, restarted, redeployed with new IPs.",
+      "Hardcoding addresses would break the moment any instance moved, which defeats independent deployability.",
+      "Debugging a request that touches five services needs a way to follow it across all of them."
+    ],
+    "problem": [
+      "Without service discovery, every service needs to know every other service's exact network address.",
+      "Without centralized configuration, changing one setting means redeploying every instance that uses it.",
+      "Without distributed tracing, a slow or failing request is nearly impossible to diagnose across service boundaries."
+    ],
+    "internalWorking": {
+      "intro": ["Spring Cloud addresses this with three pillars: discovery, configuration, and tracing."],
+      "topics": [
+        {
+          "heading": "Service Discovery",
+          "points": [
+            "**Eureka Server** — Netflix OSS service registry; services register on startup and send heartbeats, clients discover services by name.",
+            "**Spring Cloud LoadBalancer** — client-side load balancing that replaces Netflix Ribbon, using round-robin or random instance selection from the registry.",
+            "**Consul** — HashiCorp service discovery plus config store plus health checking; an alternative to Eureka with a built-in KV store and multi-datacenter support.",
+            "**Service Registration** — `@EnableDiscoveryClient` on a service auto-registers it with the configured registry, using `spring.application.name` for service identity.",
+            "**Health Checks** — the registry removes unhealthy instances: Eureka uses heartbeats, Consul uses HTTP/TCP/script checks, both fed by the Actuator `/health` endpoint."
+          ]
+        },
+        {
+          "heading": "Configuration Management",
+          "points": [
+            "**Spring Cloud Config Server** — centralized external configuration backed by Git, file system, or Vault, serving config via REST to client services.",
+            "**`@RefreshScope`** — refreshes bean properties without a restart, triggered via `/actuator/refresh` or Spring Cloud Bus for a broadcast refresh across instances.",
+            "**HashiCorp Vault** — secure secrets management with dynamic secrets, encryption as a service, and lease-based credentials, via Spring Vault integration.",
+            "**Config Profiles** — `application-{profile}.yml` per environment, activated with `spring.profiles.active`; the Config Server serves profile-specific overrides.",
+            "**Spring Cloud Bus** — broadcasts config changes to all instances via a message broker (RabbitMQ/Kafka) so a single refresh call propagates everywhere."
+          ]
+        },
+        {
+          "heading": "Distributed Tracing",
+          "points": [
+            "**Micrometer Tracing** — a vendor-neutral observability facade (replacing Spring Cloud Sleuth) that generates trace and span IDs for request correlation.",
+            "**Zipkin** — a distributed tracing system that collects timing data, visualizes call chains, and identifies latency bottlenecks across services.",
+            "**OpenTelemetry** — the CNCF standard for traces, metrics, and logs, with an auto-instrumentation agent that exports to Jaeger, Zipkin, or any OTLP backend.",
+            "**Log Correlation** — include `traceId` and `spanId` in log patterns via MDC (`%X{traceId}` in Logback), enabling searching logs across services by trace.",
+            "**Span Propagation** — trace context is propagated via HTTP headers (W3C Trace Context or B3), automatic with Spring instrumentation libraries."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"payment-service starts up\"] --> B[\"Registers with Eureka\"]\n    B --> C[\"Sends periodic heartbeat\"]\n    D[\"order-service needs Payment\"] --> E[\"Queries Eureka by service name\"]\n    E --> F[\"Load Balancer picks an instance\"]\n    F --> G[\"order-service calls payment-service\"]\n    H[\"Config changes in Git\"] --> I[\"Spring Cloud Bus broadcasts refresh\"]\n    I --> A",
+      "caption": "A service registers and sends heartbeats to Eureka; callers discover it by name, and config changes broadcast to every instance via Spring Cloud Bus."
+    },
+    "simpleExample": {
+      "scenario": "Registering `payment-service` with Eureka so `order-service` can discover it by name instead of a hardcoded URL.",
+      "code": "@SpringBootApplication\n@EnableDiscoveryClient\nclass PaymentServiceApplication {\n    public static void main(String[] args) {\n        SpringApplication.run(PaymentServiceApplication.class, args);\n    }\n}\n\n// application.yml\n// spring.application.name: payment-service\n// eureka.client.service-url.defaultZone: http://localhost:8761/eureka",
+      "input": "The service starts up with `spring.application.name=payment-service` configured.",
+      "execution": "`@EnableDiscoveryClient` registers the instance with the Eureka server on startup and sends a heartbeat on a fixed interval to prove it's alive.",
+      "output": "`payment-service` appears in the Eureka dashboard as a healthy, discoverable instance under that exact name.",
+      "explanation": "Any other service can now call `payment-service` by name via a load-balanced client instead of a fixed IP that would break on redeploy."
+    },
+    "realWorldExample": {
+      "scenario": "`order-service` calling `payment-service` through service discovery, with centralized config and distributed tracing wired in.",
+      "code": "@FeignClient(name = \"payment-service\") // resolved via Eureka, load-balanced automatically\ninterface PaymentClient {\n    @PostMapping(\"/payments\")\n    PaymentResponse charge(@RequestBody PaymentRequest request);\n}\n\n// bootstrap.yml points at Config Server:\n// spring.config.import: optional:configserver:http://config-server:8888\n\n@RefreshScope\n@RestController\nclass PaymentLimitController {\n    @Value(\"${payment.max-amount}\")\n    private BigDecimal maxAmount; // refreshed via /actuator/refresh without a restart\n}",
+      "input": "A `PaymentRequest` from `order-service`, plus a config change to `payment.max-amount` pushed to the Config Server's Git backend.",
+      "execution": "`PaymentClient` resolves `payment-service`'s address via Eureka and calls it; the request is automatically tagged with a `traceId`/`spanId` propagated via HTTP headers and visible in Zipkin. Separately, Spring Cloud Bus broadcasts the `payment.max-amount` change to every `@RefreshScope` bean across all instances.",
+      "output": "The call to `payment-service` succeeds with full trace visibility end-to-end, and the new `maxAmount` takes effect on every instance without a redeploy.",
+      "explanation": "This combines all three pillars: discovery finds the instance, Config Server plus Bus propagates config changes live, and tracing makes the cross-service call visible for debugging."
+    },
+    "comparisonTables": [
       {
-        "heading": "Service Discovery",
-        "points": [
-          "**Eureka Server** — Netflix OSS service registry. Services register on startup and send heartbeats. Clients discover services by name.",
-          "**Spring Cloud LoadBalancer** — Client-side load balancing. Replaces Netflix Ribbon. Round-robin or random instance selection from registry.",
-          "**Consul** — HashiCorp service discovery + config store + health checking. Alternative to Eureka with built-in KV store and multi-datacenter support.",
-          "**Service Registration** — `@EnableDiscoveryClient` on service. Auto-registers with configured registry. Use `spring.application.name` for service identity.",
-          "**Health Checks** — Registry removes unhealthy instances. Eureka uses heartbeats; Consul uses HTTP/TCP/script checks. Actuator `/health` endpoint."
-        ]
-      },
-      {
-        "heading": "Configuration Management",
-        "points": [
-          "**Spring Cloud Config Server** — Centralized external configuration. Backed by Git, file system, or Vault. Serves config via REST to client services.",
-          "**@RefreshScope** — Refresh bean properties without restart. Trigger via `/actuator/refresh` or Spring Cloud Bus for broadcast refresh across instances.",
-          "**HashiCorp Vault** — Secure secrets management. Dynamic secrets, encryption as a service, lease-based credentials. Spring Vault integration.",
-          "**Config Profiles** — `application-{profile}.yml` per environment. Activate with `spring.profiles.active`. Config Server serves profile-specific overrides.",
-          "**Spring Cloud Bus** — Broadcast config changes to all instances via message broker (RabbitMQ/Kafka). Single refresh propagates everywhere."
-        ]
-      },
-      {
-        "heading": "Distributed Tracing",
-        "points": [
-          "**Micrometer Tracing** — Vendor-neutral observability facade (replaces Spring Cloud Sleuth). Generates trace and span IDs for request correlation.",
-          "**Zipkin** — Distributed tracing system. Collects timing data, visualizes call chains, identifies latency bottlenecks across services.",
-          "**OpenTelemetry** — CNCF standard for traces, metrics, and logs. Auto-instrumentation agent. Export to Jaeger, Zipkin, or any OTLP backend.",
-          "**Log Correlation** — Include traceId and spanId in log patterns via MDC. `%X{traceId}` in Logback. Enables searching logs across services by trace.",
-          "**Span Propagation** — Trace context propagated via HTTP headers (W3C Trace Context or B3). Automatic with Spring instrumentation libraries."
+        "title": "Eureka vs Consul",
+        "columns": ["Aspect", "Eureka", "Consul"],
+        "rows": [
+          ["Origin", "Netflix OSS", "HashiCorp"],
+          ["Health checking", "Client heartbeats", "HTTP/TCP/script checks"],
+          ["Extra features", "Registry only", "Built-in KV store + multi-datacenter support"],
+          ["Config integration", "Pairs with Config Server separately", "Can serve as config store itself"],
+          ["Typical fit", "Spring-centric Netflix OSS stack", "Polyglot environments needing more than discovery"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Always set `spring.application.name` explicitly — it's the identity every other service discovers you by.",
+      "Use Spring Cloud Bus with Config Server so a single config change propagates to every instance automatically.",
+      "Propagate `traceId`/`spanId` into logs via MDC so cross-service issues can be traced from log aggregation tools alone."
+    ],
+    "commonMistakes": [
+      "Hardcoding a service's address instead of relying on discovery, breaking the moment that instance is redeployed.",
+      "Storing secrets directly in Config Server-backed Git files instead of delegating to Vault.",
+      "Forgetting `@RefreshScope`, so config changes never actually apply until the service restarts."
+    ],
+    "interviewTips": [
+      "Know that Spring Cloud LoadBalancer replaced Netflix Ribbon, and Micrometer Tracing replaced Spring Cloud Sleuth — naming the old tool shows depth.",
+      "Be ready to describe the full loop: register → heartbeat → discover → load-balance → call.",
+      "Mention Spring Cloud Bus by name if asked how a config change reaches every running instance at once."
+    ],
+    "faq": [
+      {
+        "q": "Do I need Eureka if I'm running on Kubernetes?",
+        "a": "Not necessarily — Kubernetes' own Service and DNS-based discovery can replace Eureka, but Eureka is still common in Spring-centric or non-Kubernetes deployments."
+      },
+      {
+        "q": "What's the difference between Config Server profiles and Kubernetes ConfigMaps?",
+        "a": "They solve the same problem at different layers — Config Server externalizes Spring configuration via Git, while ConfigMaps externalize configuration at the container/orchestration layer; some teams use only one, others layer both."
+      },
+      {
+        "q": "Why do I need distributed tracing if I already have logs from every service?",
+        "a": "Individual service logs don't show you the full path of a single request across five services — a trace ID ties all of those separate log lines together into one coherent timeline."
+      }
+    ],
+    "summary": [
+      "Service Discovery (Eureka, Consul) lets services find each other by name instead of hardcoded addresses.",
+      "Spring Cloud Config Server plus Spring Cloud Bus centralizes configuration and propagates changes live across instances.",
+      "Distributed tracing (Micrometer Tracing, Zipkin, OpenTelemetry) makes a single request traceable across every service it touches."
+    ],
+    "quickRevision": [
+      "Eureka: services register + heartbeat; clients discover by name.",
+      "Spring Cloud LoadBalancer replaced Netflix Ribbon for client-side load balancing.",
+      "Consul = discovery + config + health checks + multi-datacenter, alternative to Eureka.",
+      "`@EnableDiscoveryClient` + `spring.application.name` = service identity.",
+      "Config Server centralizes config, backed by Git/file system/Vault.",
+      "`@RefreshScope` + Spring Cloud Bus = live config refresh across all instances, no restart.",
+      "Micrometer Tracing replaced Spring Cloud Sleuth for trace/span generation.",
+      "Trace context propagates via HTTP headers (W3C Trace Context or B3)."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What problem does service discovery solve?",
+        "What is Spring Cloud Config Server used for?",
+        "What is distributed tracing, and why is it needed in microservices?"
+      ],
+      "intermediate": [
+        "How does a service register itself with Eureka, and how does the registry know it's still alive?",
+        "How does `@RefreshScope` combined with Spring Cloud Bus refresh config across many instances at once?",
+        "What's the difference between Eureka and Consul?"
+      ],
+      "advanced": [
+        "How would you propagate a trace ID across a synchronous call and an asynchronous Kafka event in the same request flow?",
+        "What are the trade-offs of using Kubernetes-native discovery versus Eureka?",
+        "How would you secure secrets served through Config Server using Vault instead of storing them in Git?"
+      ]
+    }
   },
   {
     "id": "deployment",
     "title": "Deployment & Monitoring",
-    "topics": [
+    "overview": [
+      "Deploying microservices means packaging each service into a container and running it on an orchestrator like Kubernetes.",
+      "Observability — logs, metrics, health checks, and alerts — is what makes many small services operable in production.",
+      "This section covers containerization, Kubernetes, and the tools used to see what's actually happening across a fleet of services."
+    ],
+    "why": [
+      "Dozens of independently deployed services need a consistent, repeatable way to be packaged and run.",
+      "Manually managing scaling, restarts, and rollouts across many services doesn't scale with team size.",
+      "With many moving parts, you can't reason about system health by reading a handful of application logs anymore."
+    ],
+    "problem": [
+      "Running a JVM app used to mean installing a specific JDK, dependencies, and an app server directly on a machine.",
+      "\"Works on my machine\" failures were common when environments drifted between dev, staging, and prod.",
+      "Manually scaling instances up and down in response to load doesn't scale to dozens of independently deployed services.",
+      "Without centralized logs and metrics, diagnosing an issue means SSHing into individual machines one at a time."
+    ],
+    "internalWorking": {
+      "intro": ["Deployment for microservices spans three layers: containers, orchestration, and observability."],
+      "topics": [
+        {
+          "heading": "Containerization",
+          "points": [
+            "**Dockerfile** — `FROM eclipse-temurin:21-jre-alpine` for a minimal image; copy the JAR, expose the port, set the entrypoint, and use `.dockerignore` to exclude files.",
+            "**Multi-Stage Build** — a build stage compiles with Maven/Gradle, then a runtime stage copies only the JAR, significantly reducing the final image size.",
+            "**Docker Compose** — defines multi-container setups with service dependencies, shared networks, and volume mounts; ideal for local development with databases and queues.",
+            "**Jib** — builds optimized Docker images without a Dockerfile, as a Maven/Gradle plugin by Google, with layer caching for fast rebuilds.",
+            "**Health & Graceful Shutdown** — `HEALTHCHECK` in the Dockerfile, plus `server.shutdown=graceful` and `spring.lifecycle.timeout-per-shutdown-phase` in Spring Boot."
+          ]
+        },
+        {
+          "heading": "Kubernetes",
+          "points": [
+            "**Deployment** — manages ReplicaSets and rolling updates; you define the desired state (replicas, image, resources) and K8s ensures the actual state matches.",
+            "**Service** — a stable network endpoint for Pods: ClusterIP (internal), NodePort (external), LoadBalancer (cloud), with DNS-based service discovery.",
+            "**ConfigMap & Secret** — externalize configuration, mounted as environment variables or volumes; Secrets are base64-encoded (use Sealed Secrets for actual encryption).",
+            "**HPA (Horizontal Pod Autoscaler)** — auto-scales pods based on CPU, memory, or custom metrics via `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage`.",
+            "**Helm** — the Kubernetes package manager; charts define templated manifests with values files per environment (`helm install`, `helm upgrade --set`)."
+          ]
+        },
+        {
+          "heading": "Observability",
+          "points": [
+            "**Logging (ELK Stack)** — Elasticsearch stores logs, Logstash/Fluentd collects and transforms them, Kibana visualizes them; structured JSON logging is recommended.",
+            "**Metrics (Prometheus + Grafana)** — Prometheus scrapes `/actuator/prometheus` metrics, Grafana dashboards visualize them, and alert rules catch anomalies.",
+            "**Health Checks** — Actuator `/health` for liveness and `/health/readiness` for readiness probes, plus custom health indicators for downstream dependencies.",
+            "**Alerting** — Prometheus Alertmanager or Grafana alerts define thresholds for error rate, p99 latency, and pod restarts, routed to Slack, PagerDuty, or email.",
+            "**SLOs and SLIs** — define Service Level Objectives (e.g. 99.9% availability, p99 < 200ms), tracked with Service Level Indicators; error budgets guide risk decisions."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    A[\"CI builds Order Service JAR\"] --> B[\"Docker multi-stage build\"]\n    B --> C[\"Push image to registry\"]\n    C --> D[\"Kubernetes rolling deployment\"]\n    D --> E[\"Pods pass liveness/readiness probes\"]\n    E --> F[\"Prometheus scrapes metrics\"]\n    F --> G[\"Grafana dashboards + Alertmanager\"]",
+      "caption": "From CI build to a running, monitored Kubernetes deployment: build, containerize, push, roll out, then observe."
+    },
+    "simpleExample": {
+      "scenario": "A minimal multi-stage Dockerfile for an `order-service` Spring Boot JAR.",
+      "code": "# Build stage\nFROM eclipse-temurin:21-jdk-alpine AS build\nWORKDIR /app\nCOPY . .\nRUN ./mvnw package -DskipTests\n\n# Runtime stage\nFROM eclipse-temurin:21-jre-alpine\nWORKDIR /app\nCOPY --from=build /app/target/order-service.jar app.jar\nEXPOSE 8080\nHEALTHCHECK CMD wget -q --spider http://localhost:8080/actuator/health || exit 1\nENTRYPOINT [\"java\", \"-jar\", \"app.jar\"]",
+      "input": "The `order-service` source code and a `pom.xml` built by CI.",
+      "execution": "The `build` stage compiles the JAR with Maven inside a JDK image; the final runtime stage starts from a lean JRE image and copies in only the compiled JAR, discarding the build tools.",
+      "output": "A small runtime image containing just a JRE and the application JAR, with a `HEALTHCHECK` polling `/actuator/health`.",
+      "explanation": "Multi-stage builds keep the shipped image lean by never including Maven, source code, or build caches in the final layer."
+    },
+    "realWorldExample": {
+      "scenario": "Deploying `order-service` to Kubernetes with autoscaling, health probes, and Prometheus metrics wired in.",
+      "code": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: order-service\nspec:\n  replicas: 3\n  template:\n    spec:\n      containers:\n        - name: order-service\n          image: registry/order-service:1.4.0\n          ports: [{ containerPort: 8080 }]\n          livenessProbe:\n            httpGet: { path: /actuator/health/liveness, port: 8080 }\n          readinessProbe:\n            httpGet: { path: /actuator/health/readiness, port: 8080 }\n---\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: order-service-hpa\nspec:\n  scaleTargetRef: { kind: Deployment, name: order-service }\n  minReplicas: 3\n  maxReplicas: 10\n  metrics:\n    - type: Resource\n      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }",
+      "input": "A new `order-service:1.4.0` image pushed to the registry after a merchant checkout feature ships.",
+      "execution": "Kubernetes performs a rolling update to the `Deployment`, routing traffic only to pods that pass the `readiness` probe; the `HorizontalPodAutoscaler` watches CPU utilization and scales between 3 and 10 replicas as `Order` traffic rises and falls; Prometheus scrapes each pod's `/actuator/prometheus` endpoint the whole time.",
+      "output": "A zero-downtime rollout to the new version, automatic scale-out during a flash sale, and Grafana dashboards showing p99 latency and error rate throughout.",
+      "explanation": "Liveness restarts a stuck pod, readiness stops traffic from hitting a pod before it's ready, and the HPA plus Prometheus/Grafana together keep the service both elastic and observable in production."
+    },
+    "comparisonTables": [
       {
-        "heading": "Containerization",
-        "points": [
-          "**Dockerfile** — `FROM eclipse-temurin:21-jre-alpine` for minimal image. Copy JAR, expose port, set entrypoint. Use `.dockerignore` to exclude files.",
-          "**Multi-Stage Build** — Build stage compiles with Maven/Gradle; runtime stage copies only the JAR. Reduces final image size significantly.",
-          "**Docker Compose** — Define multi-container setups. Service dependencies, shared networks, volume mounts. Ideal for local development with databases and queues.",
-          "**Jib** — Build optimized Docker images without a Dockerfile. Maven/Gradle plugin by Google. Layer caching for fast rebuilds.",
-          "**Health & Graceful Shutdown** — `HEALTHCHECK` in Dockerfile. Configure `server.shutdown=graceful` and `spring.lifecycle.timeout-per-shutdown-phase` in Spring Boot."
+        "title": "Liveness vs Readiness Probes",
+        "columns": ["Aspect", "Liveness Probe", "Readiness Probe"],
+        "rows": [
+          ["Question answered", "Is the app still alive?", "Is the app ready to receive traffic?"],
+          ["Failure action", "Kubernetes restarts the pod", "Kubernetes stops routing traffic to it"],
+          ["Typical use", "Detect a deadlocked/stuck process", "Detect startup warm-up or downstream dependency issues"],
+          ["Endpoint", "`/actuator/health/liveness`", "`/actuator/health/readiness`"]
         ]
       },
       {
-        "heading": "Kubernetes",
-        "points": [
-          "**Deployment** — Manages ReplicaSets and rolling updates. Define desired state (replicas, image, resources). K8s ensures actual state matches.",
-          "**Service** — Stable network endpoint for Pods. ClusterIP (internal), NodePort (external), LoadBalancer (cloud). DNS-based service discovery.",
-          "**ConfigMap & Secret** — Externalize configuration. Mount as environment variables or volumes. Secrets are base64-encoded (use Sealed Secrets for encryption).",
-          "**HPA (Horizontal Pod Autoscaler)** — Auto-scale pods based on CPU, memory, or custom metrics. `minReplicas`, `maxReplicas`, `targetCPUUtilizationPercentage`.",
-          "**Helm** — Kubernetes package manager. Charts define templated manifests. Values files per environment. `helm install`, `helm upgrade --set`."
-        ]
-      },
-      {
-        "heading": "Observability",
-        "points": [
-          "**Logging (ELK Stack)** — Elasticsearch stores logs, Logstash/Fluentd collects and transforms, Kibana visualizes. Structured JSON logging recommended.",
-          "**Metrics (Prometheus + Grafana)** — Prometheus scrapes `/actuator/prometheus` metrics. Grafana dashboards for visualization. Alert rules for anomalies.",
-          "**Health Checks** — Actuator `/health` for liveness, `/health/readiness` for readiness probes. Custom health indicators for downstream dependencies.",
-          "**Alerting** — Prometheus Alertmanager or Grafana alerts. Define thresholds for error rate, latency p99, pod restarts. Route to Slack, PagerDuty, email.",
-          "**SLOs and SLIs** — Define Service Level Objectives (99.9% availability, p99 < 200ms). Track with Service Level Indicators. Error budgets guide risk decisions."
+        "title": "ELK vs Prometheus + Grafana",
+        "columns": ["Aspect", "ELK Stack", "Prometheus + Grafana"],
+        "rows": [
+          ["Data type", "Logs (unstructured/structured text)", "Metrics (numeric time-series)"],
+          ["Primary use", "Search and inspect individual events", "Track trends, rates, and thresholds"],
+          ["Query style", "Full-text/structured search", "Time-series queries (PromQL)"],
+          ["Alerting", "Possible via added tooling", "Native via Alertmanager/Grafana alerts"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Always use multi-stage Docker builds to keep runtime images small and free of build tooling.",
+      "Configure both liveness and readiness probes — they answer different questions and both matter.",
+      "Define SLOs and error budgets up front so alert thresholds are based on agreed targets, not guesses."
+    ],
+    "commonMistakes": [
+      "Using only a liveness probe and skipping readiness, causing traffic to hit pods that aren't actually ready yet.",
+      "Storing real secrets in a Kubernetes `Secret` without additional encryption, forgetting that base64 is not encryption.",
+      "Setting HPA `minReplicas`/`maxReplicas` without load testing, leading to either over-provisioning or scaling too late."
+    ],
+    "interviewTips": [
+      "Be precise about the liveness vs readiness distinction — it's a very common follow-up question.",
+      "Know that Kubernetes Secrets are base64-encoded, not encrypted, and mention Sealed Secrets as the fix.",
+      "If asked about observability, structure your answer around logs, metrics, and traces as three distinct pillars."
+    ],
+    "faq": [
+      {
+        "q": "Why use Jib instead of a Dockerfile?",
+        "a": "Jib builds optimized, reproducible images directly from a Maven/Gradle build with layer caching, without needing a Docker daemon or hand-written Dockerfile — useful for faster, more consistent CI builds."
+      },
+      {
+        "q": "What happens if a pod fails its liveness probe?",
+        "a": "Kubernetes considers the container unhealthy and restarts it, on the assumption that the process is stuck or deadlocked and a restart is the fastest recovery."
+      },
+      {
+        "q": "Why do I need both Prometheus/Grafana and an ELK stack?",
+        "a": "They cover different observability needs — metrics (Prometheus/Grafana) show trends and trigger threshold-based alerts, while logs (ELK) let you inspect the specific events and context around an incident."
+      }
+    ],
+    "summary": [
+      "Containerization (Docker, multi-stage builds, Jib) packages each service into a small, consistent, portable image.",
+      "Kubernetes manages deployment, scaling (HPA), configuration (ConfigMap/Secret), and networking (Service) for those containers.",
+      "Observability — ELK for logs, Prometheus/Grafana for metrics, health checks, and SLOs — makes a fleet of services operable in production."
+    ],
+    "quickRevision": [
+      "Multi-stage Docker builds keep runtime images small by discarding build tools.",
+      "Jib builds images without a Dockerfile, with fast layer caching.",
+      "K8s Deployment manages ReplicaSets and rolling updates.",
+      "K8s Service types: ClusterIP (internal), NodePort, LoadBalancer (external).",
+      "HPA auto-scales pods on CPU/memory/custom metrics.",
+      "Helm = Kubernetes package manager with templated charts.",
+      "Liveness probe restarts a stuck pod; readiness probe controls traffic routing.",
+      "ELK = logs; Prometheus + Grafana = metrics; both feed alerting.",
+      "SLOs/SLIs and error budgets guide how much risk you can take before it matters."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is a multi-stage Docker build, and why use one?",
+        "What's the difference between a liveness and a readiness probe?",
+        "What does an HPA do?"
+      ],
+      "intermediate": [
+        "How does a Kubernetes Deployment perform a rolling update?",
+        "What's the difference between a ConfigMap and a Secret, and why aren't Secrets fully secure by default?",
+        "How do Prometheus and Grafana work together for monitoring?"
+      ],
+      "advanced": [
+        "How would you design health checks so a slow downstream dependency doesn't kill an otherwise-healthy pod?",
+        "How would you set HPA thresholds and probe timings for a service with a slow JVM warm-up?",
+        "How would you define and enforce an SLO with an error budget for a production microservice?"
+      ]
+    }
   }
 ]

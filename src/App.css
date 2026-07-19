@@ -702,6 +702,75 @@ body,
   border-bottom: 1px solid #eee;
 }
 
+.pros-heading {
+  color: #0f6e56;
+}
+
+.cons-heading {
+  color: #a32d2d;
+}
+
+/* Step-by-step flow — numbered variant of .rich-list */
+.rich-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  counter-reset: step-counter;
+}
+
+.rich-steps li {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: #333;
+  padding-left: 34px;
+  position: relative;
+  counter-increment: step-counter;
+  min-height: 22px;
+}
+
+.rich-steps li::before {
+  content: counter(step-counter);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rich-steps li code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  background: #f0f0f5;
+  color: #b3261e;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.rich-steps li strong {
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+/* Related Topics links */
+.related-topics-list a {
+  color: #1a1a2e;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.related-topics-list a:hover {
+  text-decoration: underline;
+}
+
 /* Callouts */
 .callout {
   display: flex;

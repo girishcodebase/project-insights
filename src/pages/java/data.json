@@ -2087,42 +2087,163 @@
   {
     "id": "future-completablefuture",
     "title": "Future & CompletableFuture",
-    "topics": [
+    "overview": [
+      "`Future` represents a result that will be available eventually, from a task submitted to an `ExecutorService`.",
+      "`CompletableFuture` extends that idea so results can be **chained, combined, and completed** without blocking.",
+      "Together they're Java's core toolkit for writing non-blocking, asynchronous code."
+    ],
+    "why": [
+      "Blocking a thread just to wait for a result wastes it — the thread does nothing useful while it waits.",
+      "Real workflows often need to run several async steps in sequence or in parallel, not just one.",
+      "A composable async API lets each step trigger the next without ever calling a blocking `get()`."
+    ],
+    "problem": [
+      "Plain `Future` only supports `get()`, which blocks the calling thread until the result arrives.",
+      "There's no way to say \"when task A finishes, start task B\" — chaining requires manually blocking and checking.",
+      "Combining two independent `Future`s requires blocking on both, one after another, instead of in parallel."
+    ],
+    "internalWorking": {
+      "intro": ["Four pieces: the basic Future, CompletableFuture's core, chaining/combining, and failure handling."],
+      "topics": [
+        {
+          "heading": "Future",
+          "points": [
+            "Returned by `executorService.submit(Callable)`. Represents a result available *eventually*.",
+            "**`get()`** — blocks until ready, or throws if the task failed. `get(timeout, unit)` avoids blocking forever.",
+            "**`isDone()` / `isCancelled()` / `cancel(mayInterrupt)`** — check or attempt to stop the task.",
+            "**Limitation** — no way to chain or combine multiple `Future`s without manually blocking on `get()`."
+          ]
+        },
+        {
+          "heading": "CompletableFuture Basics",
+          "points": [
+            "Solves `Future`'s chaining problem — can be composed, combined, and completed without blocking.",
+            "**`supplyAsync(supplier)`** — runs a task asynchronously and returns its result.",
+            "**`runAsync(runnable)`** — same, but no return value.",
+            "Can also be completed manually: `future.complete(value)`."
+          ]
+        },
+        {
+          "heading": "Chaining & Combining",
+          "points": [
+            "**`thenApply(fn)`** — transform the result (like `map`) once it's available.",
+            "**`thenAccept(consumer)`** — consume the result, return nothing.",
+            "**`thenCompose(fn)`** — chain to *another* `CompletableFuture` and flatten the result (like `flatMap`).",
+            "**`thenCombine(other, fn)`** — combine the results of two independent `CompletableFuture`s.",
+            "**`allOf(...)` / `anyOf(...)`** — wait for all of a group of futures, or just the first to complete."
+          ]
+        },
+        {
+          "heading": "Exception Handling",
+          "points": [
+            "**`exceptionally(fn)`** — supply a fallback value if the pipeline threw; only runs on failure.",
+            "**`handle(fn)`** — runs regardless of outcome, receiving both result and exception (one is null).",
+            "**`whenComplete(consumer)`** — like `handle`, but only observes the outcome without transforming it."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    A[\"supplyAsync: fetch order\"] --> B[\"thenApply: calculate total\"]\n    B --> C[\"thenCompose: charge payment gateway\"]\n    C --> D[\"thenAccept: send confirmation email\"]\n    C -->|exception| E[\"exceptionally: fallback/refund\"]",
+      "caption": "A chained async pipeline — each stage hands off to the next without ever blocking."
+    },
+    "simpleExample": {
+      "scenario": "Chaining a single async computation without blocking in between.",
+      "code": "CompletableFuture<Integer> future = CompletableFuture\n    .supplyAsync(() -> fetchCartTotal(cartId))\n    .thenApply(total -> total - discount);\n\nInteger finalTotal = future.get();",
+      "input": "A cart ID whose total needs a discount subtracted, without blocking while the total is fetched.",
+      "execution": "`supplyAsync()` runs `fetchCartTotal(cartId)` on a worker thread from the common pool; once it completes, `thenApply()` runs automatically on the result to subtract the discount — no manual blocking in between.",
+      "output": "`finalTotal` is the discounted cart total, retrieved only when `get()` is finally called.",
+      "explanation": "The calling thread is free to do other work between submitting the chain and calling `get()` — the two stages run asynchronously and automatically hand off to each other."
+    },
+    "realWorldExample": {
+      "scenario": "Fetching a customer's profile and an order's pricing in parallel, then combining them into an invoice, with a fallback if pricing fails.",
+      "code": "CompletableFuture<Customer> customerFuture =\n    CompletableFuture.supplyAsync(() -> customerService.fetch(customerId));\n\nCompletableFuture<Pricing> pricingFuture =\n    CompletableFuture.supplyAsync(() -> pricingService.calculate(orderId))\n        .exceptionally(ex -> Pricing.fallback());\n\nCompletableFuture<Invoice> invoiceFuture =\n    customerFuture.thenCombine(pricingFuture,\n        (customer, pricing) -> new Invoice(customer, pricing));\n\nInvoice invoice = invoiceFuture.get();",
+      "input": "A customerId and orderId, needing two independent remote calls before an invoice can be built.",
+      "execution": "Both `supplyAsync()` calls start immediately and run concurrently on separate threads. `thenCombine()` waits for both to complete, then merges their results into an `Invoice`. If `pricingService.calculate()` throws, `exceptionally()` supplies a fallback `Pricing` instead of failing the whole chain.",
+      "output": "`invoice` contains both the customer and pricing data, built without either call blocking the other.",
+      "explanation": "This is the pattern for any \"fetch two things in parallel then merge\" problem — sequential blocking calls would take the sum of both durations; this takes roughly the max of the two."
+    },
+    "comparisonTables": [
       {
-        "heading": "Future",
-        "points": [
-          "Returned by `executorService.submit(Callable)`. Represents a result that will be available *eventually*.",
-          "**`get()`** — blocks until the result is ready (or throws if the task failed). `get(timeout, unit)` avoids blocking forever.",
-          "**`isDone()` / `isCancelled()` / `cancel(mayInterrupt)`** — check or attempt to stop the task.",
-          "**Limitation** — no way to chain (\"when this finishes, then do that\") or combine multiple `Future`s without manually blocking on `get()`, which defeats the purpose of async code."
+        "title": "Future vs CompletableFuture",
+        "columns": ["Aspect", "Future", "CompletableFuture"],
+        "rows": [
+          ["Reading the result", "Only `get()`, blocks", "`thenApply`/`thenAccept`, no blocking needed"],
+          ["Chaining stages", "Not supported", "`thenApply`, `thenCompose`, `thenCombine`"],
+          ["Combining multiple futures", "Manual, blocks on each", "`allOf()`, `anyOf()`, `thenCombine()`"],
+          ["Manual completion", "Not supported", "`complete(value)`"],
+          ["Exception handling", "Thrown from `get()`", "`exceptionally()`, `handle()`, `whenComplete()`"]
         ]
       },
       {
-        "heading": "CompletableFuture Basics",
-        "points": [
-          "Solves `Future`'s chaining problem — a `CompletableFuture<T>` can be composed, combined, and completed without blocking.",
-          "**`supplyAsync(supplier)`** — runs a task asynchronously and returns its result. **`runAsync(runnable)`** — same, but no return value.",
-          "Can also be completed manually: `future.complete(value)`."
-        ]
-      },
-      {
-        "heading": "Chaining & Combining",
-        "points": [
-          "**`thenApply(fn)`** — transform the result (like `map`) once it's available.",
-          "**`thenAccept(consumer)`** — consume the result, return nothing.",
-          "**`thenCompose(fn)`** — chain to *another* `CompletableFuture` and flatten the result (like `flatMap` — use this when the next step is itself async).",
-          "**`thenCombine(other, fn)`** — combine the results of **two independent** `CompletableFuture`s once both are done.",
-          "**`allOf(...)` / `anyOf(...)`** — wait for all of a group of futures, or just the first one to complete."
-        ]
-      },
-      {
-        "heading": "Exception Handling",
-        "points": [
-          "**`exceptionally(fn)`** — supply a fallback value if the pipeline threw an exception; only runs on failure.",
-          "**`handle(fn)`** — runs regardless of success or failure, receiving both the result and the exception (one will be null), and can transform the outcome.",
-          "**`whenComplete(consumer)`** — like `handle`, but only observes the outcome (result + exception) without transforming it — useful for logging."
+        "title": "thenApply() vs thenCompose()",
+        "columns": ["Aspect", "thenApply()", "thenCompose()"],
+        "rows": [
+          ["Use when the next step returns", "A plain value", "Another CompletableFuture"],
+          ["Analogous to", "map()", "flatMap()"],
+          ["Result if misused", "Nested `CompletableFuture<CompletableFuture<T>>`", "Flattened `CompletableFuture<T>`"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Prefer `thenCompose()` over `thenApply()` whenever the next step itself returns a `CompletableFuture`.",
+      "Always attach `exceptionally()` or `handle()` to a chain that can fail.",
+      "Use `allOf()` to wait for a batch of independent futures instead of calling `get()` on each in a loop."
+    ],
+    "commonMistakes": [
+      "Calling `get()` immediately after starting an async task, defeating the purpose of using it at all.",
+      "Using `thenApply()` when the mapping function itself returns a `CompletableFuture`, producing a nested type.",
+      "Forgetting that exceptions in a chain don't surface until a blocking call like `get()` or `join()`."
+    ],
+    "interviewTips": [
+      "Be ready to explain, with an example, exactly why `thenCompose()` exists instead of always using `thenApply()`.",
+      "Know the difference between `allOf()` (waits for all) and `anyOf()` (returns after the first)."
+    ],
+    "faq": [
+      {
+        "q": "What's the real difference between thenApply() and thenCompose()?",
+        "a": "thenApply() is for a plain transformation (like map) — the function returns a value. thenCompose() is for chaining to another asynchronous step (like flatMap) — the function returns another CompletableFuture, and thenCompose() flattens it instead of nesting it."
+      },
+      {
+        "q": "Does CompletableFuture use the same thread pool as ExecutorService?",
+        "a": "By default, supplyAsync() and thenApply() run on the common ForkJoinPool, not any ExecutorService you may have created. You can pass your own Executor as an extra argument to control exactly which pool runs each stage."
+      },
+      {
+        "q": "What happens if I never call get() or join() on a CompletableFuture?",
+        "a": "The async work still runs and completes in the background, but you'll never observe its result or any exception it threw — which is why exceptionally()/handle() should be attached even if you don't plan to block on the result."
+      }
+    ],
+    "summary": [
+      "Future represents an eventual result but only supports blocking get() — no chaining or combining.",
+      "CompletableFuture adds composability: thenApply/thenAccept/thenCompose transform or chain results, thenCombine/allOf/anyOf combine multiple futures.",
+      "exceptionally(), handle(), and whenComplete() handle failures without needing a try/catch around a blocking get()."
+    ],
+    "quickRevision": [
+      "Future: get() blocks; isDone()/isCancelled()/cancel() manage the task; no chaining support.",
+      "CompletableFuture solves Future's chaining limitation.",
+      "supplyAsync(supplier) returns a value asynchronously; runAsync(runnable) returns nothing.",
+      "thenApply(fn): transform result (map). thenCompose(fn): chain to another CompletableFuture (flatMap).",
+      "thenAccept(consumer): consume result, no return. thenCombine(other, fn): merge two independent futures.",
+      "allOf(...): wait for all. anyOf(...): wait for the first to finish.",
+      "exceptionally(fn): fallback on failure only. handle(fn): runs on success or failure. whenComplete(): observes only.",
+      "Default execution runs on the common ForkJoinPool unless a custom Executor is passed."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What does Future.get() do, and what's its main limitation?",
+        "What is the difference between supplyAsync() and runAsync()?",
+        "Name one method used to attach a callback after a CompletableFuture completes."
+      ],
+      "intermediate": [
+        "What is the difference between thenApply() and thenCompose()?",
+        "How do you combine the results of two independent CompletableFutures?",
+        "What is the difference between exceptionally() and handle()?"
+      ],
+      "advanced": [
+        "What thread pool do CompletableFuture async stages run on by default, and how would you change it?",
+        "Design an async pipeline that fetches two independent resources in parallel, merges them, and falls back gracefully if one fails.",
+        "What happens to an exception in a CompletableFuture chain if get()/join() is never called?"
+      ]
+    }
   }
 ]

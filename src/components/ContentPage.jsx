@@ -139,6 +139,30 @@ function PointList(points) {
   );
 }
 
+function StepList(steps) {
+  if (!steps?.length) return null;
+  return (
+    <ol className="rich-steps">
+      {steps.map((step, i) => (
+        <li key={i}>{renderPoint(step)}</li>
+      ))}
+    </ol>
+  );
+}
+
+function RelatedTopicsList({ items }) {
+  if (!items?.length) return null;
+  return (
+    <ul className="rich-list related-topics-list">
+      {items.map((item, i) => (
+        <li key={i}>
+          <Link to={`/${item.sectionId}/${item.subsectionId}`}>{item.label}</Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function RichTopicPage({ subsection, section }) {
   const rich = subsection;
   return (
@@ -176,6 +200,9 @@ function RichTopicPage({ subsection, section }) {
                 />
               )}
               {PointList(topic.points)}
+              {topic.mermaid && (
+                <MermaidDiagram chart={topic.mermaid} caption={topic.mermaidCaption} />
+              )}
             </div>
           ))}
         </RichSection>
@@ -188,6 +215,10 @@ function RichTopicPage({ subsection, section }) {
             caption={rich.architectureFlow.caption}
           />
         </RichSection>
+      )}
+
+      {rich.stepByStepFlow?.length > 0 && (
+        <RichSection heading="Step-by-Step Flow">{StepList(rich.stepByStepFlow)}</RichSection>
       )}
 
       {rich.simpleExample && (
@@ -207,6 +238,33 @@ function RichTopicPage({ subsection, section }) {
           {rich.comparisonTables.map((table, i) => (
             <ComparisonTable table={table} key={i} />
           ))}
+        </RichSection>
+      )}
+
+      {(rich.advantages?.length > 0 || rich.disadvantages?.length > 0) && (
+        <RichSection heading="Advantages & Disadvantages">
+          {rich.advantages?.length > 0 && (
+            <div className="rich-subtopic">
+              <h3 className="rich-subtopic-heading pros-heading">✅ Advantages</h3>
+              {PointList(rich.advantages)}
+            </div>
+          )}
+          {rich.disadvantages?.length > 0 && (
+            <div className="rich-subtopic">
+              <h3 className="rich-subtopic-heading cons-heading">⚠ Disadvantages</h3>
+              {PointList(rich.disadvantages)}
+            </div>
+          )}
+        </RichSection>
+      )}
+
+      {rich.tradeoffs?.length > 0 && (
+        <RichSection heading="Trade-offs">{PointList(rich.tradeoffs)}</RichSection>
+      )}
+
+      {rich.performanceConsiderations?.length > 0 && (
+        <RichSection heading="Performance Considerations">
+          {PointList(rich.performanceConsiderations)}
         </RichSection>
       )}
 
@@ -261,6 +319,12 @@ function RichTopicPage({ subsection, section }) {
                 </div>
               )
           )}
+        </RichSection>
+      )}
+
+      {rich.relatedTopics?.length > 0 && (
+        <RichSection heading="Related Topics">
+          <RelatedTopicsList items={rich.relatedTopics} />
         </RichSection>
       )}
     </div>

@@ -1,126 +1,784 @@
 [
   {
+    "id": "introduction",
+    "title": "Introduction to System Design",
+    "overview": [
+      "System Design is the practice of turning a business requirement into a working architecture — which services exist, how they talk, and where data lives.",
+      "This course teaches System Design through one running example: a **Payment Aggregator** that lets merchants accept UPI, cards, wallets, and net banking through one integration.",
+      "By the end of this section, you'll think in terms of design goals — Scalability, Availability, Reliability, Performance — instead of memorizing disconnected technologies."
+    ],
+    "why": [
+      "Two engineers can both write correct code and still build systems with wildly different reliability, cost, and scalability — that gap is System Design.",
+      "As a system grows past a single machine and a handful of users, decisions that didn't matter before — how services talk, where state lives — start to matter a lot."
+    ],
+    "problem": [
+      "Without a shared reference system, every new concept needs its own unrelated example, making it hard to see how concepts actually combine.",
+      "Without clear requirements upfront, most designs jump straight to picking technologies before agreeing on what's actually being built.",
+      "Engineers often reach for a specific tool — \"let's add Kafka\" — without first identifying which design goal it actually serves."
+    ],
+    "internalWorking": {
+      "intro": ["Five things to establish before the four design goals: how requirements are scoped, how design is leveled, the process, and the reference architecture."],
+      "topics": [
+        {
+          "heading": "Functional vs Non-Functional Requirements",
+          "points": [
+            "**Functional requirements** — what the system must do. E.g. \"a merchant can initiate a payment,\" \"a customer can request a refund.\"",
+            "**Non-functional requirements** — how well it must do it. E.g. \"99.9% uptime,\" \"payment status within 500ms,\" \"10,000 transactions/second.\"",
+            "Always state assumptions about scale explicitly, as measurable numbers, before designing."
+          ]
+        },
+        {
+          "heading": "High-Level Design vs Low-Level Design",
+          "points": [
+            "**High-Level Design (HLD)** — the big boxes and how they connect: which services exist, how they talk, where data lives. This course focuses here.",
+            "**Low-Level Design (LLD)** — what's inside one box: class design, database schema, exact API contracts, algorithms.",
+            "A real design — and most interviews — starts at HLD, then drops into LLD only for the one or two components that matter most."
+          ]
+        },
+        {
+          "heading": "The System Design Process",
+          "points": [
+            "Clarify functional and non-functional requirements first — most design mistakes come from skipping this.",
+            "Identify the core entities (Merchant, Transaction, Gateway) and how they relate to each other.",
+            "Sketch the high-level components and how they communicate, before going deep on any one of them.",
+            "Discuss trade-offs and how the design would evolve under 10x growth — this is usually where the real conversation happens."
+          ]
+        },
+        {
+          "heading": "The Payment Aggregator Reference Architecture",
+          "points": [
+            "**Client-facing** — Customer, Merchant, API Gateway, Load Balancer.",
+            "**Core payment** — Payment API (accepts requests, checks idempotency), Gateway Router (picks a bank/gateway), Gateway Adapter (translates to that gateway's format).",
+            "**Money movement** — Transaction Service (owns the lifecycle), Refund Service, Settlement Service.",
+            "**Async & resilience** — Notification Service, plus retry/circuit-breaking wrapped around every Gateway Adapter call."
+          ]
+        },
+        {
+          "heading": "How This Relates to Real Production Systems",
+          "points": [
+            "Real payment platforms (Razorpay, Stripe, PayU, JioOnePay) share this same shape — a router deciding between providers, a transaction ledger, async confirmation.",
+            "The four goals covered next — Scalability, Availability, Reliability, Performance — are the same ones any production system, payments or otherwise, is designed around."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Customer\"] --> B[\"Merchant\"]\n    B --> C[\"API Gateway\"]\n    C --> D[\"Load Balancer\"]\n    D --> E[\"Payment API\"]\n    E --> F[\"Gateway Router\"]\n    F --> G[\"Gateway Adapter\"]\n    G --> H[\"Bank / Payment Gateway\"]\n    E --> I[\"Transaction Service\"]\n    I --> J[(\"Database\")]\n    H --> K[\"Async confirmation\"]\n    K --> I\n    I --> L[\"Notification Service\"]\n    I --> M[\"Refund Service\"]\n    M --> G\n    I --> N[\"Settlement Service\"]",
+      "caption": "The reference architecture every page in this course maps its components back to."
+    },
+    "realWorldExample": {
+      "scenario": "A customer pays ₹499 for a `Product` via UPI, and the payment flows through the full reference architecture.",
+      "code": "POST /v1/payments/initiate\nIdempotency-Key: 9f86d081-8842\n\n{\n  \"merchantId\": \"MERCH1024\",\n  \"orderId\": \"ORD98213\",\n  \"amount\": 499.00,\n  \"paymentMode\": \"UPI\",\n  \"vpa\": \"customer@upi\"\n}",
+      "input": "A single payment-initiation request carrying a client-generated idempotency key.",
+      "execution": "The Payment API checks the idempotency key, then asks the Gateway Router to pick a UPI-capable gateway.",
+      "output": "A response with a `transactionId` and status `PENDING`, which later transitions to `SUCCESS` once the bank confirms.",
+      "explanation": "This single request touches nearly every component in the reference architecture — exactly why it's used as the running example for the rest of this course."
+    },
+    "comparisonTables": [
+      {
+        "title": "Functional vs Non-Functional Requirements",
+        "columns": ["Aspect", "Functional Requirements", "Non-Functional Requirements"],
+        "rows": [
+          ["Answers", "What must the system do?", "How well must it do it?"],
+          ["Example", "\"A customer can request a refund\"", "\"A refund completes within 2 seconds\""],
+          ["Drives", "Which components/APIs are needed", "How those components are built — scale, redundancy, latency budget"]
+        ]
+      },
+      {
+        "title": "High-Level Design vs Low-Level Design",
+        "columns": ["Aspect", "High-Level Design", "Low-Level Design"],
+        "rows": [
+          ["Focus", "Services and how they connect", "Classes, schemas, algorithms"],
+          ["Typical artifact", "Architecture diagram", "Class diagram, DB schema, API spec"],
+          ["When it's done", "First, to agree on the shape", "After, for the one or two components that matter most"]
+        ]
+      }
+    ],
+    "advantages": [
+      "One shared reference architecture means every concept has an immediate, concrete home instead of a throwaway example.",
+      "Starting at HLD keeps early design conversations focused on the right questions before committing to implementation detail."
+    ],
+    "tradeoffs": [
+      "Depth on one system trades breadth across many architecture styles — the right call for interview prep, less so for surveying every pattern that exists."
+    ],
+    "bestPractices": [
+      "Always state assumptions about scale and requirements explicitly before designing.",
+      "Start at HLD; only go to LLD for the specific component the conversation actually needs."
+    ],
+    "commonMistakes": [
+      "Jumping straight to naming technologies (\"we'll use Kafka\") before clarifying requirements or identifying which goal it serves.",
+      "Diving into LLD detail before the HLD shape is even agreed on."
+    ],
+    "interviewQuestions": {
+      "beginner": ["What is System Design?", "What's the difference between functional and non-functional requirements?", "What is the difference between High-Level Design and Low-Level Design?"],
+      "intermediate": ["Walk through the steps you'd follow when given an open-ended system design prompt.", "Why should non-functional requirements be measurable numbers rather than adjectives?", "What is a Payment Aggregator, at a high level?"],
+      "advanced": ["How would you decide how much time to spend on HLD versus LLD in a 45-minute interview?", "How would you extend this reference architecture to support a brand-new payment method?", "What assumptions would you state before designing a payment system for 10,000 TPS?"]
+    },
+    "summary": [
+      "System Design turns a requirement into an architecture, starting with functional and non-functional requirements and an HLD-first process.",
+      "This course's reference architecture — Payment API, Gateway Router, Gateway Adapter, Transaction Service, and more — is what every later page maps back to.",
+      "The next section introduces the four design goals that every architectural decision serves."
+    ],
+    "relatedTopics": [
+      { "label": "Core Design Goals — the four goals every technique serves", "sectionId": "systemdesign", "subsectionId": "core-design-goals" },
+      { "label": "JioOnePay Overview — a real production payment aggregator", "sectionId": "jioonepay", "subsectionId": "overview" }
+    ]
+  },
+  {
+    "id": "core-design-goals",
+    "title": "Core Design Goals",
+    "overview": [
+      "Every architectural decision — adding a cache, choosing a database, introducing a queue — exists to serve one or more design goals.",
+      "This course groups everything under exactly four: **Scalability, Availability, Reliability, and Performance**.",
+      "Learning the goal first, then the techniques that serve it, is what turns memorized tools into actual design judgment."
+    ],
+    "why": [
+      "Without a goal in mind, \"let's add Redis\" or \"let's use Kafka\" is just repeating a tool that worked somewhere else, not solving this system's actual problem.",
+      "The same technique can serve different goals in different systems — caching helps Performance, but done carelessly it can also hurt Reliability by serving a stale price."
+    ],
+    "problem": [
+      "Teaching techniques in isolation — here's a Load Balancer, here's Redis — leaves a toolbox but no judgment for which tool a specific problem actually needs.",
+      "The four goals genuinely conflict sometimes; chasing one aggressively can quietly cost another, and that tension is exactly what a design interview probes."
+    ],
+    "internalWorking": {
+      "intro": ["A one-line definition of each goal — a full page follows for each."],
+      "topics": [
+        {
+          "heading": "Scalability",
+          "points": [
+            "Handling **more load** — more users, more requests, more data — without falling over.",
+            "Answers: can this system handle 10x tomorrow's traffic, not just today's?"
+          ]
+        },
+        {
+          "heading": "Availability",
+          "points": [
+            "Staying **up and reachable** right now, minimizing downtime.",
+            "Answers: if a user tries this system at 3am, does it respond?"
+          ]
+        },
+        {
+          "heading": "Reliability",
+          "points": [
+            "Working **correctly** over time, and recovering safely from a failure without corrupting or duplicating data.",
+            "Answers: if something goes wrong mid-request, does the system end up in a correct state?"
+          ]
+        },
+        {
+          "heading": "Performance",
+          "points": [
+            "Responding **fast** (latency) and handling volume **efficiently** (throughput).",
+            "Answers: how quickly does this system respond, and how much load can it absorb per second?"
+          ]
+        },
+        {
+          "heading": "How the Four Goals Interact",
+          "points": [
+            "They aren't independent — e.g. the strict consistency that protects Reliability can cap how far reads scale for Performance.",
+            "A good design states which goal it's optimizing for in a given decision, and what it's consciously trading away."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Flash sale traffic spike\"] --> B[\"Scalability: auto-scale Payment API instances\"]\n    A --> C[\"Availability: Gateway Router fails over if one bank is down\"]\n    A --> D[\"Reliability: idempotency keys prevent double-charges under retry\"]\n    A --> E[\"Performance: cache absorbs repeat idempotency checks\"]",
+      "caption": "One event, four goals engaged simultaneously — this is why they're taught together."
+    },
+    "realWorldExample": {
+      "scenario": "A flash sale drives a 20x spike in payment traffic within minutes.",
+      "code": "Scalability: auto-scaler adds Payment API instances behind the Load Balancer.\nAvailability: Gateway Router detects Bank X's rising failure rate and shifts new traffic to Bank Y.\nReliability: every retried request carries its original idempotency key, so no customer is charged twice.\nPerformance: a cache absorbs the flood of idempotency-key lookups so the database never sees them directly.",
+      "input": "A 20x traffic spike arriving within a few minutes, with no advance warning.",
+      "execution": "All four goals are engaged by the same event, through different components — auto-scaling, failover, idempotency, and caching all activate independently.",
+      "output": "Customers experience normal checkout speed and correctness, even though the underlying system is under 20x its baseline load.",
+      "explanation": "This is why the four goals are taught as one framework — a single real event tests all of them at once, not one at a time."
+    },
+    "comparisonTables": [
+      {
+        "title": "The Four Design Goals at a Glance",
+        "columns": ["Goal", "Core Question", "Payment Aggregator Concern"],
+        "rows": [
+          ["Scalability", "Can it handle more load?", "More Payment API instances under a traffic spike"],
+          ["Availability", "Is it up right now?", "Gateway Router failing over from a down bank"],
+          ["Reliability", "Does it work correctly, even after a failure?", "Idempotency preventing a double-charge on retry"],
+          ["Performance", "How fast, and how much volume?", "A cache absorbing repeat idempotency lookups"]
+        ]
+      }
+    ],
+    "advantages": [
+      "Thinking in goals gives every technique a reason to exist, instead of a list of tools to memorize.",
+      "It transfers directly to interviews, where the real question is almost always \"why did you choose that,\" not \"do you know what Redis is.\""
+    ],
+    "tradeoffs": [
+      "The four goals sometimes conflict; optimizing hard for one (e.g. strict consistency for Reliability) can cost another (e.g. Performance) — a good design names the trade-off instead of ignoring it."
+    ],
+    "bestPractices": [
+      "Before reaching for a technique, name the goal it's meant to serve.",
+      "When two goals conflict, state explicitly which one this system prioritizes and why."
+    ],
+    "commonMistakes": [
+      "Naming a technology as the answer (\"we'll use Kafka\") before naming which goal it serves.",
+      "Treating the four goals as independent, when most real trade-off discussions have two of them in tension."
+    ],
+    "interviewQuestions": {
+      "beginner": ["What are the four core design goals covered in this course?", "What's the difference between Scalability and Performance?", "What's the difference between Availability and Reliability?"],
+      "intermediate": ["Give an example of a technique that can help one goal while hurting another.", "Why is it useful to name a goal before choosing a technique?", "How would you explain the difference between all four goals in under a minute?"],
+      "advanced": ["Design a scenario where optimizing for Reliability directly costs Performance, and explain the trade-off.", "How would you prioritize the four goals differently for a payments system versus a content-streaming system?", "How do the four goals show up simultaneously in a single traffic spike?"]
+    },
+    "summary": [
+      "Every technique in System Design exists to serve one or more of four goals: Scalability, Availability, Reliability, Performance.",
+      "The goals sometimes conflict — a good design names the trade-off rather than ignoring it.",
+      "The next four pages cover each goal in depth, always mapped back to the Payment Aggregator reference architecture."
+    ],
+    "relatedTopics": [
+      { "label": "Scalability", "sectionId": "systemdesign", "subsectionId": "scalability" },
+      { "label": "Availability", "sectionId": "systemdesign", "subsectionId": "availability" },
+      { "label": "Reliability", "sectionId": "systemdesign", "subsectionId": "reliability" },
+      { "label": "Performance", "sectionId": "systemdesign", "subsectionId": "performance" }
+    ]
+  },
+  {
     "id": "scalability",
     "title": "Scalability",
-    "topics": [
+    "overview": [
+      "Scalability is a system's ability to handle **more load** — more users, more requests, more data — without falling over.",
+      "There are two directions to scale: make one machine bigger, or add more machines.",
+      "This is the first of the four Core Design Goals, applied to the Payment Aggregator reference architecture."
+    ],
+    "why": [
+      "Real traffic doesn't stay flat — it grows, and it spikes around sales, launches, and peak hours.",
+      "A system sized for today's traffic will eventually be undersized for tomorrow's.",
+      "Scalability strategies exist so growth is handled by adding capacity, not by rewriting the system."
+    ],
+    "problem": [
+      "A single server has a hard ceiling — a fixed amount of CPU, RAM, and disk.",
+      "Once traffic exceeds that ceiling, requests start queuing, latency climbs, and the server eventually falls over.",
+      "Without a scaling strategy, the only fix is buying a bigger single machine — which still has a ceiling of its own."
+    ],
+    "internalWorking": {
+      "intro": ["Ten techniques, each explained by how it specifically contributes to Scalability — not as a standalone deep dive. Redis, Kafka, and database internals are covered on their own pages; here they matter only as scaling levers."],
+      "topics": [
+        {
+          "heading": "Horizontal Scaling",
+          "points": [
+            "Add more machines/instances behind a Load Balancer instead of growing one machine.",
+            "Stateless services (like the Payment API) scale this way trivially — any instance can serve any request."
+          ]
+        },
+        {
+          "heading": "Vertical Scaling",
+          "points": [
+            "Upgrade CPU, RAM, or disk on the existing machine.",
+            "Simpler than horizontal scaling, but hits a hardware ceiling — common for databases before sharding becomes necessary."
+          ]
+        },
+        {
+          "heading": "Load Balancer",
+          "points": [
+            "Spreads incoming requests across multiple instances using an algorithm like Round Robin or Least Connections.",
+            "Is what actually makes horizontal scaling work — without it, extra instances just sit idle.",
+            "Relies on health checks to know which instances are actually ready for traffic — see the Availability page for that mechanism."
+          ]
+        },
+        {
+          "heading": "Auto Scaling",
+          "points": [
+            "Adds or removes instances automatically based on live metrics — CPU, request count, queue depth.",
+            "Scales out under load and scales in afterward, so capacity (and cost) matches real demand instead of a fixed guess."
+          ]
+        },
+        {
+          "heading": "Stateless Services",
+          "points": [
+            "A stateless Payment API instance holds no session data in memory — any instance can serve any request.",
+            "This is what makes horizontal scaling and load balancing trivial; a stateful service needs sticky sessions or shared storage first."
+          ]
+        },
+        {
+          "heading": "Caching",
+          "points": [
+            "Serves repeat reads from memory instead of the database, cutting the load that ever reaches a scaled service.",
+            "Redis's own mechanics are covered in depth on the Performance page — here it matters only as a *load-reduction* lever."
+          ]
+        },
+        {
+          "heading": "CDN",
+          "points": [
+            "Caches static assets at edge locations close to users, so a scaled origin server never even sees that traffic.",
+            "Common providers: CloudFront, Cloudflare, Akamai."
+          ]
+        },
+        {
+          "heading": "Message Queue (High-Level)",
+          "points": [
+            "Lets a spike in incoming events queue up instead of forcing every consumer to scale in lockstep with the producer.",
+            "Kafka's own partitioning and delivery mechanics are covered in Microservices → Communication Patterns and on the Performance page; here it matters only as a *decoupling* lever for scale."
+          ]
+        },
+        {
+          "heading": "Database Sharding (High-Level)",
+          "points": [
+            "Partitions data across multiple databases by a shard key (merchant ID, region), so no single database instance carries the full load.",
+            "The hard parts — cross-shard queries, rebalancing — are the reason this is usually the last scaling lever reached for, after replicas and caching."
+          ]
+        },
+        {
+          "heading": "Read Replicas (High-Level)",
+          "points": [
+            "Replicates a primary database's writes to read-only copies; reads scale by adding replicas, independent of write capacity.",
+            "Trades strict consistency for read throughput — a replica read might briefly lag behind the latest write."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Client request\"] --> B[\"Load Balancer\"]\n    B --> C[\"Payment API instance 1\"]\n    B --> D[\"Payment API instance 2\"]\n    B --> E[\"Payment API instance 3\"]\n    C --> F[\"Write to Primary DB\"]\n    C --> G[\"Read from Replica\"]\n    F -.->|\"replicates to\"| G",
+      "caption": "A load balancer fans a request out across horizontally-scaled instances; reads go to a replica, writes go to the primary."
+    },
+    "realWorldExample": {
+      "scenario": "A single Payment API instance starts timing out during a flash sale.",
+      "code": "# Before: one instance\npayment-api-1  (CPU pinned at 95%)\n\n# After: horizontal scale-out behind a load balancer\nLoad Balancer\n  -> payment-api-1\n  -> payment-api-2\n  -> payment-api-3",
+      "input": "A traffic spike that exceeds the request-handling capacity of one Payment API instance.",
+      "execution": "Two more identical Payment API instances are started, and the Load Balancer spreads incoming requests across all three using Round Robin.",
+      "output": "Each instance now handles roughly a third of the traffic, and average latency drops back to normal.",
+      "explanation": "This is horizontal scaling — the fix is more machines running the same stateless code, not a bigger machine."
+    },
+    "comparisonTables": [
       {
-        "heading": "Scaling Strategies",
-        "points": [
-          "**Horizontal Scaling** — Add more machines/instances behind a load balancer. Stateless services scale easily; stateful services need shared storage or sticky sessions.",
-          "**Vertical Scaling** — Upgrade CPU, RAM, or disk on existing machine. Simpler but has hardware limits. Good for databases before sharding.",
-          "**Database Sharding** — Partition data across multiple databases by shard key (user ID, region). Reduces per-node load. Challenges: cross-shard queries, rebalancing.",
-          "**Read Replicas** — Replicate database writes to read-only copies. Route read queries to replicas, writes to primary. Eventual consistency trade-off.",
-          "**Auto-Scaling** — Cloud-based dynamic scaling triggered by metrics (CPU, request count, queue depth). Scale-out on demand, scale-in to save cost."
-        ]
-      },
-      {
-        "heading": "Load Balancing",
-        "points": [
-          "**Algorithms** — Round Robin (equal distribution), Weighted Round Robin (capacity-based), Least Connections (route to least busy), IP Hash (sticky sessions).",
-          "**L4 vs L7** — Layer 4 (TCP/UDP level, fast, no content inspection) vs Layer 7 (HTTP level, content-based routing, path/header inspection, SSL termination).",
-          "**Tools** — NGINX (L7, reverse proxy, static serving), HAProxy (L4/L7, high performance), AWS ALB/NLB, Envoy (service mesh, gRPC-native).",
-          "**CDN (Content Delivery Network)** — Cache static assets at edge locations globally. Reduces latency for end users. CloudFront, Cloudflare, Akamai.",
-          "**Health Checks** — Load balancer periodically probes backends. Unhealthy instances removed from rotation. Liveness vs readiness distinction matters."
+        "title": "Horizontal vs Vertical Scaling",
+        "columns": ["Aspect", "Horizontal Scaling", "Vertical Scaling"],
+        "rows": [
+          ["What changes", "More machines/instances added", "Bigger CPU/RAM/disk on one machine"],
+          ["Upper limit", "Very high — add more nodes", "Hard ceiling — biggest available hardware"],
+          ["Downtime to scale", "None — new instances join the pool", "Often requires a restart/migration"],
+          ["Best fit", "Stateless services, web/API tiers", "Databases before sharding, simpler ops"]
         ]
       }
+    ],
+    "advantages": [
+      "No single point of hardware failure — one instance dying doesn't take the whole service down.",
+      "Capacity grows near-linearly by adding more of the same cheap instances instead of exotic hardware."
+    ],
+    "tradeoffs": [
+      "Horizontal scaling trades simplicity for elasticity — near-unlimited capacity, but distributed-system problems a single machine never had.",
+      "Read replicas trade strict consistency for read throughput — a read may briefly lag behind the latest write."
+    ],
+    "bestPractices": [
+      "Design services to be stateless wherever possible — it's what makes horizontal scaling trivial.",
+      "Scale reads with replicas before reaching for sharding — sharding adds real operational complexity.",
+      "Always pair auto-scaling with health checks, so new instances only receive traffic once they're actually ready."
+    ],
+    "commonMistakes": [
+      "Reaching for vertical scaling repeatedly instead of redesigning for horizontal scale before hitting the hardware ceiling.",
+      "Sharding a database before exhausting simpler options like read replicas and caching.",
+      "Forgetting that stateful services need sticky sessions or shared storage before they can scale horizontally."
+    ],
+    "interviewQuestions": {
+      "beginner": ["What's the difference between horizontal and vertical scaling?", "What does a load balancer do?", "What is auto-scaling?"],
+      "intermediate": ["How do read replicas help scalability, and what trade-off do they introduce?", "Why is a message queue considered a scalability technique?", "When would you choose database sharding over adding read replicas?"],
+      "advanced": ["How would you design a sharding strategy that minimizes cross-shard queries?", "How does auto-scaling decide when to scale out vs scale in, and what risks come with scaling too aggressively?", "Walk through what happens end-to-end when one instance behind a load balancer starts failing health checks."]
+    },
+    "summary": [
+      "Scalability means handling more load by scaling vertically (bigger machine) or horizontally (more machines).",
+      "A load balancer, auto-scaling, and stateless services are what make horizontal scaling actually work.",
+      "Caching, CDN, message queues, sharding, and read replicas each reduce load on a scaled service — their deep mechanics live on their own dedicated pages."
+    ],
+    "relatedTopics": [
+      { "label": "Core Design Goals", "sectionId": "systemdesign", "subsectionId": "core-design-goals" },
+      { "label": "Availability — the next goal", "sectionId": "systemdesign", "subsectionId": "availability" },
+      { "label": "Performance — Redis and Kafka mechanics", "sectionId": "systemdesign", "subsectionId": "performance" }
     ]
   },
   {
-    "id": "caching",
-    "title": "Caching Strategies",
-    "topics": [
+    "id": "availability",
+    "title": "Availability",
+    "overview": [
+      "Availability is whether a system is **up and reachable right now** — every request getting some response, even under partial failure.",
+      "This page covers redundancy, failover, and the operational practices — disaster recovery, zero-downtime deployment — that keep the Payment Aggregator reachable.",
+      "It's the second of the four Core Design Goals, applied to the reference architecture from the Introduction."
+    ],
+    "why": [
+      "A payment system that's unreachable for even a few minutes directly costs a merchant real transactions and trust.",
+      "Hardware fails, networks partition, and deployments go wrong — availability is what keeps the system reachable through all of it."
+    ],
+    "problem": [
+      "A single instance, database, or gateway is a single point of failure — if it goes down, the whole system goes down with it.",
+      "A deployment that takes the system offline, even briefly, is itself a self-inflicted availability failure.",
+      "Without a tested disaster-recovery plan, a large-scale outage — a whole region going down — can mean hours of unavailability instead of a controlled failover."
+    ],
+    "internalWorking": {
+      "intro": ["Redundancy is the foundation; the rest are mechanisms and practices built on top of it."],
+      "topics": [
+        {
+          "heading": "Redundancy",
+          "points": [
+            "Running more than one of anything that could fail alone — extra Payment API instances, a replicated database, multiple Gateway Adapters.",
+            "No redundancy means no availability — a single instance dying takes the whole capability down with it."
+          ]
+        },
+        {
+          "heading": "Active-Active vs Active-Passive",
+          "points": [
+            "**Active-active** — all replicas serve traffic simultaneously (e.g. every Payment API instance behind the Load Balancer). Faster recovery, costs more to run continuously.",
+            "**Active-passive** — a standby sits idle until needed (e.g. a database replica promoted only on primary failure). Cheaper to run, slower to recover."
+          ]
+        },
+        {
+          "heading": "Health Checks",
+          "points": [
+            "The Load Balancer periodically probes each backend and pulls unhealthy ones out of rotation — this is what makes redundancy actually protective.",
+            "**Liveness** asks \"is this instance still running?\" (failing it triggers a restart). **Readiness** asks \"can it serve traffic right now?\" (failing it just removes it from rotation)."
+          ]
+        },
+        {
+          "heading": "Replication (High-Level)",
+          "points": [
+            "Copies data from a primary to one or more replicas, so a replica can take over if the primary fails.",
+            "The mechanics of setting up and tuning replication live in the Database section — here, replication matters only as the mechanism that makes failover possible."
+          ]
+        },
+        {
+          "heading": "Failover",
+          "points": [
+            "The automatic act of shifting traffic from a failed component to a healthy standby — a database promoting a replica, or the Gateway Router moving from Bank X to Bank Y.",
+            "Failover isn't instant — detecting the failure and completing the switch both take real time, which is why health check tuning matters."
+          ]
+        },
+        {
+          "heading": "Disaster Recovery",
+          "points": [
+            "A formalized plan for surviving a large-scale failure — an entire region going down, not just one instance.",
+            "Measured by **RPO** (Recovery Point Objective — how much data you can afford to lose) and **RTO** (Recovery Time Objective — how long recovery can take).",
+            "For the Payment Aggregator, this means backups replicated to a second region, and a tested runbook for redirecting traffic there."
+          ]
+        },
+        {
+          "heading": "Zero Downtime Deployment",
+          "points": [
+            "Deploying a new version without ever taking the system offline — a careless deployment is itself an availability risk.",
+            "Rolling, blue-green, and canary strategies achieve this; the mechanics live in DevOps → CI/CD Pipelines, referenced here as an availability practice."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Primary database fails health check\"] --> B[\"Replica is promoted to primary\"]\n    B --> C[\"Payment API reconnects to new primary\"]\n    D[\"Bank X unreachable\"] --> E[\"Gateway Router routes new transactions to Bank Y\"]",
+      "caption": "Two failovers happening independently — one at the data layer, one at the routing layer."
+    },
+    "realWorldExample": {
+      "scenario": "The primary database backing the Transaction Service fails during business hours.",
+      "code": "1. Health checks on the primary start failing.\n2. A replica is automatically promoted to primary.\n3. Payment API instances reconnect to the new primary.\n4. In parallel, in-flight requests to Bank X are unaffected -- Gateway Router failover is a separate mechanism.",
+      "input": "A primary database failure during a period of active transaction processing.",
+      "execution": "The failover mechanism promotes a replica and redirects application traffic, without any human intervention.",
+      "output": "The Transaction Service is back to normal within the failover detection-and-promotion window, with only the in-flight requests during that window affected.",
+      "explanation": "Availability here isn't \"never fails\" — it's \"recovers automatically, fast, without a human being paged at 3am.\""
+    },
+    "comparisonTables": [
       {
-        "heading": "Caching Patterns",
-        "points": [
-          "**Cache-Aside (Lazy Loading)** — App checks cache first; on miss, fetches from DB and populates cache. Most common pattern. App controls cache population.",
-          "**Write-Through** — App writes to cache, cache synchronously writes to DB. Ensures consistency but adds write latency. Good for read-heavy workloads.",
-          "**Write-Behind (Write-Back)** — App writes to cache, cache asynchronously writes to DB in batches. Fast writes but risk of data loss before flush.",
-          "**Read-Through** — Cache itself fetches from DB on miss (cache acts as main data source). Simplifies app code. Cache library handles population logic.",
-          "**Spring Caching** — `@Cacheable` (read-through), `@CachePut` (update cache), `@CacheEvict` (remove). Configure with `CacheManager` (Redis, Caffeine, EhCache)."
-        ]
-      },
-      {
-        "heading": "Cache Invalidation",
-        "points": [
-          "**TTL (Time-to-Live)** — Auto-expire cache entries after a duration. Simple but may serve stale data. Balance between freshness and hit rate.",
-          "**Event-Based Invalidation** — Publish cache invalidation events on data changes. Kafka, Redis Pub/Sub, or Spring Events. More accurate than TTL alone.",
-          "**Versioned Keys** — Include version number in cache key. `user:42:v3`. On update, increment version so old key naturally becomes unused.",
-          "**Cache Stampede Prevention** — Many concurrent requests miss cache simultaneously. Solutions: locking (only one fetches), early expiration, probabilistic refresh.",
-          "**Consistency Challenges** — Distributed caches across nodes may have stale data. Use short TTLs, invalidation broadcasts, or accept eventual consistency."
-        ]
-      },
-      {
-        "heading": "Redis Deep Dive",
-        "points": [
-          "**Data Structures** — Strings, Hashes, Lists, Sets, Sorted Sets, Streams, HyperLogLog. Each optimized for specific use cases beyond simple key-value.",
-          "**Use Cases** — Session store, rate limiting (INCR + EXPIRE), leaderboards (Sorted Sets), pub/sub messaging, distributed locks (SETNX + TTL).",
-          "**Persistence** — RDB (point-in-time snapshots) vs AOF (append-only log). RDB faster recovery; AOF more durable. Use both in production.",
-          "**Redis Cluster** — Automatic sharding across nodes using hash slots (16384 slots). Built-in replication and failover. Scales horizontally.",
-          "**Spring Data Redis** — `RedisTemplate` for low-level operations. `@Cacheable` with `RedisCacheManager`. Lettuce (default, reactive) or Jedis client."
+        "title": "Availability vs Reliability",
+        "columns": ["Aspect", "Availability", "Reliability"],
+        "rows": [
+          ["Answers", "Is the system up right now?", "Does it work correctly over time?"],
+          ["Mechanism example", "Redundancy, failover, health checks", "Idempotency, retries, durable writes"],
+          ["Failure mode if missing", "Downtime", "Silent data loss or duplication"]
         ]
       }
+    ],
+    "advantages": [
+      "Redundancy removes single points of failure — no one instance, database, or gateway can take the whole system down.",
+      "Automated failover means most failures recover without a human being paged."
+    ],
+    "tradeoffs": [
+      "Active-active redundancy costs more to run continuously than active-passive, but recovers faster since nothing needs to be promoted.",
+      "Disaster recovery infrastructure — a second region, cross-region replication — is a real ongoing cost for a scenario that, ideally, never happens."
+    ],
+    "bestPractices": [
+      "Tune health check intervals per component — too slow misses real failures, too aggressive causes false removals.",
+      "Test disaster recovery runbooks regularly — an untested DR plan is a hope, not a plan.",
+      "Treat every deployment as an availability risk; use rolling/blue-green/canary strategies, never a hard restart."
+    ],
+    "commonMistakes": [
+      "Assuming redundancy alone guarantees availability, without health checks to actually detect and react to a failure.",
+      "Never testing the disaster recovery plan until the actual disaster happens.",
+      "Deploying via a full restart instead of a zero-downtime strategy."
+    ],
+    "interviewQuestions": {
+      "beginner": ["What is Availability, and how is it different from Reliability?", "What is the difference between active-active and active-passive redundancy?", "What is the difference between a liveness and a readiness health check?"],
+      "intermediate": ["How does failover actually work at the database layer?", "What are RPO and RTO, and why do they matter for disaster recovery?", "Why is a deployment itself considered an availability risk?"],
+      "advanced": ["Design a disaster recovery plan for the Payment Aggregator's Transaction Service.", "How would you tune health check thresholds to balance fast failure detection against false positives?", "Walk through what happens end-to-end when a primary database fails during active traffic."]
+    },
+    "summary": [
+      "Availability is whether the system is up and reachable right now — achieved through redundancy, health checks, and automated failover.",
+      "Disaster Recovery and Zero-Downtime Deployment extend the same idea to large-scale failures and to the deployment process itself.",
+      "Availability and Reliability are related but distinct — one is about uptime, the other about correctness over time."
+    ],
+    "relatedTopics": [
+      { "label": "Scalability — the previous goal", "sectionId": "systemdesign", "subsectionId": "scalability" },
+      { "label": "Reliability — the next goal", "sectionId": "systemdesign", "subsectionId": "reliability" },
+      { "label": "CI/CD Pipelines — zero-downtime deployment strategies", "sectionId": "devops", "subsectionId": "cicd" },
+      { "label": "Resilience Patterns — failure-handling in depth", "sectionId": "microservices", "subsectionId": "resilience" }
     ]
   },
   {
-    "id": "message-queues",
-    "title": "Message Queues & Events",
-    "topics": [
+    "id": "reliability",
+    "title": "Reliability",
+    "overview": [
+      "Reliability is whether a system keeps working **correctly** over time — recovering from failure without corrupting, losing, or duplicating data.",
+      "This page covers the techniques that let the Payment Aggregator recover safely when something goes wrong mid-request.",
+      "It's the third Core Design Goal, distinct from Availability — a system can fail over quickly (available) while still risking an incorrect result (a reliability concern)."
+    ],
+    "why": [
+      "Payment systems fail constantly in small ways — a bank times out, a message gets redelivered — reliability is what keeps a customer's money safe through all of it.",
+      "A system that's merely available but unreliable will eventually lose or duplicate a customer's payment, which is far worse than brief downtime."
+    ],
+    "problem": [
+      "A naive retry on a timed-out payment risks charging the customer twice, since the system doesn't actually know if the first attempt succeeded.",
+      "Without a Circuit Breaker or Bulkhead, one slow or failing dependency can exhaust resources needed by everything else.",
+      "Without a defined Fallback or Dead Letter Queue, a failure with nowhere to go either blocks everything behind it or silently disappears."
+    ],
+    "internalWorking": {
+      "intro": ["Eight techniques for detecting a failure, containing it, and recovering from it correctly."],
+      "topics": [
+        {
+          "heading": "Retry",
+          "points": [
+            "A transient failure (network blip, 5xx) is retried automatically, usually with backoff, against the same dependency first.",
+            "Only safe for genuinely retryable failures — never for an ambiguous outcome (see Timeout)."
+          ]
+        },
+        {
+          "heading": "Timeout",
+          "points": [
+            "If a bank doesn't respond in time, the system genuinely doesn't know if the payment succeeded — it must mark the transaction `PENDING`/`UNKNOWN`, never assume failure.",
+            "The safe move is to reconcile later, not to blindly retry a possibly-successful charge."
+          ]
+        },
+        {
+          "heading": "Circuit Breaker",
+          "points": [
+            "Trips after a dependency's failure rate crosses a threshold, failing fast instead of letting every request time out against a known-bad gateway.",
+            "Applied per-gateway here — each bank fails independently, so one breaker shouldn't affect calls to a healthy bank."
+          ]
+        },
+        {
+          "heading": "Bulkhead",
+          "points": [
+            "Isolates resources (thread/connection pools) per dependency, so one slow Gateway Adapter can't exhaust the resources every other Gateway Adapter needs."
+          ]
+        },
+        {
+          "heading": "Fallback",
+          "points": [
+            "The response a Circuit Breaker (or any failure point) returns instead of propagating the error — a cached value, a default, or a clear \"try again\" status.",
+            "For the Payment API, a fallback might mean returning `PENDING_RETRY` instead of a raw error when no gateway is reachable."
+          ]
+        },
+        {
+          "heading": "Idempotency",
+          "points": [
+            "Guarantees that retrying the *same* request twice never charges the customer twice.",
+            "The Merchant sends a unique idempotency key; the Payment API returns the original result if it's seen that key before."
+          ]
+        },
+        {
+          "heading": "Dead Letter Queue",
+          "points": [
+            "When an async message (a webhook retry, a notification event) exhausts its retries, it's routed to a Dead Letter Queue instead of being silently dropped or blocking everything behind it.",
+            "Kafka/RabbitMQ-specific DLQ configuration is covered in Microservices → Communication Patterns; here it matters as the reliability safety net for async processing."
+          ]
+        },
+        {
+          "heading": "Graceful Degradation",
+          "points": [
+            "A partial failure should produce a reduced but still-useful response, not an all-or-nothing outage.",
+            "E.g. if the Notification Service is down, the Transaction Service still marks the payment `SUCCESS` — the notification is non-essential to the payment itself."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Payment request\"] --> B[\"Gateway Router tries Bank X\"]\n    B --> C{\"Circuit Breaker open?\"}\n    C -->|\"Yes\"| D[\"Fallback: skip Bank X, try Bank Y\"]\n    C -->|\"No\"| E[\"Call Bank X\"]\n    E --> F{\"Response?\"}\n    F -->|\"Success/Failure\"| G[\"Record outcome\"]\n    F -->|\"Timeout\"| H[\"Mark PENDING, reconcile later\"]",
+      "caption": "Circuit Breaker, Fallback, and cautious timeout handling working together on one request."
+    },
+    "realWorldExample": {
+      "scenario": "Bank X's Gateway Adapter has been failing repeatedly, tripping its Circuit Breaker.",
+      "code": "1. Payment API -> Gateway Router -> tries Gateway Adapter (Bank X)\n2. Circuit Breaker (Bank X) is OPEN -> call skipped instantly\n3. Fallback: Gateway Router -> Gateway Adapter (Bank Y) instead\n4. Transaction proceeds normally through Bank Y",
+      "input": "A payment request arriving while Bank X's circuit breaker is open.",
+      "execution": "The Gateway Router never attempts Bank X at all — the open circuit fails fast — and its fallback immediately tries Bank Y instead.",
+      "output": "The customer's payment still succeeds, through a different bank, without the multi-second timeout Bank X would have caused.",
+      "explanation": "This is why Circuit Breaker and Fallback are designed together — one detects the unhealthy dependency, the other decides what happens next."
+    },
+    "comparisonTables": [
       {
-        "heading": "Apache Kafka",
-        "points": [
-          "**Architecture** — Topics divided into partitions across brokers. Producers append to partitions; consumers read in order. ZooKeeper/KRaft for cluster coordination.",
-          "**Delivery Guarantees** — At-most-once (fire and forget), at-least-once (acks + retries, may duplicate), exactly-once (idempotent producer + transactional consumer).",
-          "**Use Cases** — Event streaming, log aggregation, change data capture (CDC), real-time analytics pipelines, microservice event bus, audit trails.",
-          "**Spring Kafka** — `@KafkaListener` for consumers, `KafkaTemplate` for producers. `@EnableKafka`, consumer group config, error handling with `ErrorHandler`.",
-          "**Retention & Compaction** — Time-based retention (default 7 days) or size-based. Log compaction keeps latest value per key. Enables event sourcing patterns."
-        ]
-      },
-      {
-        "heading": "RabbitMQ",
-        "points": [
-          "**Architecture** — Exchanges route messages to queues via bindings. Exchange types: Direct, Topic (pattern matching), Fanout (broadcast), Headers.",
-          "**Kafka vs RabbitMQ** — Kafka: high throughput, replay, event log. RabbitMQ: flexible routing, message acknowledgment, lower latency for task queues.",
-          "**Spring AMQP** — `RabbitTemplate` for sending, `@RabbitListener` for consuming. `@EnableRabbit`. Auto-declare exchanges, queues, and bindings.",
-          "**Dead Letter Queue (DLQ)** — Failed messages routed to DLQ after max retries. Configure `x-dead-letter-exchange` and `x-dead-letter-routing-key`. Enables error analysis.",
-          "**Reliability** — Publisher confirms (acks from broker), consumer acknowledgments, persistent messages, mirrored queues for high availability."
+        "title": "Reliability vs Availability",
+        "columns": ["Aspect", "Reliability", "Availability"],
+        "rows": [
+          ["Answers", "Does it work correctly over time?", "Is it up right now?"],
+          ["Mechanism example", "Idempotency, retries, durable writes", "Redundancy, failover, health checks"],
+          ["Failure mode if missing", "Silent data loss or duplication", "Downtime"]
         ]
       }
+    ],
+    "advantages": [
+      "Idempotency and cautious timeout handling directly prevent the worst failure mode in payments: a duplicate charge.",
+      "Circuit Breaker, Bulkhead, and Fallback contain a failure instead of letting it cascade into a full outage."
+    ],
+    "tradeoffs": [
+      "Strict idempotency and conservative timeout handling protect against double-charging, at the cost of slower resolution for ambiguous transactions.",
+      "A Dead Letter Queue prevents message loss, but someone still has to monitor and reprocess it — it's a safety net, not a fix."
+    ],
+    "bestPractices": [
+      "Always require an idempotency key on payment-initiating and refund requests.",
+      "Treat a timeout as unknown, never as failure.",
+      "Apply Circuit Breaker and Bulkhead per dependency, not globally."
+    ],
+    "commonMistakes": [
+      "Retrying a timed-out payment immediately without checking whether it may have actually succeeded.",
+      "Configuring retries or a Dead Letter Queue without a plan for who actually looks at it.",
+      "Confusing a Fallback (a planned degraded response) with just swallowing an exception silently."
+    ],
+    "interviewQuestions": {
+      "beginner": ["What is the difference between Reliability and Availability?", "What is an idempotency key, and what does it prevent?", "What is a Dead Letter Queue?"],
+      "intermediate": ["Why is timeout handling harder than handling a clear failure response?", "What's the difference between a Circuit Breaker and a Bulkhead?", "What is Graceful Degradation, and how does it differ from a full outage?"],
+      "advanced": ["Design the retry/timeout logic for a payment that times out against its gateway.", "How would you prevent a double charge when a merchant's client retries a request after a network failure?", "Design a Dead Letter Queue strategy for a webhook-processing pipeline, including who acts on it."]
+    },
+    "summary": [
+      "Reliability means the system works correctly over time and recovers safely from failure, not just that it stays up.",
+      "Circuit Breaker, Bulkhead, and Fallback contain a failure; Idempotency and cautious Timeout handling prevent it from corrupting data.",
+      "Dead Letter Queue and Graceful Degradation are the safety nets for what's left over after everything else."
+    ],
+    "relatedTopics": [
+      { "label": "Availability — the previous goal", "sectionId": "systemdesign", "subsectionId": "availability" },
+      { "label": "Performance — the next goal", "sectionId": "systemdesign", "subsectionId": "performance" },
+      { "label": "Resilience Patterns — Circuit Breaker and Retry in full depth", "sectionId": "microservices", "subsectionId": "resilience" }
     ]
   },
   {
-    "id": "api-design",
-    "title": "API Design",
-    "topics": [
+    "id": "performance",
+    "title": "Performance",
+    "overview": [
+      "Performance is how fast the system responds (**latency**) and how much load it can handle efficiently (**throughput**).",
+      "This page covers the levers that reduce wasted work and wasted waiting: caching, compression, pagination, pooling, lazy loading, async processing, and general resource optimization.",
+      "It's the fourth Core Design Goal, applied to the Payment Aggregator reference architecture."
+    ],
+    "why": [
+      "A customer waiting on a payment confirmation feels every millisecond — slow payment flows directly hurt conversion and trust.",
+      "Doing the same expensive work repeatedly, or moving more data than necessary, wastes capacity that could serve other requests."
+    ],
+    "problem": [
+      "Without caching, every read — even for data that hasn't changed in hours — goes all the way to the database.",
+      "Sending full, uncompressed, unpaginated responses wastes bandwidth and slows down every client, especially on mobile.",
+      "A fully synchronous request chain is only as fast as its slowest hop — pushing non-essential work onto the critical path adds latency for no reason."
+    ],
+    "internalWorking": {
+      "intro": ["Seven levers, most reducing either the work done or the time spent waiting for it. Redis and Kafka internals live on their own pages; here they matter only as performance levers."],
+      "topics": [
+        {
+          "heading": "Caching",
+          "points": [
+            "Serves repeat reads from memory (Redis) instead of the database — the single highest-leverage performance lever for read-heavy traffic.",
+            "Redis's own data structures and persistence mechanics are covered in the Database section; here, caching matters as a *latency and load* lever."
+          ]
+        },
+        {
+          "heading": "Compression",
+          "points": [
+            "Compressing responses (gzip, Brotli) shrinks payload size over the network, directly cutting transfer time — especially valuable for larger responses like transaction history.",
+            "Costs a small amount of CPU to compress/decompress, which is almost always worth it compared to the network transfer time saved."
+          ]
+        },
+        {
+          "heading": "Pagination",
+          "points": [
+            "Returns data in bounded chunks instead of an entire, possibly huge, result set at once.",
+            "**Cursor pagination** (resume from the last-seen ID) stays fast regardless of depth; **offset pagination** (`page=N`) gets slower the deeper a client pages, since the database still scans and skips rows."
+          ]
+        },
+        {
+          "heading": "Connection Pooling",
+          "points": [
+            "Reuses a pool of already-open database connections instead of opening a new one per request — opening a connection is expensive relative to using one.",
+            "Undersized pools queue requests waiting for a connection; oversized pools waste database resources — size it to actual concurrent load."
+          ]
+        },
+        {
+          "heading": "Lazy Loading",
+          "points": [
+            "Defers loading or computing data until it's actually needed — e.g. a Merchant's full transaction history loads only when that dashboard tab is opened, not on every page load.",
+            "Avoids paying the cost of fetching data nobody ends up looking at."
+          ]
+        },
+        {
+          "heading": "Async Processing",
+          "points": [
+            "Moves non-essential work (notifications, analytics) off the critical path — the Transaction Service publishes an event and returns immediately, instead of waiting for the Notification Service.",
+            "Kafka's own partitioning and delivery-guarantee mechanics are covered in Microservices → Communication Patterns; here it matters as the lever that keeps the customer-facing path short."
+          ]
+        },
+        {
+          "heading": "Resource Optimization",
+          "points": [
+            "The general discipline of not doing wasted work — avoiding N+1 queries, fetching only the fields actually used, minimizing serialization overhead.",
+            "Often the highest-leverage fix, since it removes work entirely instead of just making it faster."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    A[\"API Gateway\"] --> B[\"Load Balancer\"]\n    B --> C[\"Payment API\"]\n    C --> D[\"Cache: idempotency check\"]\n    C --> E[\"Gateway Router + Adapter\"]\n    C --> F[\"Transaction Service: write\"]\n    F -.->|\"async, off critical path\"| G[\"Notification Service\"]",
+      "caption": "The synchronous critical path stays short; everything else moves to the async side."
+    },
+    "realWorldExample": {
+      "scenario": "A merchant dashboard needs a paginated, filtered list of a Merchant's recent transactions, sorted by most recent first.",
+      "code": "GET /v1/merchants/MERCH1024/transactions?status=SETTLED&cursor=eyJpZCI6IlRYTjk5MSJ9&size=25&sort=createdAt,desc\n\n// 200 OK\n{\n  \"data\": [ { \"id\": \"TXN1002\", \"amount\": 499.00, \"status\": \"SETTLED\" }, ... ],\n  \"nextCursor\": \"eyJpZCI6IlRYTjk3NiJ9\",\n  \"hasMore\": true\n}",
+      "input": "A request for settled transactions belonging to MERCH1024, continuing from a given cursor, 25 at a time.",
+      "execution": "The service applies the filter, resumes from the row identified by the cursor instead of an offset, and fetches 25 sorted rows.",
+      "output": "A page of 25 transactions plus a `nextCursor` the client can pass on the next call.",
+      "explanation": "Cursor pagination is chosen because merchant transaction tables can be huge — offset pagination would force the database to scan and discard rows on every deep page."
+    },
+    "comparisonTables": [
       {
-        "heading": "REST Best Practices",
-        "points": [
-          "**Resource Naming** — Use nouns, not verbs. Plural: `/users`, `/orders/{id}/items`. Lowercase, hyphens for multi-word. Nest for relationships (max 2 levels).",
-          "**HTTP Methods** — GET (read), POST (create), PUT (full update), PATCH (partial update), DELETE (remove). Idempotency: GET, PUT, DELETE are idempotent.",
-          "**Status Codes** — 200 (OK), 201 (Created), 204 (No Content), 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 404 (Not Found), 409 (Conflict), 500 (Server Error).",
-          "**Versioning** — URI path (`/v1/users`), header (`Accept: application/vnd.api.v1+json`), or query param (`?version=1`). URI path most common and readable.",
-          "**HATEOAS** — Hypermedia as the Engine of Application State. Responses include links to related actions. Spring HATEOAS `EntityModel`, `Link`, `WebMvcLinkBuilder`."
-        ]
-      },
-      {
-        "heading": "Pagination, Filtering & Search",
-        "points": [
-          "**Offset Pagination** — `?page=2&size=20`. Simple but slow for large offsets (DB scans skipped rows). Include `totalElements` and `totalPages` in response.",
-          "**Cursor Pagination** — `?cursor=abc123&size=20`. Uses last-seen ID/timestamp. Efficient for large datasets. No page jumping but consistent performance.",
-          "**Filtering** — Query params: `?status=active&minAge=18`. Spring: `@RequestParam`, Specification pattern, or QueryDSL for dynamic filters.",
-          "**Sorting** — `?sort=name,asc&sort=createdAt,desc`. Spring Data: `Pageable` parameter handles sort + pagination. `Sort.by(Direction.ASC, \"name\")`.",
-          "**Search** — Full-text search with Elasticsearch or database `LIKE`/`ILIKE`. Query param: `?q=search+term`. Consider dedicated search endpoints for complex queries."
-        ]
-      },
-      {
-        "heading": "GraphQL vs REST",
-        "points": [
-          "**GraphQL** — Client specifies exact data shape needed. Single endpoint. No over-fetching or under-fetching. Schema-first with strong typing.",
-          "**REST Advantages** — Simpler, well-understood, HTTP caching works naturally, better tooling ecosystem, easier to rate-limit per endpoint.",
-          "**GraphQL Advantages** — Flexible queries, single request for complex data, auto-generated documentation, strongly typed schema, great for mobile clients.",
-          "**N+1 Problem** — GraphQL resolvers may trigger N+1 queries. Solve with DataLoader (batching) or join-based fetching strategies.",
-          "**When to Choose** — REST: simple CRUD, public APIs, caching-heavy. GraphQL: complex data relationships, multiple client types, rapidly evolving frontends."
+        "title": "Offset vs Cursor Pagination",
+        "columns": ["Aspect", "Offset Pagination", "Cursor Pagination"],
+        "rows": [
+          ["Query style", "`page=2&size=20`", "`cursor=abc123&size=20`"],
+          ["Performance at scale", "Degrades — scans and skips rows", "Consistent regardless of depth"],
+          ["Best fit", "Small, browsable lists", "Large, fast-growing tables like transaction history"]
         ]
       }
+    ],
+    "advantages": [
+      "Caching and async processing cut both latency and database load simultaneously.",
+      "Pagination and compression keep response sizes small regardless of how large the underlying dataset grows."
+    ],
+    "tradeoffs": [
+      "Caching introduces a second source of truth that can drift stale — the trade is speed for a small window of potential staleness.",
+      "Cursor pagination trades the ability to jump to an arbitrary page for consistent performance at any depth."
+    ],
+    "bestPractices": [
+      "Default to cache-aside caching for most reads; keep the synchronous critical path as short as possible.",
+      "Prefer cursor pagination over offset pagination for any large or fast-growing table.",
+      "Size connection pools to actual concurrent load, not a guess."
+    ],
+    "commonMistakes": [
+      "Returning entire, uncompressed, unpaginated result sets for anything that can grow large.",
+      "Fetching data eagerly that's rarely used, instead of loading it lazily on demand.",
+      "Optimizing caching or async processing before fixing an obvious N+1 query or over-fetch."
+    ],
+    "interviewQuestions": {
+      "beginner": ["What is the difference between latency and throughput?", "What is the difference between offset and cursor pagination?", "What does connection pooling avoid?"],
+      "intermediate": ["Why is cursor pagination generally preferred over offset pagination at scale?", "When would lazy loading help, and when would it hurt?", "Why does moving work to async processing help performance even though the work still has to happen eventually?"],
+      "advanced": ["Design the pagination and filtering strategy for an endpoint returning a merchant's transaction history at high volume.", "How would you identify whether a slow endpoint's real bottleneck is caching, indexing, or an N+1 query?", "Where in the Payment Aggregator would you introduce compression, and what would you expect it to save?"]
+    },
+    "summary": [
+      "Performance is latency (time per request) and throughput (requests handled per unit time) — related but distinct.",
+      "Caching, compression, and pagination reduce the size and cost of what's sent; connection pooling, lazy loading, and async processing reduce wasted waiting and wasted work.",
+      "Resource optimization — avoiding N+1 queries, fetching only what's needed — is often the highest-leverage fix of all."
+    ],
+    "relatedTopics": [
+      { "label": "Reliability — the previous goal", "sectionId": "systemdesign", "subsectionId": "reliability" },
+      { "label": "Scalability — back to the first goal", "sectionId": "systemdesign", "subsectionId": "scalability" },
+      { "label": "Communication Patterns — Kafka mechanics in depth", "sectionId": "microservices", "subsectionId": "communication" },
+      { "label": "Indexes & Performance — database indexing in depth", "sectionId": "database", "subsectionId": "indexes-performance" }
     ]
   }
 ]

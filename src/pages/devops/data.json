@@ -2,89 +2,448 @@
   {
     "id": "docker",
     "title": "Docker",
-    "topics": [
+    "overview": [
+      "Docker packages an application together with everything it needs to run — JVM, libraries, config — into one portable **image**.",
+      "That image runs identically on a laptop, a CI runner, or a production server, as a lightweight, isolated **container**.",
+      "This page covers writing production-grade Dockerfiles and orchestrating multi-container apps with Docker Compose."
+    ],
+    "why": [
+      "A `payment-service` that runs fine on a developer's machine can still fail in production due to a different JVM version, missing library, or OS mismatch.",
+      "Docker removes that gap by shipping the exact runtime environment alongside the code, not just the code.",
+      "It also lets teams run many isolated services on one host without full VM overhead."
+    ],
+    "problem": [
+      "**Before containers**, \"works on my machine\" was a constant source of production incidents.",
+      "Deploying meant manually installing the right JVM, OS packages, and config on every server, by hand.",
+      "Running multiple services on one host risked one app's dependencies conflicting with another's.",
+      "Scaling meant provisioning whole new VMs — slow to boot and expensive to run idle."
+    ],
+    "internalWorking": {
+      "intro": ["Two areas matter most in practice: writing a lean, secure Dockerfile, and wiring multiple services together with Compose."],
+      "topics": [
+        {
+          "heading": "Dockerfile Best Practices",
+          "points": [
+            "**Base image** — use minimal images like `alpine` or `eclipse-temurin:21-jre-alpine`. Smaller image = faster pulls, smaller attack surface, less storage.",
+            "**Multi-stage builds** — a build stage compiles with Maven/Gradle; the final stage copies only the JAR. `FROM maven AS build`, then a separate `FROM eclipse-temurin:21-jre-alpine`.",
+            "**Layer caching** — order instructions from least to most frequently changing. Copy `pom.xml` and download dependencies before copying source code.",
+            "**Security** — run as a non-root user (`RUN adduser --system app` + `USER app`). Scan images with **Trivy** or **Snyk**. Use `.dockerignore` to exclude sensitive files.",
+            "**`HEALTHCHECK`** — `HEALTHCHECK CMD curl -f http://localhost:8080/actuator/health || exit 1`. Lets Docker detect an unhealthy container and restart it."
+          ]
+        },
+        {
+          "heading": "Docker Compose",
+          "points": [
+            "**Service definition** — define services, networks, and volumes in `docker-compose.yml`. Each service maps to a container with its own config, ports, and environment.",
+            "**Dependencies** — `depends_on` controls startup order. Use `healthcheck` + `condition: service_healthy` to wait for actual readiness, not just container start.",
+            "**Networking** — services on the same network reach each other by service name. A default bridge network is created automatically; custom networks give isolation.",
+            "**Volumes** — named volumes for persistent data (databases). Bind mounts for development (live code reload). A `volumes:` section holds reusable volume definitions.",
+            "**Environment variables** — `.env` for defaults, `environment:` in the compose file, or `env_file:` for per-service config. Override at runtime with `docker compose --env-file`."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    A[\"Build stage: FROM maven AS build\"] --> B[\"Compile source with Maven\"]\n    B --> C[\"Produce order-service.jar\"]\n    C --> D[\"Runtime stage: FROM eclipse-temurin jre-alpine\"]\n    D --> E[\"COPY --from=build the JAR only\"]\n    E --> F[\"Final slim image, no build tools\"]",
+      "caption": "Multi-stage build: the heavy Maven/JDK toolchain never reaches the final runtime image."
+    },
+    "simpleExample": {
+      "scenario": "Containerizing a single Spring Boot `order-service` with a minimal Dockerfile.",
+      "code": "FROM eclipse-temurin:21-jre-alpine\nWORKDIR /app\nCOPY target/order-service.jar app.jar\nRUN adduser --system app\nUSER app\nHEALTHCHECK CMD curl -f http://localhost:8080/actuator/health || exit 1\nENTRYPOINT [\"java\", \"-jar\", \"app.jar\"]",
+      "input": "A pre-built `order-service.jar` sitting in the `target/` folder after `mvn package`.",
+      "execution": "`docker build -t order-service .` copies the JAR into a slim JRE-only Alpine image and configures it to run as a non-root user.",
+      "output": "A small, runnable image; `docker run -p 8080:8080 order-service` starts the service and `/actuator/health` reports healthy.",
+      "explanation": "No JDK, no Maven, and no root user ship in the final image — only the JRE and the one JAR needed to run it."
+    },
+    "realWorldExample": {
+      "scenario": "A multi-stage build for `payment-service` plus a Compose file wiring it to Postgres for local development.",
+      "code": "# Dockerfile\nFROM maven:3.9-eclipse-temurin-21 AS build\nWORKDIR /src\nCOPY pom.xml .\nRUN mvn dependency:go-offline\nCOPY src ./src\nRUN mvn package -DskipTests\n\nFROM eclipse-temurin:21-jre-alpine\nWORKDIR /app\nCOPY --from=build /src/target/payment-service.jar app.jar\nUSER app\nENTRYPOINT [\"java\", \"-jar\", \"app.jar\"]\n\n# docker-compose.yml\nservices:\n  payment-service:\n    build: .\n    ports: [\"8080:8080\"]\n    depends_on:\n      db:\n        condition: service_healthy\n  db:\n    image: postgres:16-alpine\n    healthcheck:\n      test: [\"CMD-SHELL\", \"pg_isready -U postgres\"]",
+      "input": "Source code plus `pom.xml`, with no JAR built yet.",
+      "execution": "The build stage resolves dependencies (cached unless `pom.xml` changes), compiles, and packages the JAR. The runtime stage copies only that JAR. Compose starts `db` first and waits for `pg_isready` before starting `payment-service`.",
+      "output": "A slim `payment-service` image plus a running Postgres container, with `payment-service` only starting once the database can actually accept connections.",
+      "explanation": "Copying `pom.xml` before `src` means dependency downloads are cached across builds — only a source change triggers recompilation, not a dependency re-download every time."
+    },
+    "comparisonTables": [
       {
-        "heading": "Dockerfile Best Practices",
-        "points": [
-          "**Base Image** — Use minimal images like `alpine` or `eclipse-temurin:21-jre-alpine`. Smaller image = faster pulls, smaller attack surface, less storage.",
-          "**Multi-Stage Builds** — Build stage compiles with Maven/Gradle; final stage copies only the JAR. `FROM maven AS build` then `FROM eclipse-temurin:21-jre-alpine`.",
-          "**Layer Caching** — Order Dockerfile instructions from least to most frequently changing. Copy `pom.xml` and download dependencies before copying source code.",
-          "**Security** — Run as non-root user (`RUN adduser --system app` + `USER app`). Scan images with Trivy or Snyk. Use `.dockerignore` to exclude sensitive files.",
-          "**HEALTHCHECK** — `HEALTHCHECK CMD curl -f http://localhost:8080/actuator/health || exit 1`. Enables Docker to detect unhealthy containers and restart them."
+        "title": "Single-Stage vs Multi-Stage Build",
+        "columns": ["Aspect", "Single-Stage Build", "Multi-Stage Build"],
+        "rows": [
+          ["Final image contents", "JDK, Maven, source code, and the JAR", "Only the JRE and the JAR"],
+          ["Image size", "Often 500MB+", "Commonly under 200MB"],
+          ["Attack surface", "Larger — build tools shipped to prod", "Smaller — no compiler or build tool present"],
+          ["Build speed on rebuild", "Rebuilds everything each time", "Layer caching skips unchanged dependency downloads"]
         ]
       },
       {
-        "heading": "Docker Compose",
-        "points": [
-          "**Service Definition** — Define services, networks, and volumes in `docker-compose.yml`. Each service maps to a container with its own config, ports, and environment.",
-          "**Dependencies** — `depends_on` controls startup order. Use `healthcheck` + `condition: service_healthy` to wait for actual readiness, not just container start.",
-          "**Networking** — Services on same network communicate by service name. Default bridge network created automatically. Custom networks for isolation.",
-          "**Volumes** — Named volumes for persistent data (databases). Bind mounts for development (live code reload). `volumes:` section for reusable volume definitions.",
-          "**Environment Variables** — `.env` file for defaults, `environment:` in compose file, or `env_file:` for per-service config. Override with `docker compose --env-file`."
+        "title": "Bind Mount vs Named Volume",
+        "columns": ["Aspect", "Bind Mount", "Named Volume"],
+        "rows": [
+          ["Location", "A specific path on the host filesystem", "Managed by Docker, path abstracted away"],
+          ["Typical use", "Local development — live code reload", "Persistent data — databases, uploads"],
+          ["Portability", "Tied to the host's directory structure", "Portable across hosts and environments"],
+          ["Lifecycle", "Exists independently of Docker", "Created, listed, and removed via Docker itself"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Use multi-stage builds so build tools (Maven, JDK) never ship in the production image.",
+      "Order Dockerfile instructions from least to most frequently changing to maximize layer cache hits.",
+      "Always run the container as a non-root user, and scan images with Trivy or Snyk before deploying.",
+      "Add a `HEALTHCHECK` so Docker (and orchestrators) can detect and restart an unhealthy container automatically."
+    ],
+    "commonMistakes": [
+      "Copying the entire source tree before installing dependencies, invalidating the dependency cache on every code change.",
+      "Running the application as `root` inside the container, needlessly widening the security blast radius.",
+      "Using `depends_on` alone and assuming it means \"wait until ready\" — it only waits for the container to start, not for the app inside it.",
+      "Forgetting a `.dockerignore`, leaking `.git`, local `.env` files, or build artifacts into the image."
+    ],
+    "interviewTips": [
+      "Be ready to explain layer caching with a concrete example — copying `pom.xml` separately from `src/` is the classic one.",
+      "If asked about image size, lead with multi-stage builds and a minimal base image as the two biggest levers."
+    ],
+    "faq": [
+      {
+        "q": "Does depends_on guarantee a dependent service is actually ready?",
+        "a": "No — by default depends_on only waits for the container to start, not for the application inside it to be ready. Pair it with a healthcheck and condition: service_healthy to wait for real readiness."
+      },
+      {
+        "q": "Why use Alpine-based images instead of a full OS image?",
+        "a": "Alpine images are much smaller, which means faster pulls, less disk usage, and a smaller attack surface since fewer OS packages are present to exploit."
+      },
+      {
+        "q": "When should I use a bind mount instead of a named volume?",
+        "a": "Use a bind mount in local development when you want live code reload from a specific host directory. Use a named volume for anything that needs to persist reliably, like a database's data directory."
+      }
+    ],
+    "summary": [
+      "Docker packages an app with its exact runtime environment into a portable image, eliminating environment-specific failures.",
+      "Multi-stage builds and minimal base images keep production images small, fast to pull, and low in attack surface.",
+      "Docker Compose wires multiple services together locally, using healthchecks to sequence real readiness, not just container start."
+    ],
+    "quickRevision": [
+      "Multi-stage build: build stage compiles, runtime stage copies only the JAR.",
+      "Order Dockerfile instructions least-to-most-frequently-changing for cache efficiency.",
+      "Always run as a non-root user; scan images with Trivy/Snyk.",
+      "`HEALTHCHECK` lets Docker detect and restart unhealthy containers.",
+      "`depends_on` + `condition: service_healthy` waits for real readiness, not just container start.",
+      "Named volumes persist data; bind mounts are for local dev live-reload.",
+      "Services on the same Compose network reach each other by service name.",
+      "`.env`, `environment:`, and `env_file:` are the three ways to configure environment variables."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the difference between a Docker image and a Docker container?",
+        "Why should a Dockerfile use a minimal base image like Alpine?",
+        "What does a HEALTHCHECK instruction do?"
+      ],
+      "intermediate": [
+        "Explain how Docker layer caching works and how Dockerfile instruction order affects it.",
+        "What is the difference between a bind mount and a named volume?",
+        "How does depends_on differ from a healthcheck-based wait condition in Compose?"
+      ],
+      "advanced": [
+        "Walk through why a multi-stage build reduces both image size and attack surface.",
+        "How would you secure a production Docker image beyond running as a non-root user?",
+        "Design a docker-compose.yml for a service with a database dependency that must not start until the database is truly ready."
+      ]
+    }
   },
   {
     "id": "cicd",
     "title": "CI/CD Pipelines",
-    "topics": [
+    "overview": [
+      "CI/CD automates moving code from a commit to a running production deployment.",
+      "**Continuous Integration** builds and tests every change; **Continuous Deployment** ships it out safely.",
+      "This page covers GitHub Actions as the automation engine, and the deployment strategies used once a build is ready to ship."
+    ],
+    "why": [
+      "Manually building, testing, and deploying every change doesn't scale past a handful of commits a week.",
+      "Automation catches broken code before it reaches production, and makes deployments repeatable instead of ad hoc.",
+      "Deployment strategies exist because shipping a new version safely, with minimal risk, is a different problem than just running one."
+    ],
+    "problem": [
+      "**Without CI**, a broken build or failing test could reach production because no automated gate caught it.",
+      "**Without CD**, deployments were manual, inconsistent, and error-prone — different steps performed differently each time.",
+      "**Without a deployment strategy**, releasing a new version meant an all-at-once cutover, with downtime and no easy rollback if something broke."
+    ],
+    "internalWorking": {
+      "intro": ["GitHub Actions is the automation engine; deployment strategies are what happens once that automation produces a deployable artifact."],
+      "topics": [
+        {
+          "heading": "GitHub Actions",
+          "points": [
+            "**Workflow structure** — YAML files live in `.github/workflows/`. Triggers include `push`, `pull_request`, `schedule`, `workflow_dispatch`. Jobs run on runners (`ubuntu-latest`, self-hosted).",
+            "**Steps & actions** — steps execute commands or reuse actions, e.g. the checkout action or the setup-java action. `run:` executes shell commands directly.",
+            "**Caching** — cache Maven/Gradle dependencies with the cache action, targeting `~/.m2` or `~/.gradle/caches`. Speeds up builds significantly.",
+            "**Secrets & environment** — store secrets in repo/org settings, access via `${{ secrets.DOCKER_PASSWORD }}`. Environment protection rules gate production deployments.",
+            "**Matrix builds** — test across multiple versions with `strategy: matrix: java: [17, 21]`, running parallel jobs for each combination."
+          ]
+        },
+        {
+          "heading": "Deployment Strategies",
+          "points": [
+            "**Blue-Green deployment** — two identical environments; traffic routes from blue (current) to green (new) after validation. Instant rollback by switching back.",
+            "**Canary deployment** — a small percentage of traffic (5-10%) hits the new version first. Monitor error rates and latency, then gradually increase if healthy.",
+            "**Rolling deployment** — replace instances one at a time, with no downtime. Kubernetes' default strategy; `maxSurge` and `maxUnavailable` control rollout speed.",
+            "**Feature flags** — toggle features without a deployment, via LaunchDarkly, Unleash, or a custom implementation. Decouples deployment from release, and enables A/B testing.",
+            "**Rollback strategy** — automated rollback on health check failure. Keep previous version artifacts. Database migrations must be backward-compatible for a safe rollback."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    A[\"Commit pushed\"] --> B[\"Build: mvn package\"]\n    B --> C[\"Run tests\"]\n    C --> D{\"Tests pass?\"}\n    D -->|No| E[\"Fail workflow, notify\"]\n    D -->|Yes| F[\"Build & push Docker image\"]\n    F --> G[\"Deploy to production\"]",
+      "caption": "A typical CI/CD pipeline: every stage must pass before the next one runs."
+    },
+    "simpleExample": {
+      "scenario": "A GitHub Actions workflow that builds and tests `order-service` on every push.",
+      "code": "name: CI\non: [push]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-java@v4\n        with:\n          java-version: '21'\n          distribution: 'temurin'\n          cache: 'maven'\n      - run: mvn test",
+      "input": "A `git push` to any branch in the repository.",
+      "execution": "GitHub spins up an `ubuntu-latest` runner, checks out the code, installs Java 21 with Maven dependencies cached, and runs `mvn test`.",
+      "output": "A green check on the commit if all tests pass; a red X with the failing test output if any test fails.",
+      "explanation": "This is the minimum viable CI pipeline — every push is automatically validated before a human ever has to look at it."
+    },
+    "realWorldExample": {
+      "scenario": "A full pipeline for `payment-service`: build, test across two Java versions, build a Docker image, and deploy via canary release.",
+      "code": "name: CI/CD\non:\n  push:\n    branches: [main]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    strategy:\n      matrix:\n        java: [17, 21]\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-java@v4\n        with:\n          java-version: ${{ matrix.java }}\n      - run: mvn test\n\n  deploy:\n    needs: test\n    runs-on: ubuntu-latest\n    environment: production\n    steps:\n      - uses: actions/checkout@v4\n      - run: docker build -t payment-service:${{ github.sha }} .\n      - run: docker push payment-service:${{ github.sha }}\n      - run: kubectl set image deployment/payment-service payment-service=payment-service:${{ github.sha }}",
+      "input": "A merge to `main` after a pull request is approved.",
+      "execution": "Tests run in parallel across Java 17 and 21. Only after both pass does the `deploy` job build and push a tagged Docker image, then trigger a Kubernetes rolling update using an `environment: production` gate requiring approval.",
+      "output": "A new `payment-service` image running in production, rolled out gradually with the previous version staying available until the rollout completes.",
+      "explanation": "The `needs: test` dependency and `environment: production` gate are what actually prevent an untested or unapproved change from reaching production, not just good intentions."
+    },
+    "comparisonTables": [
       {
-        "heading": "GitHub Actions",
-        "points": [
-          "**Workflow Structure** — YAML in `.github/workflows/`. Triggers: `push`, `pull_request`, `schedule`, `workflow_dispatch`. Jobs run on runners (ubuntu-latest, self-hosted).",
-          "**Steps & Actions** — Steps execute commands or reuse actions. `uses: actions/checkout@v4`, `uses: actions/setup-java@v4`. `run:` for shell commands.",
-          "**Caching** — Cache Maven/Gradle dependencies: `actions/cache@v4` with `~/.m2` or `~/.gradle/caches`. Speeds up builds significantly.",
-          "**Secrets & Environment** — Store secrets in repo/org settings. Access via `${{ secrets.DOCKER_PASSWORD }}`. Environment protection rules for production deployments.",
-          "**Matrix Builds** — Test across multiple versions: `strategy: matrix: java: [17, 21]`. Runs parallel jobs for each combination."
-        ]
-      },
-      {
-        "heading": "Deployment Strategies",
-        "points": [
-          "**Blue-Green Deployment** — Two identical environments. Route traffic from blue (current) to green (new) after validation. Instant rollback by switching back.",
-          "**Canary Deployment** — Route small percentage of traffic (5-10%) to new version. Monitor error rates and latency. Gradually increase if healthy.",
-          "**Rolling Deployment** — Replace instances one at a time. No downtime. Kubernetes default strategy. `maxSurge` and `maxUnavailable` control rollout speed.",
-          "**Feature Flags** — Toggle features without deployment. LaunchDarkly, Unleash, or custom implementation. Decouple deployment from release. A/B testing support.",
-          "**Rollback Strategy** — Automated rollback on health check failure. Keep previous version artifacts. Database migrations must be backward-compatible for safe rollback."
+        "title": "Blue-Green vs Canary vs Rolling Deployment",
+        "columns": ["Aspect", "Blue-Green", "Canary", "Rolling"],
+        "rows": [
+          ["Traffic shift", "All at once, after validation", "Gradual — small % first, then increase", "Gradual — instance by instance"],
+          ["Infrastructure needed", "Two full identical environments", "One environment, traffic-split capable", "One environment, replaced incrementally"],
+          ["Rollback speed", "Instant — switch back to blue", "Fast — reduce canary traffic to zero", "Slower — must roll instances back"],
+          ["Risk exposure", "All-or-nothing once switched", "Limited to canary traffic percentage", "Limited to instances already replaced"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Gate every deployment job behind a passing test job using `needs:`, never deploy unconditionally.",
+      "Cache Maven/Gradle dependencies to keep pipeline run times low.",
+      "Use environment protection rules to require manual approval before a production deployment.",
+      "Keep database migrations backward-compatible so a rollback never leaves the schema in a broken state."
+    ],
+    "commonMistakes": [
+      "Deploying directly from a workflow with no test gate in front of it.",
+      "Storing secrets directly in workflow YAML instead of repo/org secret settings.",
+      "Treating a canary's early success as final — not actually monitoring error rates and latency before full rollout.",
+      "Writing database migrations that break if the previous application version is still running during a rollout."
+    ],
+    "interviewTips": [
+      "Be ready to name the tradeoff for each deployment strategy — Blue-Green trades infrastructure cost for instant rollback, Canary trades rollout speed for safety.",
+      "If asked to design a pipeline, structure the answer as: build → test → package → deploy, and name the gate between each stage."
+    ],
+    "faq": [
+      {
+        "q": "What is the actual difference between Continuous Delivery and Continuous Deployment?",
+        "a": "Continuous Delivery means every change is automatically build-and-test-verified and ready to deploy, but a human triggers the actual production release. Continuous Deployment goes one step further and deploys automatically with no manual trigger."
+      },
+      {
+        "q": "Why would I choose Canary over Blue-Green?",
+        "a": "Canary limits risk to a small percentage of real traffic and lets you catch problems with real production load before a full rollout, whereas Blue-Green is an instant full cutover — good for fast rollback, but you get no gradual signal beforehand."
+      },
+      {
+        "q": "How do feature flags relate to deployment strategy?",
+        "a": "Feature flags decouple deploying code from releasing a feature to users — the code can be deployed to production dark, then turned on for a subset of users independently of any deployment strategy."
+      }
+    ],
+    "summary": [
+      "CI automatically builds and tests every change; CD automates getting a validated change into production.",
+      "GitHub Actions implements this with workflows, triggers, cached dependency steps, and secrets/environment gates.",
+      "Deployment strategy (Blue-Green, Canary, Rolling) determines how safely and gradually a new version replaces the old one in production."
+    ],
+    "quickRevision": [
+      "CI = build + test automatically on every change; CD = automate getting that change to production.",
+      "GitHub Actions workflows live in `.github/workflows/`, triggered by push/PR/schedule/manual dispatch.",
+      "Matrix builds run the same job across multiple versions in parallel.",
+      "Secrets live in repo/org settings, accessed via `${{ secrets.NAME }}`.",
+      "Blue-Green: instant cutover, instant rollback, needs two environments.",
+      "Canary: small % of traffic first, monitor, then ramp up.",
+      "Rolling: replace instances one at a time — Kubernetes' default.",
+      "Feature flags decouple deployment from release, enabling dark launches and A/B tests.",
+      "Safe rollback requires backward-compatible database migrations."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the difference between Continuous Integration and Continuous Deployment?",
+        "What triggers can start a GitHub Actions workflow?",
+        "What is a canary deployment?"
+      ],
+      "intermediate": [
+        "How does a matrix build work, and when would you use one?",
+        "Compare Blue-Green and Rolling deployment strategies in terms of infrastructure cost and rollback speed.",
+        "Why must database migrations be backward-compatible for safe rollbacks?"
+      ],
+      "advanced": [
+        "Design a CI/CD pipeline for a payment service that requires manual approval before production deployment.",
+        "How would you implement a canary release that automatically rolls back on elevated error rates?",
+        "What failure modes exist in a rolling deployment that don't exist in Blue-Green, and how would you mitigate them?"
+      ]
+    }
   },
   {
     "id": "kubernetes",
     "title": "Kubernetes",
-    "topics": [
+    "overview": [
+      "Kubernetes orchestrates containers across a cluster of machines — scheduling, scaling, healing, and networking them automatically.",
+      "You declare the **desired state** (how many replicas, which image, how much CPU), and Kubernetes continuously works to match reality to it.",
+      "This page covers core objects, configuration/storage, and scaling/health mechanisms."
+    ],
+    "why": [
+      "Running containers on a single Docker host doesn't survive that host failing, or traffic outgrowing it.",
+      "Production systems need automatic restart on crash, automatic scaling under load, and safe rolling updates — not manual intervention.",
+      "Kubernetes exists to provide all of this as a declarative, self-healing platform instead of custom scripts per team."
+    ],
+    "problem": [
+      "**Without an orchestrator**, a crashed container stays down until someone notices and restarts it manually.",
+      "Scaling to handle more traffic meant manually starting more containers and updating a load balancer by hand.",
+      "There was no standard way to store config and secrets separately from the container image, or to safely limit how much CPU/memory one app could consume."
+    ],
+    "internalWorking": {
+      "intro": ["Three areas matter most: the core objects that make up a running app, how config/storage are handled, and how scaling and health checks keep it running."],
+      "topics": [
+        {
+          "heading": "Core Concepts",
+          "points": [
+            "**Pod** — the smallest deployable unit. One or more containers sharing network and storage. Ephemeral by design; managed by controllers, never created directly.",
+            "**Deployment** — manages ReplicaSets for declarative updates. Defines desired state (replicas, image, strategy). Supports rolling updates and rollbacks.",
+            "**Service** — a stable network endpoint for Pods. `ClusterIP` (internal), `NodePort` (external port on each node), `LoadBalancer` (cloud LB), `ExternalName` (DNS alias).",
+            "**Ingress** — HTTP/HTTPS routing to services. Host-based and path-based routing, plus TLS termination. Requires an Ingress Controller (NGINX, Traefik, AWS ALB).",
+            "**Namespace** — logical cluster isolation. `default`, `kube-system`, and custom namespaces per team/environment, each with its own resource quotas and network policies."
+          ]
+        },
+        {
+          "heading": "Config & Storage",
+          "points": [
+            "**ConfigMap** — stores non-sensitive config as key-value pairs. Mounted as environment variables or volume files, e.g. `kubectl create configmap --from-file`.",
+            "**Secret** — Base64-encoded sensitive data. Types include `Opaque`, `docker-registry`, `TLS`. Use Sealed Secrets or an External Secrets Operator for encryption at rest.",
+            "**PersistentVolume (PV)** — a cluster storage resource. A `PersistentVolumeClaim` (PVC) requests storage from it. `StorageClass` enables dynamic provisioning (EBS, GCE PD, NFS).",
+            "**Resource limits** — `requests` (guaranteed) and `limits` (maximum) for CPU and memory. Prevents noisy neighbors; a Pod is `OOMKilled` if its memory limit is exceeded.",
+            "**Init containers** — run before app containers, used for setup tasks like waiting for dependencies, running migrations, or downloading configs. Must complete successfully before the app starts."
+          ]
+        },
+        {
+          "heading": "Scaling & Health",
+          "points": [
+            "**HPA (Horizontal Pod Autoscaler)** — auto-scales pods based on CPU, memory, or custom metrics, e.g. `minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70`.",
+            "**Liveness probe** — detects if a container is stuck, and restarts it on failure. HTTP GET, TCP socket, or exec command, configured with `initialDelaySeconds` and `periodSeconds`.",
+            "**Readiness probe** — detects if a container can serve traffic. Removes it from Service endpoints when failing, preventing routing to starting or unhealthy pods.",
+            "**Resource quotas** — limit total resources per namespace: `requests.cpu`, `limits.memory`, `count/pods`. Prevents one team from consuming an entire cluster.",
+            "**Pod Disruption Budget (PDB)** — guarantees a minimum number of available pods during voluntary disruptions (node drain, upgrades), via `minAvailable: 2` or `maxUnavailable: 1`."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Deployment: desired state\"] --> B[\"ReplicaSet: maintains N replicas\"]\n    B --> C[\"Pod 1\"]\n    B --> D[\"Pod 2\"]\n    B --> E[\"Pod 3\"]\n    F[\"Service\"] --> C\n    F --> D\n    F --> E\n    G[\"HPA watches CPU metric\"] -->|\"threshold exceeded\"| B",
+      "caption": "A Deployment owns a ReplicaSet, which owns Pods; a Service load-balances across them, and the HPA adjusts replica count based on metrics."
+    },
+    "simpleExample": {
+      "scenario": "Deploying `order-service` with three replicas and a Service to expose it internally.",
+      "code": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: order-service\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: order-service\n  template:\n    metadata:\n      labels:\n        app: order-service\n    spec:\n      containers:\n        - name: order-service\n          image: order-service:1.0\n          ports:\n            - containerPort: 8080\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: order-service\nspec:\n  selector:\n    app: order-service\n  ports:\n    - port: 80\n      targetPort: 8080\n  type: ClusterIP",
+      "input": "A container image `order-service:1.0` already pushed to a registry the cluster can pull from.",
+      "execution": "`kubectl apply -f order-deployment.yaml` creates a Deployment, which creates a ReplicaSet, which creates 3 Pods matching the `app: order-service` label. The Service selects those same Pods.",
+      "output": "Three running `order-service` Pods, reachable internally at `order-service` on port 80, load-balanced across all three.",
+      "explanation": "The Service never talks to Pods by name or IP directly — it uses the label selector, so Pods can be replaced without the Service definition ever changing."
+    },
+    "realWorldExample": {
+      "scenario": "Auto-scaling `payment-service` under load, with liveness/readiness probes and a PodDisruptionBudget protecting availability during node maintenance.",
+      "code": "apiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: payment-service-hpa\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: payment-service\n  minReplicas: 2\n  maxReplicas: 10\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70\n---\napiVersion: policy/v1\nkind: PodDisruptionBudget\nmetadata:\n  name: payment-service-pdb\nspec:\n  minAvailable: 2\n  selector:\n    matchLabels:\n      app: payment-service",
+      "input": "A `payment-service` Deployment with `livenessProbe` and `readinessProbe` already configured on `/actuator/health/liveness` and `/actuator/health/readiness`.",
+      "execution": "Under a traffic spike, average CPU crosses 70%, so the HPA increases replicas toward the max of 10. When a node is drained for maintenance, the PDB blocks Kubernetes from evicting more than allowed, keeping at least 2 Pods available at all times.",
+      "output": "`payment-service` scales out automatically under load and scales back in as it subsides, while never dropping below 2 available Pods even during planned node maintenance.",
+      "explanation": "The HPA reacts to real load, the readiness probe stops traffic reaching a Pod that isn't ready yet, and the PDB is what actually prevents a maintenance operation from taking the service below its minimum safe capacity."
+    },
+    "comparisonTables": [
       {
-        "heading": "Core Concepts",
-        "points": [
-          "**Pod** — Smallest deployable unit. One or more containers sharing network and storage. Ephemeral by design; managed by controllers, not created directly.",
-          "**Deployment** — Manages ReplicaSets for declarative updates. Defines desired state (replicas, image, strategy). Supports rolling updates and rollbacks.",
-          "**Service** — Stable network endpoint for Pods. ClusterIP (internal), NodePort (external port on each node), LoadBalancer (cloud LB), ExternalName (DNS alias).",
-          "**Ingress** — HTTP/HTTPS routing to services. Host-based and path-based routing. TLS termination. Requires Ingress Controller (NGINX, Traefik, AWS ALB).",
-          "**Namespace** — Logical cluster isolation. `default`, `kube-system`, custom namespaces per team/environment. Resource quotas and network policies per namespace."
+        "title": "Liveness Probe vs Readiness Probe",
+        "columns": ["Aspect", "Liveness Probe", "Readiness Probe"],
+        "rows": [
+          ["Question it answers", "Is this container stuck and needs restarting?", "Can this container serve traffic right now?"],
+          ["Action on failure", "Kubernetes restarts the container", "Pod is removed from Service endpoints"],
+          ["Typical use", "Detecting deadlocks or unrecoverable states", "Delaying traffic until startup/warm-up completes"]
         ]
       },
       {
-        "heading": "Config & Storage",
-        "points": [
-          "**ConfigMap** — Store non-sensitive config as key-value pairs. Mount as environment variables or volume files. `kubectl create configmap --from-file`.",
-          "**Secret** — Base64-encoded sensitive data. Types: Opaque, docker-registry, TLS. Use Sealed Secrets or External Secrets Operator for encryption at rest.",
-          "**PersistentVolume (PV)** — Cluster storage resource. `PersistentVolumeClaim` (PVC) requests storage. StorageClass for dynamic provisioning (EBS, GCE PD, NFS).",
-          "**Resource Limits** — `requests` (guaranteed) and `limits` (maximum) for CPU and memory. Prevents noisy neighbors. OOMKilled if memory limit exceeded.",
-          "**Init Containers** — Run before app containers. Use for setup tasks: wait for dependencies, run migrations, download configs. Must complete successfully before app starts."
-        ]
-      },
-      {
-        "heading": "Scaling & Health",
-        "points": [
-          "**HPA (Horizontal Pod Autoscaler)** — Auto-scale pods based on CPU, memory, or custom metrics. `minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70`.",
-          "**Liveness Probe** — Detects if container is stuck. Restarts container on failure. HTTP GET, TCP socket, or exec command. Configure `initialDelaySeconds` and `periodSeconds`.",
-          "**Readiness Probe** — Detects if container can serve traffic. Removes from Service endpoints when failing. Prevents routing to starting or unhealthy pods.",
-          "**Resource Quotas** — Limit total resources per namespace. `requests.cpu`, `limits.memory`, `count/pods`. Prevents one team from consuming entire cluster.",
-          "**Pod Disruption Budget (PDB)** — Guarantees minimum available pods during voluntary disruptions (node drain, upgrades). `minAvailable: 2` or `maxUnavailable: 1`."
+        "title": "ConfigMap vs Secret",
+        "columns": ["Aspect", "ConfigMap", "Secret"],
+        "rows": [
+          ["Data sensitivity", "Non-sensitive configuration", "Sensitive data (passwords, tokens, certs)"],
+          ["Storage encoding", "Plain text key-value pairs", "Base64-encoded (not encrypted by default)"],
+          ["Typical types", "Application config, feature flags", "`Opaque`, `docker-registry`, `TLS`"],
+          ["Extra protection", "None needed", "Sealed Secrets or External Secrets Operator recommended for at-rest encryption"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Always set both `requests` and `limits` for CPU/memory to avoid noisy-neighbor problems and unexpected `OOMKilled` events.",
+      "Configure readiness probes on every service that has a startup/warm-up period, to avoid routing traffic too early.",
+      "Use a PodDisruptionBudget on any service where dropping below a minimum replica count is unacceptable, even during planned maintenance.",
+      "Encrypt Secrets at rest using Sealed Secrets or an External Secrets Operator — Base64 alone is encoding, not encryption."
+    ],
+    "commonMistakes": [
+      "Treating Base64-encoded Secrets as if they were encrypted — anyone with cluster access can decode them trivially.",
+      "Setting a liveness probe so aggressively that a slow-but-healthy container gets restarted in a crash loop.",
+      "Forgetting resource requests/limits entirely, letting one Pod starve others on the same node.",
+      "Creating Pods directly instead of through a Deployment, losing self-healing and rolling update capability."
+    ],
+    "interviewTips": [
+      "Be precise about the Deployment → ReplicaSet → Pod hierarchy — interviewers often check whether you know Deployments don't manage Pods directly.",
+      "If asked about scaling, mention both the HPA (pod count) and resource requests/limits (per-pod sizing) — they're often confused with each other."
+    ],
+    "faq": [
+      {
+        "q": "Why not create Pods directly instead of through a Deployment?",
+        "a": "A Pod created directly has no controller watching it — if it crashes or the node dies, nothing recreates it. A Deployment (via its ReplicaSet) continuously ensures the desired replica count actually exists."
+      },
+      {
+        "q": "What happens if a readiness probe fails but the liveness probe still passes?",
+        "a": "The Pod keeps running and isn't restarted, but it's removed from the Service's list of endpoints, so no traffic is routed to it until the readiness probe starts passing again."
+      },
+      {
+        "q": "Are Kubernetes Secrets actually secure by default?",
+        "a": "Not fully — they're Base64-encoded, which is trivially reversible, not encrypted. For real protection at rest, use something like Sealed Secrets or an External Secrets Operator."
+      }
+    ],
+    "summary": [
+      "Kubernetes maintains a declared desired state — Deployments manage ReplicaSets, which manage Pods, with Services providing stable networking.",
+      "ConfigMaps and Secrets externalize configuration from the image, while resource requests/limits and quotas keep workloads from starving each other.",
+      "HPA, liveness/readiness probes, and PodDisruptionBudgets together keep the system scaled correctly and available during both failures and planned maintenance."
+    ],
+    "quickRevision": [
+      "Pod = smallest deployable unit, ephemeral, never created directly.",
+      "Deployment manages ReplicaSets; ReplicaSets manage Pods.",
+      "Service types: ClusterIP (internal), NodePort, LoadBalancer, ExternalName.",
+      "Ingress needs an Ingress Controller (NGINX, Traefik, ALB) for HTTP(S) routing.",
+      "ConfigMap = non-sensitive config; Secret = Base64-encoded sensitive data (not encrypted by default).",
+      "requests = guaranteed resources; limits = maximum, breach on memory triggers OOMKilled.",
+      "Liveness probe restarts a stuck container; readiness probe removes it from Service endpoints.",
+      "HPA scales replica count based on CPU/memory/custom metrics.",
+      "PodDisruptionBudget guarantees minimum availability during voluntary disruptions like node drains.",
+      "Init containers must finish successfully before the main app container starts."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is a Pod, and why is it never created directly in production?",
+        "What is the difference between a ConfigMap and a Secret?",
+        "What does a Service do in Kubernetes?"
+      ],
+      "intermediate": [
+        "Explain the relationship between a Deployment, a ReplicaSet, and a Pod.",
+        "What is the difference between a liveness probe and a readiness probe?",
+        "How does the Horizontal Pod Autoscaler decide when to scale a Deployment?"
+      ],
+      "advanced": [
+        "Design the resource requests, limits, HPA, and PodDisruptionBudget for a payment-critical service that must never drop below 2 available replicas.",
+        "What happens end-to-end when a node is drained for maintenance, from the scheduler's perspective and the PDB's perspective?",
+        "How would you securely manage secrets for a multi-environment Kubernetes cluster, beyond the built-in Secret object?"
+      ]
+    }
   }
 ]

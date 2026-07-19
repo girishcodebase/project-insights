@@ -2,201 +2,949 @@
   {
     "id": "sql-fundamentals",
     "title": "SQL Fundamentals",
-    "topics": [
+    "overview": [
+      "SQL (Structured Query Language) is how applications read and write data stored in a relational database.",
+      "It covers four core operations: creating, reading, updating, and deleting rows — commonly called **CRUD**.",
+      "On top of CRUD, SQL adds filtering, sorting, and aggregation to shape exactly the data an application needs."
+    ],
+    "why": [
+      "Applications constantly need to store, retrieve, and change structured data — users, orders, products.",
+      "A relational database organizes this data into tables with rows and columns.",
+      "SQL is the standard language every relational database understands, so skills transfer across MySQL, PostgreSQL, Oracle, and more."
+    ],
+    "problem": [
+      "Before declarative query languages, retrieving data meant writing procedural code to walk file structures by hand.",
+      "Every application had to know the physical layout of the data just to read it.",
+      "SQL solved this by letting you describe **what** data you want, not **how** to fetch it — the database engine figures out the *how*."
+    ],
+    "internalWorking": {
+      "intro": [
+        "SQL fundamentals break down into three practical skill groups every backend engineer uses daily."
+      ],
+      "topics": [
+        {
+          "heading": "CRUD Operations",
+          "points": [
+            "**SELECT** — `SELECT col1, col2 FROM table WHERE condition ORDER BY col ASC/DESC LIMIT n OFFSET m`.",
+            "**INSERT** — `INSERT INTO users (name, email) VALUES ('John', 'john@mail.com')`. Bulk form: `INSERT INTO ... SELECT ...`.",
+            "**UPDATE** — `UPDATE users SET name = 'Jane' WHERE id = 1`. Always include a `WHERE` clause.",
+            "**DELETE** — `DELETE FROM users WHERE id = 1`. `TRUNCATE TABLE users` is faster and resets auto-increment.",
+            "**UPSERT** — MySQL: `INSERT ... ON DUPLICATE KEY UPDATE`. PostgreSQL: `INSERT ... ON CONFLICT DO UPDATE`."
+          ]
+        },
+        {
+          "heading": "Filtering & Sorting",
+          "points": [
+            "**WHERE clauses** — operators like `=`, `!=`, `<`, `>`, `BETWEEN`, `IN`, `LIKE`, `IS NULL`, `IS NOT NULL`.",
+            "**LIKE pattern** — `%` matches any characters, `_` matches a single character. Example: `WHERE name LIKE 'J%'`.",
+            "**AND / OR / NOT** — combine conditions; use parentheses to control precedence.",
+            "**ORDER BY** — `ORDER BY name ASC, created_at DESC`. PostgreSQL adds `NULLS FIRST` / `NULLS LAST`.",
+            "**LIMIT & OFFSET** — pagination: `LIMIT 20 OFFSET 40` returns page 3 at 20 rows per page."
+          ]
+        },
+        {
+          "heading": "Aggregations",
+          "points": [
+            "**Aggregate functions** — `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`. `COUNT(*)` counts all rows.",
+            "**GROUP BY** — `SELECT dept, COUNT(*) FROM emp GROUP BY dept`. Every non-aggregate column must appear in `GROUP BY`.",
+            "**HAVING** — filters groups, not rows: `SELECT dept, AVG(salary) FROM emp GROUP BY dept HAVING AVG(salary) > 50000`.",
+            "**DISTINCT** — `SELECT DISTINCT department FROM employees` removes duplicate rows.",
+            "**Window functions** — `ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)`, plus `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"FROM - pick source tables\"] --> B[\"WHERE - filter rows\"]\n    B --> C[\"GROUP BY - form groups\"]\n    C --> D[\"HAVING - filter groups\"]\n    D --> E[\"SELECT - pick columns/expressions\"]\n    E --> F[\"ORDER BY - sort result\"]\n    F --> G[\"LIMIT / OFFSET - page result\"]",
+      "caption": "The database evaluates a query in this logical order — not top-to-bottom as it's written. This is why HAVING can filter on an aggregate but WHERE cannot."
+    },
+    "simpleExample": {
+      "scenario": "Fetch the 10 most recent orders placed by a single customer.",
+      "code": "SELECT id, product_name, total\nFROM orders\nWHERE customer_id = 501\nORDER BY created_at DESC\nLIMIT 10;",
+      "input": "A `orders` table containing thousands of rows across many customers.",
+      "execution": "The engine filters rows to `customer_id = 501`, sorts the matches by `created_at` descending, then returns only the first 10.",
+      "output": "10 rows: `id`, `product_name`, `total` for the customer's newest orders.",
+      "explanation": "WHERE narrows the rows first, ORDER BY sorts what's left, and LIMIT caps the result — this mirrors the logical execution order."
+    },
+    "realWorldExample": {
+      "scenario": "A dashboard needs total revenue per product category, but only for categories generating over ₹100,000.",
+      "code": "SELECT category, COUNT(*) AS order_count, SUM(total) AS revenue\nFROM orders\nWHERE status = 'COMPLETED'\nGROUP BY category\nHAVING SUM(total) > 100000\nORDER BY revenue DESC;",
+      "input": "An `orders` table with `category`, `status`, and `total` columns across all customers.",
+      "execution": "WHERE keeps only completed orders, GROUP BY buckets them by category, HAVING drops low-revenue categories, then results are sorted by revenue.",
+      "output": "A short list of high-performing categories with their order count and total revenue, highest first.",
+      "explanation": "HAVING is essential here because the filter (`SUM(total) > 100000`) depends on an aggregate that doesn't exist until after grouping — WHERE can't do that."
+    },
+    "comparisonTables": [
       {
-        "heading": "CRUD Operations",
-        "points": [
-          "**SELECT** — `SELECT col1, col2 FROM table WHERE condition ORDER BY col ASC/DESC LIMIT n OFFSET m`.",
-          "**INSERT** — `INSERT INTO users (name, email) VALUES ('John', 'john@mail.com')`. Bulk: `INSERT INTO ... SELECT ...`.",
-          "**UPDATE** — `UPDATE users SET name = 'Jane' WHERE id = 1`. Always use WHERE clause.",
-          "**DELETE** — `DELETE FROM users WHERE id = 1`. `TRUNCATE TABLE users` — faster, resets auto-increment.",
-          "**UPSERT** — MySQL: `INSERT ... ON DUPLICATE KEY UPDATE`. PostgreSQL: `INSERT ... ON CONFLICT DO UPDATE`."
+        "title": "WHERE vs HAVING",
+        "columns": ["Aspect", "WHERE", "HAVING"],
+        "rows": [
+          ["Filters", "Individual rows", "Groups after GROUP BY"],
+          ["Runs", "Before grouping", "After grouping"],
+          ["Aggregate functions", "Cannot reference `SUM()`, `COUNT()`, etc.", "Can reference aggregate functions"],
+          ["Typical use", "`WHERE status = 'ACTIVE'`", "`HAVING COUNT(*) > 5`"]
         ]
       },
       {
-        "heading": "Filtering & Sorting",
-        "points": [
-          "**WHERE Clauses** — `=`, `!=`, `<`, `>`, `BETWEEN`, `IN`, `LIKE`, `IS NULL`, `IS NOT NULL`.",
-          "**LIKE Pattern** — `%` any characters, `_` single character. `WHERE name LIKE 'J%'`.",
-          "**AND / OR / NOT** — Combine conditions. Use parentheses for precedence.",
-          "**ORDER BY** — `ORDER BY name ASC, created_at DESC`. `NULLS FIRST` / `NULLS LAST` (PostgreSQL).",
-          "**LIMIT & OFFSET** — Pagination: `LIMIT 20 OFFSET 40` (page 3, 20 per page)."
-        ]
-      },
-      {
-        "heading": "Aggregations",
-        "points": [
-          "**Aggregate Functions** — `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`. `COUNT(*)` counts all rows.",
-          "**GROUP BY** — `SELECT dept, COUNT(*) FROM emp GROUP BY dept`. Every non-aggregate column must be in GROUP BY.",
-          "**HAVING** — Filter groups. `SELECT dept, AVG(salary) FROM emp GROUP BY dept HAVING AVG(salary) > 50000`.",
-          "**DISTINCT** — `SELECT DISTINCT department FROM employees`. Removes duplicate rows.",
-          "**Window Functions** — `ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC)`. `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()`."
+        "title": "DELETE vs TRUNCATE",
+        "columns": ["Aspect", "DELETE", "TRUNCATE"],
+        "rows": [
+          ["Granularity", "Can target specific rows with `WHERE`", "Removes all rows, no `WHERE`"],
+          ["Speed", "Slower — logged row by row", "Faster — deallocates data pages"],
+          ["Auto-increment", "Not reset", "Resets the counter"],
+          ["Triggers", "Fires row-level triggers", "Usually does not fire triggers"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Always pair `UPDATE` and `DELETE` with a `WHERE` clause — test the matching rows with a `SELECT` first.",
+      "Use `LIMIT`/`OFFSET` for pagination instead of loading an entire table into the application.",
+      "Prefer `EXISTS`-style checks or explicit columns over `SELECT *` in production queries."
+    ],
+    "commonMistakes": [
+      "Running `UPDATE` or `DELETE` without a `WHERE` clause, silently affecting every row in the table.",
+      "Trying to filter on an aggregate inside `WHERE` instead of `HAVING`.",
+      "Forgetting that every non-aggregated column in `SELECT` must also appear in `GROUP BY`."
+    ],
+    "interviewTips": [
+      "If asked to explain query execution order, recite it as FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT.",
+      "Be ready to explain why `HAVING` exists at all when `WHERE` already filters — the aggregate-timing answer is the key insight."
+    ],
+    "faq": [
+      {
+        "q": "Can I use a column alias defined in SELECT inside a WHERE clause?",
+        "a": "No, in most databases — WHERE runs before SELECT in the logical execution order, so the alias doesn't exist yet. Repeat the expression or use HAVING/a subquery instead."
+      },
+      {
+        "q": "Why does TRUNCATE reset auto-increment but DELETE doesn't?",
+        "a": "TRUNCATE deallocates the underlying data pages entirely and reinitializes the table, including its identity counter. DELETE removes rows individually and leaves the counter untouched."
+      },
+      {
+        "q": "Is UPSERT the same across all databases?",
+        "a": "No — the concept is universal but the syntax differs: MySQL uses `ON DUPLICATE KEY UPDATE`, PostgreSQL uses `ON CONFLICT DO UPDATE`, and SQL Server uses a `MERGE` statement."
+      }
+    ],
+    "summary": [
+      "SQL fundamentals center on CRUD (SELECT, INSERT, UPDATE, DELETE) plus filtering, sorting, and aggregation.",
+      "The database always evaluates a query in a fixed logical order — FROM, WHERE, GROUP BY, HAVING, SELECT, ORDER BY, LIMIT — regardless of how it's written.",
+      "Aggregate functions and GROUP BY/HAVING let you summarize data, while WHERE and ORDER BY shape individual rows."
+    ],
+    "quickRevision": [
+      "CRUD = SELECT, INSERT, UPDATE, DELETE — the four core operations.",
+      "Always attach WHERE to UPDATE/DELETE to avoid affecting the whole table.",
+      "TRUNCATE is faster than DELETE and resets auto-increment; DELETE supports WHERE and triggers.",
+      "WHERE filters rows before grouping; HAVING filters groups after grouping.",
+      "Every non-aggregate SELECT column must appear in GROUP BY.",
+      "Logical execution order: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT.",
+      "Window functions like ROW_NUMBER() and RANK() operate over partitions without collapsing rows like GROUP BY does.",
+      "UPSERT syntax is database-specific: ON DUPLICATE KEY UPDATE (MySQL) vs ON CONFLICT (PostgreSQL)."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the difference between DELETE and TRUNCATE?",
+        "Write a query to fetch the top 5 highest-paid employees.",
+        "What does the LIKE operator's % and _ mean?"
+      ],
+      "intermediate": [
+        "Why can't you filter on an aggregate function using WHERE?",
+        "Explain the logical order in which a SQL query executes.",
+        "What's the difference between COUNT(*) and COUNT(column_name)?"
+      ],
+      "advanced": [
+        "How would you implement pagination efficiently on a table with millions of rows, avoiding a large OFFSET?",
+        "Explain how a window function like RANK() differs from GROUP BY in terms of what rows are returned.",
+        "How does UPSERT behavior differ across MySQL, PostgreSQL, and SQL Server, and what are the concurrency implications?"
+      ]
+    }
   },
   {
     "id": "joins-subqueries",
     "title": "Joins & Subqueries",
-    "topics": [
+    "overview": [
+      "Real data is rarely in one table — orders reference customers, customers reference addresses.",
+      "**Joins** combine rows across multiple tables based on a matching column.",
+      "**Subqueries** nest one query inside another to answer questions that need an intermediate result first."
+    ],
+    "why": [
+      "Normalized databases split data into separate tables to avoid duplication.",
+      "But an application usually needs a combined view — an order along with the customer who placed it.",
+      "Joins and subqueries are how SQL reassembles that split data back into a single, useful result."
+    ],
+    "problem": [
+      "Without joins, combining two tables would require fetching each separately and merging them in application code.",
+      "That approach pulls far more data over the network than necessary and pushes relational logic into the app layer.",
+      "Joins let the database do the matching internally, using indexes, and return only the combined rows actually needed."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Joins and subqueries solve the same underlying need — combining related data — in different ways."
+      ],
+      "topics": [
+        {
+          "heading": "JOIN Types",
+          "points": [
+            "**INNER JOIN** — returns only matching rows from both tables: `SELECT * FROM orders o INNER JOIN users u ON o.user_id = u.id`.",
+            "**LEFT JOIN** — all rows from the left table, plus matches from the right; `NULL` where there's no match.",
+            "**RIGHT JOIN** — all rows from the right table, plus matches from the left. Less commonly used.",
+            "**FULL OUTER JOIN** — all rows from both tables, `NULL` where there's no match. Not supported in MySQL.",
+            "**CROSS JOIN** — a Cartesian product; every row of A paired with every row of B. Rarely needed."
+          ]
+        },
+        {
+          "heading": "Self Join & Multi-Table",
+          "points": [
+            "**Self join** — a table joined with itself: `SELECT e.name, m.name AS manager FROM emp e JOIN emp m ON e.manager_id = m.id`.",
+            "**Multiple joins** — chain joins across tables: `FROM orders o JOIN users u ON ... JOIN products p ON ...`.",
+            "**Join with aggregation** — `SELECT u.name, COUNT(o.id) FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.name`.",
+            "**Natural join** — joins automatically on columns with the same name. Implicit and fragile — avoid in production."
+          ]
+        },
+        {
+          "heading": "Subqueries",
+          "points": [
+            "**Scalar subquery** — returns a single value: `SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = u.id) FROM users u`.",
+            "**IN subquery** — `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE total > 100)`.",
+            "**EXISTS** — `SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)`. Usually faster than `IN`.",
+            "**Correlated subquery** — references the outer query and executes once per outer row; consider a JOIN instead.",
+            "**CTE (WITH clause)** — `WITH active_users AS (SELECT * FROM users WHERE active = true) SELECT * FROM active_users`."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Read next row from left table\"] --> B{\"Matching row in right table?\"}\n    B -- \"Yes\" --> C[\"Combine columns from both rows\"]\n    B -- \"No\" --> D{\"Join type is LEFT/FULL?\"}\n    D -- \"Yes\" --> E[\"Combine with NULLs for right side\"]\n    D -- \"No - INNER\" --> F[\"Skip this row entirely\"]\n    C --> G[\"Add to result set\"]\n    E --> G",
+      "caption": "How a join decides, row by row, whether to include a match, fill with NULLs, or skip entirely — the difference between INNER and LEFT/FULL joins."
+    },
+    "simpleExample": {
+      "scenario": "List every customer along with the product name of each order they placed.",
+      "code": "SELECT c.name, o.product_name\nFROM customers c\nINNER JOIN orders o ON o.customer_id = c.id;",
+      "input": "A `customers` table and an `orders` table linked by `customer_id`.",
+      "execution": "The engine matches each `orders` row to its `customers` row via `customer_id = c.id`, combining the two into one row per match.",
+      "output": "One row per order, showing the customer's name next to the product they bought.",
+      "explanation": "INNER JOIN only returns customers who have at least one order — anyone with zero orders is left out entirely."
+    },
+    "realWorldExample": {
+      "scenario": "A reporting query needs every customer, including those who've never ordered, along with their total order count.",
+      "code": "SELECT c.name, COUNT(o.id) AS order_count\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nGROUP BY c.name\nHAVING COUNT(o.id) = 0;",
+      "input": "The same `customers` and `orders` tables, but now the report cares specifically about inactive customers.",
+      "execution": "LEFT JOIN keeps every customer row even with no matching order (filling order columns with NULL), then HAVING filters down to customers with zero matched orders.",
+      "output": "A list of customers who have never placed an order — useful for a re-engagement campaign.",
+      "explanation": "Switching from INNER to LEFT JOIN is what makes customers with no orders visible at all — an INNER JOIN would have silently excluded them."
+    },
+    "comparisonTables": [
       {
-        "heading": "JOIN Types",
-        "points": [
-          "**INNER JOIN** — Returns matching rows from both tables. `SELECT * FROM orders o INNER JOIN users u ON o.user_id = u.id`.",
-          "**LEFT JOIN** — All rows from left table + matching from right. NULL if no match.",
-          "**RIGHT JOIN** — All rows from right table + matching from left. Less common.",
-          "**FULL OUTER JOIN** — All rows from both tables. NULL where no match. Not supported in MySQL.",
-          "**CROSS JOIN** — Cartesian product. Every row of A paired with every row of B. Rarely needed."
+        "title": "INNER vs LEFT vs RIGHT vs FULL OUTER JOIN",
+        "columns": ["Join Type", "Rows Returned", "NULLs Possible?"],
+        "rows": [
+          ["INNER JOIN", "Only matching rows from both tables", "No"],
+          ["LEFT JOIN", "All left rows + matches from right", "Yes, on right side"],
+          ["RIGHT JOIN", "All right rows + matches from left", "Yes, on left side"],
+          ["FULL OUTER JOIN", "All rows from both tables", "Yes, on either side"]
         ]
       },
       {
-        "heading": "Self Join & Multi-Table",
-        "points": [
-          "**Self Join** — Table joined with itself. `SELECT e.name, m.name AS manager FROM emp e JOIN emp m ON e.manager_id = m.id`.",
-          "**Multiple Joins** — Chain joins: `FROM orders o JOIN users u ON ... JOIN products p ON ...`.",
-          "**Join with Aggregation** — `SELECT u.name, COUNT(o.id) FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.name`.",
-          "**Natural Join** — Joins on columns with same name. Implicit, fragile — avoid in production."
+        "title": "IN vs EXISTS",
+        "columns": ["Aspect", "IN", "EXISTS"],
+        "rows": [
+          ["Evaluates", "Full subquery result list first", "Stops at first matching row"],
+          ["Best for", "Small, static subquery result sets", "Large subquery result sets"],
+          ["NULL handling", "Can silently misbehave with NULLs", "Not affected by NULLs in subquery"],
+          ["Typical speed", "Slower on large subqueries", "Usually faster — short-circuits"]
         ]
       },
       {
-        "heading": "Subqueries",
-        "points": [
-          "**Scalar Subquery** — Returns single value. `SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = u.id) FROM users u`.",
-          "**IN Subquery** — `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE total > 100)`.",
-          "**EXISTS** — `SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)`. Usually faster than IN.",
-          "**Correlated Subquery** — References outer query. Executes once per outer row. Consider JOIN instead.",
-          "**CTE (WITH clause)** — `WITH active_users AS (SELECT * FROM users WHERE active = true) SELECT * FROM active_users`."
+        "title": "Subquery vs JOIN vs CTE",
+        "columns": ["Aspect", "Subquery", "JOIN", "CTE"],
+        "rows": [
+          ["Readability", "Can nest deeply, harder to read", "Flat, usually clearer", "Named, very readable"],
+          ["Reusability", "Not reusable within the query", "Not reusable", "Can be referenced multiple times"],
+          ["Performance", "Correlated form can be slow", "Generally optimizer-friendly", "Similar to subquery, sometimes materialized"],
+          ["Best for", "One-off scalar/EXISTS checks", "Combining full row sets", "Breaking complex logic into named steps"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Prefer `EXISTS` over `IN` when the subquery returns a large result set.",
+      "Use a CTE to name and break apart a complex query instead of deeply nesting subqueries.",
+      "Always specify the join condition explicitly with `ON` — never rely on implicit natural joins in production."
+    ],
+    "commonMistakes": [
+      "Using INNER JOIN when LEFT JOIN was needed, silently dropping rows with no match.",
+      "Writing a correlated subquery that re-executes per outer row when a JOIN would run once and be faster.",
+      "Forgetting that NULL values inside an IN subquery's result can cause the entire condition to evaluate as unknown."
+    ],
+    "interviewTips": [
+      "Be ready to draw or describe, step by step, how INNER JOIN differs from LEFT JOIN using a small example.",
+      "If asked to optimize a query with a subquery, always mention whether it could be rewritten as a JOIN or CTE."
+    ],
+    "faq": [
+      {
+        "q": "Why does my LEFT JOIN return more rows than expected?",
+        "a": "If the right table has multiple matching rows for one left row, the join produces one output row per match — this can multiply row counts unexpectedly, especially before a GROUP BY."
+      },
+      {
+        "q": "Is a CTE always faster than a subquery?",
+        "a": "Not necessarily. A CTE is mainly about readability and reuse; some databases materialize it (compute once), while others inline it just like a subquery — check your specific engine's query plan."
+      },
+      {
+        "q": "When would I actually need a CROSS JOIN?",
+        "a": "Rarely — mainly for generating all possible combinations, like pairing every size with every color for a product variant matrix."
+      }
+    ],
+    "summary": [
+      "Joins combine rows across tables using a matching column; the type (INNER, LEFT, RIGHT, FULL) determines which unmatched rows survive.",
+      "Subqueries nest a query inside another to compute an intermediate value, check existence, or filter by a related result.",
+      "EXISTS generally outperforms IN on large subqueries, and CTEs improve readability without changing the underlying logic."
+    ],
+    "quickRevision": [
+      "INNER JOIN: only matches. LEFT JOIN: all left rows + matches. FULL OUTER: everything, both sides.",
+      "MySQL doesn't support FULL OUTER JOIN natively — simulate with LEFT JOIN UNION RIGHT JOIN.",
+      "Self join = a table joined to itself, typically for hierarchical data like employee/manager.",
+      "EXISTS short-circuits on the first match; IN evaluates the whole subquery result set.",
+      "Correlated subqueries run once per outer row — often slower than an equivalent JOIN.",
+      "CTE (WITH clause) names a subquery for readability and potential reuse within the same query.",
+      "Natural joins are implicit and fragile — always specify ON conditions explicitly.",
+      "Multiplying row counts is a common LEFT JOIN pitfall when the right table has duplicate keys."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What's the difference between INNER JOIN and LEFT JOIN?",
+        "Write a query using a self join to find each employee's manager.",
+        "What is a subquery?"
+      ],
+      "intermediate": [
+        "When would you use EXISTS instead of IN?",
+        "What is a correlated subquery, and why can it be slow?",
+        "How does a CTE differ from a regular subquery?"
+      ],
+      "advanced": [
+        "How would you simulate a FULL OUTER JOIN in MySQL, which doesn't support it natively?",
+        "Given a slow query with a correlated subquery, how would you rewrite it as a JOIN, and why would that help?",
+        "How do NULLs in the subquery result set affect the correctness of an IN clause?"
+      ]
+    }
   },
   {
     "id": "indexes-performance",
     "title": "Indexes & Performance",
-    "topics": [
+    "overview": [
+      "An **index** is a separate data structure that lets the database find rows without scanning the entire table.",
+      "Performance tuning is about helping the database avoid unnecessary work — fewer rows scanned, fewer round trips, less data moved.",
+      "**Connection pooling** solves a related but different problem: reusing expensive database connections instead of creating new ones per request."
+    ],
+    "why": [
+      "Without an index, finding a row means scanning every row in the table — fine for 100 rows, unacceptable for 100 million.",
+      "As data grows, query cost grows with it unless the database has a faster path to the matching rows.",
+      "Indexes exist to give the query planner that faster path, trading extra storage and slightly slower writes for much faster reads."
+    ],
+    "problem": [
+      "A full table scan reads every row on disk just to check if it matches a condition.",
+      "This gets dramatically slower as tables grow, even for queries that only need a handful of matching rows.",
+      "Indexes solve this by pre-sorting or pre-organizing key columns, so the database can jump directly to matching rows."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Getting performance right means understanding indexes, how to read a query plan, and how connections are managed."
+      ],
+      "topics": [
+        {
+          "heading": "Index Types",
+          "points": [
+            "**B-Tree index** — the default. Good for equality and range queries: `CREATE INDEX idx_name ON table(col)`.",
+            "**Composite index** — a multi-column index: `CREATE INDEX idx ON table(col1, col2)`. Follows the leftmost prefix rule.",
+            "**Unique index** — enforces uniqueness; automatically created for a `PRIMARY KEY`.",
+            "**Hash index** — supports only equality comparisons; faster than B-Tree for `=`, but useless for range queries.",
+            "**Full-text index** — for text search: `CREATE FULLTEXT INDEX idx ON articles(title, body)`."
+          ]
+        },
+        {
+          "heading": "Query Optimization",
+          "points": [
+            "**EXPLAIN / EXPLAIN ANALYZE** — shows the query execution plan. Look for: scan type (`ALL` = full scan), rows scanned, key used.",
+            "**Avoid `SELECT *`** — fetch only needed columns to reduce I/O, memory, and network transfer.",
+            "**Avoid functions on indexed columns** — `WHERE YEAR(created_at) = 2024` won't use the index; use a range instead.",
+            "**Use EXISTS over IN** — for large subqueries, EXISTS short-circuits and avoids scanning the whole result.",
+            "**Batch operations** — batch inserts: `INSERT INTO table VALUES (...), (...), (...)` to reduce round trips."
+          ]
+        },
+        {
+          "heading": "Connection Pooling",
+          "points": [
+            "**HikariCP** — the default connection pool in Spring Boot; the fastest Java connection pool available.",
+            "**Pool sizing** — formula: `connections = (core_count * 2) + effective_spindle_count`. Usually 10-20.",
+            "**Connection leaks** — enable leak detection: `spring.datasource.hikari.leak-detection-threshold=2000`.",
+            "**Timeouts** — configure `connection-timeout`, `idle-timeout`, and `max-lifetime` appropriately."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Query arrives\"] --> B{\"Usable index on filtered column?\"}\n    B -- \"Yes\" --> C{\"Selective enough - few matching rows?\"}\n    C -- \"Yes\" --> D[\"Index scan - jump to matching rows\"]\n    C -- \"No - most rows match\" --> E[\"Full table scan may be cheaper\"]\n    B -- \"No\" --> E\n    D --> F[\"Return result rows\"]\n    E --> F",
+      "caption": "The query planner doesn't always use an available index — if a condition matches most of the table, a full scan can actually be cheaper than jumping row by row through an index."
+    },
+    "simpleExample": {
+      "scenario": "Speed up looking up a customer by email, a column currently unindexed.",
+      "code": "CREATE INDEX idx_customers_email ON customers(email);\n\nSELECT id, name FROM customers WHERE email = 'jane@shop.com';",
+      "input": "A `customers` table with 2 million rows and no index on `email`.",
+      "execution": "Before the index: the engine scans all 2 million rows checking each `email`. After the index: it jumps almost directly to the matching row using the B-Tree structure.",
+      "output": "The same single matching row, but returned in milliseconds instead of scanning the entire table.",
+      "explanation": "The index trades a small amount of extra storage and slightly slower inserts for a dramatic read speedup on an equality lookup."
+    },
+    "realWorldExample": {
+      "scenario": "An order-history page filters by both `customer_id` and `status`, and the query is running slowly at scale.",
+      "code": "CREATE INDEX idx_orders_customer_status ON orders(customer_id, status);\n\nEXPLAIN SELECT * FROM orders\nWHERE customer_id = 501 AND status = 'SHIPPED'\nORDER BY created_at DESC;",
+      "input": "An `orders` table with tens of millions of rows, previously only indexed on `id`.",
+      "execution": "The composite index on `(customer_id, status)` lets the engine narrow to one customer's shipped orders directly. Running EXPLAIN confirms the plan now shows `key: idx_orders_customer_status` instead of a full scan.",
+      "output": "EXPLAIN output showing an index-based lookup with a small number of rows scanned, instead of `type: ALL` across millions of rows.",
+      "explanation": "The leftmost prefix rule matters here — this same index also speeds up queries filtering by `customer_id` alone, but not ones filtering by `status` alone."
+    },
+    "comparisonTables": [
       {
-        "heading": "Index Types",
-        "points": [
-          "**B-Tree Index** — Default. Good for equality and range queries. `CREATE INDEX idx_name ON table(col)`.",
-          "**Composite Index** — Multi-column index. `CREATE INDEX idx ON table(col1, col2)`. Leftmost prefix rule.",
-          "**Unique Index** — Enforces uniqueness. Automatically created for PRIMARY KEY.",
-          "**Hash Index** — Only equality comparisons. Faster than B-Tree for `=`. Not for range queries.",
-          "**Full-Text Index** — Text search. `CREATE FULLTEXT INDEX idx ON articles(title, body)`."
+        "title": "B-Tree vs Hash Index",
+        "columns": ["Aspect", "B-Tree Index", "Hash Index"],
+        "rows": [
+          ["Equality (`=`)", "Fast", "Fast, often faster"],
+          ["Range (`<`, `>`, `BETWEEN`)", "Supported efficiently", "Not supported"],
+          ["Sorting (`ORDER BY`)", "Can use the index order", "Cannot help with sorting"],
+          ["Default in most databases", "Yes", "No — used selectively"]
         ]
       },
       {
-        "heading": "Query Optimization",
-        "points": [
-          "**EXPLAIN / EXPLAIN ANALYZE** — Show query execution plan. Look for: type (ALL = full scan), rows scanned, key used.",
-          "**Avoid SELECT *** — Fetch only needed columns. Reduces I/O, memory, and network transfer.",
-          "**Avoid Functions on Indexed Columns** — `WHERE YEAR(created_at) = 2024` won't use index. Use range instead.",
-          "**Use EXISTS over IN** — For large subqueries, EXISTS short-circuits.",
-          "**Batch Operations** — Batch inserts: `INSERT INTO table VALUES (...), (...), (...)`. Reduce round trips."
-        ]
-      },
-      {
-        "heading": "Connection Pooling",
-        "points": [
-          "**HikariCP** — Default in Spring Boot. Fastest Java connection pool.",
-          "**Pool Sizing** — Formula: connections = (core_count * 2) + effective_spindle_count. Usually 10-20.",
-          "**Connection Leaks** — Enable leak detection: `spring.datasource.hikari.leak-detection-threshold=2000`.",
-          "**Timeouts** — `connection-timeout`, `idle-timeout`, `max-lifetime`. Configure appropriately."
+        "title": "Reading an EXPLAIN Plan",
+        "columns": ["Signal", "Good", "Bad"],
+        "rows": [
+          ["Scan type", "`ref`, `range`, `index`", "`ALL` — full table scan"],
+          ["Rows examined", "Close to rows actually needed", "Far higher than rows returned"],
+          ["Key used", "A relevant index name appears", "`NULL` — no index applied"],
+          ["Extra", "Empty or `Using index`", "`Using filesort`, `Using temporary`"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Index columns used in `WHERE`, `JOIN`, and `ORDER BY` — not every column.",
+      "Put the most selective (most filtering) column first in a composite index, respecting query patterns.",
+      "Always verify a suspected slow query with `EXPLAIN` before adding an index blindly."
+    ],
+    "commonMistakes": [
+      "Wrapping an indexed column in a function in the WHERE clause, silently disabling index usage.",
+      "Over-indexing a write-heavy table, which slows down every INSERT/UPDATE/DELETE.",
+      "Assuming an index always helps — on a low-selectivity column, the planner may correctly ignore it."
+    ],
+    "interviewTips": [
+      "If asked why a query is slow, the first move is always to say \"run EXPLAIN and check the scan type.\"",
+      "Be ready to explain the leftmost prefix rule with a concrete two-column index example."
+    ],
+    "performanceTips": [
+      "Composite indexes matching your exact WHERE + ORDER BY pattern avoid both a scan and a separate sort step.",
+      "Batch inserts and use connection pooling together — neither replaces the other; one reduces round trips, the other reduces connection setup cost."
+    ],
+    "faq": [
+      {
+        "q": "Does adding more indexes always make queries faster?",
+        "a": "No. Indexes speed up reads on the columns they cover but slow down writes, since every INSERT/UPDATE/DELETE must also update the index. Index only what queries actually need."
+      },
+      {
+        "q": "Why doesn't my query use the index I created?",
+        "a": "Common causes: a function wraps the indexed column, the column isn't the leftmost part of a composite index, or the condition matches too large a fraction of the table for the planner to bother."
+      },
+      {
+        "q": "What's a reasonable HikariCP pool size?",
+        "a": "Usually 10-20 connections per instance — more isn't always better, since each additional connection adds contention on the database side. The (core_count * 2) formula is a starting point, not a hard rule."
+      }
+    ],
+    "summary": [
+      "Indexes let the database find rows without scanning the whole table, at the cost of extra storage and slower writes.",
+      "EXPLAIN reveals whether a query is actually using an index or falling back to a full table scan.",
+      "Connection pooling (HikariCP) avoids the overhead of creating a new database connection per request."
+    ],
+    "quickRevision": [
+      "B-Tree is the default index type — handles both equality and range queries.",
+      "Composite indexes follow the leftmost prefix rule — order columns by query pattern.",
+      "Hash index: equality only, no ranges, no sorting help.",
+      "EXPLAIN shows scan type, rows examined, and key used — type: ALL means full scan.",
+      "Avoid wrapping indexed columns in functions inside WHERE.",
+      "EXISTS short-circuits; better than IN for large subqueries.",
+      "HikariCP is Spring Boot's default and fastest connection pool.",
+      "Enable leak-detection-threshold to catch connections that are never released."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is an index, and why does it speed up queries?",
+        "What does EXPLAIN show you?",
+        "What is connection pooling, and why is it needed?"
+      ],
+      "intermediate": [
+        "What is the leftmost prefix rule for composite indexes?",
+        "Why might wrapping a column in a function prevent index usage?",
+        "How do you size a HikariCP connection pool?"
+      ],
+      "advanced": [
+        "Given an EXPLAIN plan showing type: ALL on a large table, walk through how you'd diagnose and fix it.",
+        "When would the query planner intentionally choose a full table scan over an available index?",
+        "How would you detect and fix a connection leak in a production Spring Boot application?"
+      ]
+    }
   },
   {
     "id": "normalization-design",
     "title": "Normalization & Design",
-    "topics": [
+    "overview": [
+      "**Normalization** is the process of organizing tables to reduce data duplication and prevent inconsistencies.",
+      "It follows a progression of rules called normal forms — 1NF, 2NF, 3NF, and BCNF — each stricter than the last.",
+      "Good schema design also covers naming conventions, key choices, and how to handle deletions and timestamps."
+    ],
+    "why": [
+      "Storing the same fact in multiple places invites contradictions — one row says a customer's city is 'Mumbai', another says 'Pune'.",
+      "Normalization exists to ensure each fact is stored in exactly one place, so updating it once keeps the whole database consistent.",
+      "Well-designed schemas also make relationships between entities explicit, instead of duplicating data across tables."
+    ],
+    "problem": [
+      "A single flat table mixing customer, order, and product details repeats the customer's name and address on every order row.",
+      "Update that customer's address, and you must find and fix every duplicated row — miss one, and the data becomes inconsistent.",
+      "Normalization solves this by splitting data into related tables, each fact stored once, connected through foreign keys."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Normalization is a step-by-step progression, and it pairs with a set of practical schema design conventions."
+      ],
+      "topics": [
+        {
+          "heading": "Normal Forms",
+          "points": [
+            "**1NF** — atomic values, no repeating groups. Each cell holds a single value, and each row is unique.",
+            "**2NF** — 1NF plus no partial dependencies. Every non-key column depends on the entire primary key.",
+            "**3NF** — 2NF plus no transitive dependencies. Non-key columns depend only on the primary key.",
+            "**BCNF** — a stricter 3NF. Every determinant is a candidate key.",
+            "**When to denormalize** — read-heavy systems, reporting tables, caching layers. Trades storage for read speed."
+          ]
+        },
+        {
+          "heading": "Schema Design Best Practices",
+          "points": [
+            "**Primary keys** — use surrogate keys (auto-increment ID or UUID); avoid natural keys as the primary key.",
+            "**Foreign keys** — always define FK constraints, with `ON DELETE CASCADE` or `ON DELETE SET NULL`.",
+            "**Naming conventions** — lowercase, `snake_case`; plural table names, singular column names.",
+            "**Soft delete** — add a `deleted_at` timestamp instead of deleting; query with `WHERE deleted_at IS NULL`.",
+            "**Timestamps** — always include `created_at` and `updated_at`, populated by database defaults."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Unnormalized table - repeating groups, mixed data\"] --> B[\"1NF - atomic values, unique rows\"]\n    B --> C[\"2NF - remove partial dependencies on composite key\"]\n    C --> D[\"3NF - remove transitive dependencies\"]\n    D --> E[\"BCNF - every determinant is a candidate key\"]",
+      "caption": "Each normal form fixes a specific category of redundancy left over from the previous stage — this is a progression, not independent rules."
+    },
+    "simpleExample": {
+      "scenario": "An unnormalized `orders` table repeats the customer's email and phone number on every single order row.",
+      "code": "-- Before: repeated customer data on every order\norders(order_id, product, customer_email, customer_phone, total)\n\n-- After normalizing: customer data lives once, referenced by key\ncustomers(customer_id, email, phone)\norders(order_id, customer_id, product, total)",
+      "input": "A customer named Priya places 20 orders; in the unnormalized table, her email and phone appear 20 times.",
+      "execution": "Splitting the table moves `email` and `phone` into a single `customers` row, and `orders` now references it via `customer_id`.",
+      "output": "Priya's contact details exist in exactly one row; each of her 20 orders links to that row instead of repeating it.",
+      "explanation": "If Priya changes her phone number, one row is updated in `customers` — every order automatically reflects the change through the foreign key."
+    },
+    "realWorldExample": {
+      "scenario": "An e-commerce schema needs to track products, the categories they belong to, and every order line, without duplicating category names.",
+      "code": "CREATE TABLE categories (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(100) NOT NULL,\n  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE products (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  category_id BIGINT NOT NULL,\n  name VARCHAR(200) NOT NULL,\n  price DECIMAL(10,2) NOT NULL,\n  deleted_at TIMESTAMP NULL,\n  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL\n);",
+      "input": "A growing product catalog where categories are shared across thousands of products.",
+      "execution": "`products.category_id` references `categories.id` instead of repeating the category name as text; a soft-delete column (`deleted_at`) replaces hard deletes on products.",
+      "output": "A schema where renaming a category updates one row, and 'deleting' a product just hides it via `WHERE deleted_at IS NULL` without losing historical order references.",
+      "explanation": "`ON DELETE SET NULL` protects products from being destroyed if a category is removed, while soft delete on products preserves referential integrity for existing orders that reference them."
+    },
+    "comparisonTables": [
       {
-        "heading": "Normal Forms",
-        "points": [
-          "**1NF** — Atomic values, no repeating groups. Each cell contains a single value. Each row is unique.",
-          "**2NF** — 1NF + no partial dependencies. Every non-key column depends on the entire primary key.",
-          "**3NF** — 2NF + no transitive dependencies. Non-key columns depend only on the primary key.",
-          "**BCNF** — Stricter 3NF. Every determinant is a candidate key.",
-          "**When to Denormalize** — Read-heavy systems, reporting tables, caching layers. Trade storage for read speed."
+        "title": "Normalization vs Denormalization",
+        "columns": ["Aspect", "Normalization", "Denormalization"],
+        "rows": [
+          ["Goal", "Eliminate redundancy", "Optimize read performance"],
+          ["Writes", "Simple, consistent, one place to update", "Must update duplicated copies"],
+          ["Reads", "May require multiple joins", "Fewer joins, faster reads"],
+          ["Best for", "Transactional (OLTP) systems", "Reporting, analytics, caching layers"]
         ]
       },
       {
-        "heading": "Schema Design Best Practices",
-        "points": [
-          "**Primary Keys** — Use surrogate keys (auto-increment ID or UUID). Avoid natural keys as PK.",
-          "**Foreign Keys** — Always define FK constraints. `ON DELETE CASCADE` or `ON DELETE SET NULL`.",
-          "**Naming Conventions** — Lowercase, snake_case. Plural table names. Singular column names.",
-          "**Soft Delete** — Add `deleted_at` timestamp instead of DELETE. `WHERE deleted_at IS NULL`.",
-          "**Timestamps** — Always include `created_at` and `updated_at`. Use database defaults."
+        "title": "Soft Delete vs Hard Delete",
+        "columns": ["Aspect", "Soft Delete", "Hard Delete"],
+        "rows": [
+          ["Mechanism", "Set `deleted_at` timestamp", "Remove the row with DELETE"],
+          ["Recoverability", "Easy to restore", "Requires backups to restore"],
+          ["Referential integrity", "Foreign keys elsewhere stay valid", "Can break references or cascade"],
+          ["Query overhead", "Every query needs `WHERE deleted_at IS NULL`", "None — row simply doesn't exist"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Normalize to at least 3NF by default; denormalize deliberately, only where a specific read pattern demands it.",
+      "Prefer surrogate keys (auto-increment or UUID) over natural keys, which can change or aren't guaranteed unique.",
+      "Add `created_at`/`updated_at` to every table from day one — retrofitting them later is painful."
+    ],
+    "commonMistakes": [
+      "Using a natural key (like email) as a primary key, then needing to change it later when the business rule shifts.",
+      "Forgetting to index the `deleted_at` column, making every soft-delete-filtered query slow at scale.",
+      "Denormalizing prematurely, before confirming normalized joins are an actual performance bottleneck."
+    ],
+    "interviewTips": [
+      "Be ready to walk through 1NF → 2NF → 3NF with a concrete example table, not just definitions.",
+      "If asked about denormalization, always mention it's a deliberate trade-off for read speed, not a shortcut to avoid design work."
+    ],
+    "faq": [
+      {
+        "q": "Do I always need to normalize to BCNF?",
+        "a": "No. Most production schemas stop at 3NF, which eliminates the vast majority of practical redundancy. BCNF is mostly relevant for edge cases with overlapping composite candidate keys."
+      },
+      {
+        "q": "Is soft delete always the right choice?",
+        "a": "Not always — it adds a WHERE clause burden to every query and can bloat tables over time. It's most valuable when you need to preserve foreign key references or support undo/audit functionality."
+      },
+      {
+        "q": "Why use a surrogate key instead of something like an email as the primary key?",
+        "a": "Natural keys can change (a user updates their email) or turn out not to be as unique as assumed. A surrogate key never needs to change and keeps foreign key references stable."
+      }
+    ],
+    "summary": [
+      "Normalization progressively removes redundancy through 1NF, 2NF, 3NF, and BCNF, each targeting a specific kind of dependency.",
+      "Denormalization is the deliberate reverse — trading storage and write complexity for faster reads in specific scenarios.",
+      "Solid schema design also means surrogate keys, explicit foreign keys, consistent naming, soft deletes, and timestamps on every table."
+    ],
+    "quickRevision": [
+      "1NF: atomic values, unique rows, no repeating groups.",
+      "2NF: 1NF + no partial dependency on part of a composite key.",
+      "3NF: 2NF + no transitive dependency through a non-key column.",
+      "BCNF: every determinant must be a candidate key.",
+      "Denormalize deliberately for read-heavy or reporting workloads, not by default.",
+      "Use surrogate keys (auto-increment/UUID), not natural keys, as primary keys.",
+      "Soft delete = deleted_at timestamp + WHERE deleted_at IS NULL, preserves FK integrity.",
+      "Always include created_at and updated_at columns with database defaults."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is normalization, and why is it needed?",
+        "What is the difference between 1NF and 2NF?",
+        "What is a soft delete?"
+      ],
+      "intermediate": [
+        "Explain 3NF with an example of a transitive dependency.",
+        "When would you deliberately denormalize a schema?",
+        "Why prefer a surrogate key over a natural key?"
+      ],
+      "advanced": [
+        "How does BCNF differ from 3NF, and when does that distinction actually matter?",
+        "How would you design a schema to support both soft deletes and strict referential integrity?",
+        "What are the trade-offs of denormalizing a reporting table that's refreshed nightly versus one updated in real time?"
+      ]
+    }
   },
   {
     "id": "transactions-acid",
     "title": "Transactions & ACID",
-    "topics": [
+    "overview": [
+      "A **transaction** groups multiple database operations into a single unit that either fully succeeds or fully fails.",
+      "**ACID** — Atomicity, Consistency, Isolation, Durability — describes the guarantees a transaction provides.",
+      "**Isolation levels** control how much concurrent transactions can see of each other's uncommitted changes."
+    ],
+    "why": [
+      "Transferring money between two accounts requires two updates — debit one, credit the other.",
+      "If the system crashes after the debit but before the credit, money simply vanishes.",
+      "Transactions exist so that multi-step operations like this are treated as one atomic unit — both happen, or neither does."
+    ],
+    "problem": [
+      "Without transactions, a failure partway through a multi-step operation leaves the database in an inconsistent, half-updated state.",
+      "Concurrent operations without isolation can also read each other's incomplete, in-progress changes.",
+      "ACID guarantees solve both problems: all-or-nothing execution, and controlled visibility between concurrent transactions."
+    ],
+    "internalWorking": {
+      "intro": [
+        "ACID defines the guarantees; isolation levels control the visibility trade-off; Spring's @Transactional applies both in code."
+      ],
+      "topics": [
+        {
+          "heading": "ACID Properties",
+          "points": [
+            "**Atomicity** — all or nothing. If any part fails, the entire transaction rolls back.",
+            "**Consistency** — the database moves from one valid state to another; all constraints are enforced.",
+            "**Isolation** — concurrent transactions don't interfere; each sees a consistent snapshot.",
+            "**Durability** — once committed, data survives system crashes, written to persistent storage."
+          ]
+        },
+        {
+          "heading": "Isolation Levels",
+          "points": [
+            "**READ_UNCOMMITTED** — dirty reads possible. Fastest, but least safe.",
+            "**READ_COMMITTED** — no dirty reads; only committed data is visible. Default in PostgreSQL.",
+            "**REPEATABLE_READ** — no dirty or non-repeatable reads. Default in MySQL/InnoDB.",
+            "**SERIALIZABLE** — strictest; full isolation. Slowest, most contention.",
+            "**Choosing a level** — most apps: READ_COMMITTED. Financial systems: SERIALIZABLE."
+          ]
+        },
+        {
+          "heading": "Spring @Transactional",
+          "points": [
+            "**Propagation** — `REQUIRED` (default), `REQUIRES_NEW` (always starts new), `NESTED`, `SUPPORTS`, `NOT_SUPPORTED`.",
+            "**Rollback rules** — default: rollback on `RuntimeException`. Customize with `@Transactional(rollbackFor = Exception.class)`.",
+            "**Read-only** — `@Transactional(readOnly = true)` hints to JPA/the database and optimizes flush mode.",
+            "**Timeout** — `@Transactional(timeout = 30)` rolls the transaction back if it exceeds the timeout.",
+            "**Pitfall: self-invocation** — calling a `@Transactional` method from within the same class bypasses the proxy entirely."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"BEGIN TRANSACTION\"] --> B[\"Execute statement 1 - debit account\"]\n    B --> C[\"Execute statement 2 - credit account\"]\n    C --> D{\"All statements succeeded?\"}\n    D -- \"Yes\" --> E[\"COMMIT - changes made durable\"]\n    D -- \"No - error occurred\" --> F[\"ROLLBACK - undo all changes\"]",
+      "caption": "A transaction only becomes permanent on COMMIT. Any failure along the way triggers a ROLLBACK that undoes every statement, preserving atomicity."
+    },
+    "simpleExample": {
+      "scenario": "Transfer ₹500 from one bank account to another — both updates must succeed together, or neither should happen.",
+      "code": "START TRANSACTION;\n\nUPDATE accounts SET balance = balance - 500 WHERE id = 1;\nUPDATE accounts SET balance = balance + 500 WHERE id = 2;\n\nCOMMIT;",
+      "input": "Account 1 has ₹2000, account 2 has ₹1000, before the transfer starts.",
+      "execution": "Both UPDATE statements run inside the same transaction. If both succeed, COMMIT makes the changes permanent; if either fails, the database can ROLLBACK and undo both.",
+      "output": "Account 1 now has ₹1500, account 2 now has ₹1500 — both changed together, never just one.",
+      "explanation": "Wrapping both updates in one transaction is what guarantees atomicity — without it, a crash between the two statements would lose ₹500 entirely."
+    },
+    "realWorldExample": {
+      "scenario": "A Spring Boot service places an order and deducts inventory in one method, and must roll back both if either step fails.",
+      "code": "@Service\nclass OrderService {\n\n    @Transactional(rollbackFor = Exception.class, timeout = 10)\n    public Order placeOrder(OrderRequest request) {\n        Order order = orderRepository.save(new Order(request));\n        inventoryService.reserveStock(request.getProductId(), request.getQuantity());\n        return order;\n    }\n}",
+      "input": "An `OrderRequest` for a product with insufficient stock remaining.",
+      "execution": "Spring wraps this method in a transactional proxy. `orderRepository.save()` runs first; if `reserveStock()` then throws because stock is insufficient, Spring triggers a rollback of the entire method, including the already-saved order.",
+      "output": "No order row persists in the database, and no stock is reserved — the failed reservation rolled back the whole transaction, not just itself.",
+      "explanation": "`rollbackFor = Exception.class` widens the default rollback rule (which only covers unchecked exceptions) to include checked exceptions too, so a checked `OutOfStockException` still triggers a full rollback."
+    },
+    "comparisonTables": [
       {
-        "heading": "ACID Properties",
-        "points": [
-          "**Atomicity** — All or nothing. If any part fails, entire transaction rolls back.",
-          "**Consistency** — Database moves from one valid state to another. All constraints enforced.",
-          "**Isolation** — Concurrent transactions don't interfere. Each sees a consistent snapshot.",
-          "**Durability** — Once committed, data survives system crashes. Written to persistent storage."
+        "title": "Isolation Levels Compared",
+        "columns": ["Level", "Dirty Read", "Non-Repeatable Read", "Phantom Read"],
+        "rows": [
+          ["READ_UNCOMMITTED", "Possible", "Possible", "Possible"],
+          ["READ_COMMITTED", "Prevented", "Possible", "Possible"],
+          ["REPEATABLE_READ", "Prevented", "Prevented", "Possible (in standard SQL)"],
+          ["SERIALIZABLE", "Prevented", "Prevented", "Prevented"]
         ]
       },
       {
-        "heading": "Isolation Levels",
-        "points": [
-          "**READ_UNCOMMITTED** — Dirty reads possible. Fastest but least safe.",
-          "**READ_COMMITTED** — No dirty reads. Only see committed data. Default in PostgreSQL.",
-          "**REPEATABLE_READ** — No dirty or non-repeatable reads. Default in MySQL/InnoDB.",
-          "**SERIALIZABLE** — Strictest. Full isolation. Slowest, most contention.",
-          "**Choosing Level** — Most apps: READ_COMMITTED. Financial: SERIALIZABLE."
-        ]
-      },
-      {
-        "heading": "Spring @Transactional",
-        "points": [
-          "**Propagation** — REQUIRED (default), REQUIRES_NEW (always new), NESTED, SUPPORTS, NOT_SUPPORTED.",
-          "**Rollback Rules** — Default: rollback on `RuntimeException`. `@Transactional(rollbackFor = Exception.class)`.",
-          "**Read-Only** — `@Transactional(readOnly = true)`. Hint to JPA/DB. Optimizes flush mode.",
-          "**Timeout** — `@Transactional(timeout = 30)`. Transaction rolls back if exceeds timeout.",
-          "**Pitfall: Self-Invocation** — Calling `@Transactional` method from same class bypasses proxy."
+        "title": "REQUIRED vs REQUIRES_NEW Propagation",
+        "columns": ["Aspect", "REQUIRED", "REQUIRES_NEW"],
+        "rows": [
+          ["Existing transaction", "Joins it if one exists", "Suspends it and starts a fresh one"],
+          ["Rollback scope", "Rolling back affects the whole shared transaction", "Rolling back only affects the new, inner transaction"],
+          ["Use case", "Default — most nested calls", "Independent operations, like audit logging that must persist even if the caller fails"],
+          ["Default in Spring", "Yes", "No — must be set explicitly"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Keep transactions as short as possible — long-running transactions hold locks and hurt concurrency.",
+      "Use `readOnly = true` on query-only methods to let the persistence layer optimize.",
+      "Choose the isolation level deliberately based on the actual consistency needs, not just the database default."
+    ],
+    "commonMistakes": [
+      "Calling a `@Transactional` method from another method in the same class, silently bypassing the Spring proxy.",
+      "Assuming the default rollback rule covers checked exceptions — it only covers unchecked `RuntimeException`s by default.",
+      "Using SERIALIZABLE everywhere out of caution, when it introduces far more contention than most operations need."
+    ],
+    "interviewTips": [
+      "Be ready to define each ACID property in one sentence, with a concrete failure scenario for each.",
+      "Know the self-invocation pitfall cold — it's one of the most commonly asked @Transactional gotchas."
+    ],
+    "faq": [
+      {
+        "q": "Why doesn't @Transactional work when I call the method from within the same class?",
+        "a": "Spring's @Transactional relies on a proxy wrapping the bean. Calling a method directly via `this` bypasses the proxy entirely, so no transaction is started — call through another Spring-managed bean instead."
+      },
+      {
+        "q": "What's the difference between a dirty read and a non-repeatable read?",
+        "a": "A dirty read sees another transaction's uncommitted change. A non-repeatable read sees a committed change made by another transaction between two reads within the same transaction."
+      },
+      {
+        "q": "Does REQUIRES_NEW mean two separate database connections?",
+        "a": "Effectively yes at the transactional level — the outer transaction is suspended, and the inner one commits or rolls back completely independently, typically requiring its own connection from the pool."
+      }
+    ],
+    "summary": [
+      "ACID (Atomicity, Consistency, Isolation, Durability) defines the guarantees a transaction provides across success and failure.",
+      "Isolation levels trade consistency for performance — READ_COMMITTED and REPEATABLE_READ are the most common defaults.",
+      "Spring's @Transactional applies these guarantees declaratively but relies on a proxy, which self-invocation silently bypasses."
+    ],
+    "quickRevision": [
+      "ACID = Atomicity, Consistency, Isolation, Durability.",
+      "Atomicity: all-or-nothing. Durability: survives crashes once committed.",
+      "READ_UNCOMMITTED allows dirty reads; SERIALIZABLE prevents all anomalies but is slowest.",
+      "PostgreSQL defaults to READ_COMMITTED; MySQL/InnoDB defaults to REPEATABLE_READ.",
+      "REQUIRED joins an existing transaction; REQUIRES_NEW always starts a fresh, independent one.",
+      "Default rollback only covers RuntimeException — use rollbackFor to include checked exceptions.",
+      "@Transactional(readOnly = true) is a performance hint for query-only methods.",
+      "Self-invocation (calling a @Transactional method from the same class) bypasses the Spring proxy."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What does each letter in ACID stand for?",
+        "What is a transaction, in simple terms?",
+        "What is the default propagation type in Spring's @Transactional?"
+      ],
+      "intermediate": [
+        "What's the difference between READ_COMMITTED and REPEATABLE_READ?",
+        "Why does self-invocation break @Transactional?",
+        "What does rollbackFor = Exception.class actually change?"
+      ],
+      "advanced": [
+        "Explain the difference between REQUIRED and REQUIRES_NEW with a scenario where the choice matters.",
+        "How would you design a transaction so an audit log entry survives even if the main business operation rolls back?",
+        "Walk through how SERIALIZABLE isolation prevents phantom reads compared to REPEATABLE_READ."
+      ]
+    }
   },
   {
     "id": "nosql",
     "title": "NoSQL Databases",
-    "topics": [
+    "overview": [
+      "**NoSQL** databases store data in formats other than relational tables — documents, key-value pairs, wide columns, or graphs.",
+      "**MongoDB** is a document database; **Redis** is an in-memory key-value store often used as a cache.",
+      "The choice between SQL and NoSQL depends on consistency needs, schema flexibility, and access patterns."
+    ],
+    "why": [
+      "Relational databases assume a fixed schema and strong consistency — great for orders and payments, less ideal for every workload.",
+      "Some data doesn't fit neatly into rows and columns, or needs to scale horizontally across many machines.",
+      "NoSQL databases exist to serve those specific access patterns — flexible schemas, massive horizontal scale, or sub-millisecond lookups."
+    ],
+    "problem": [
+      "A relational schema requires a migration every time the shape of stored data changes — painful for rapidly evolving data.",
+      "Scaling a relational database horizontally across many servers is hard because of the join and consistency guarantees it maintains.",
+      "NoSQL databases relax some of those guarantees deliberately, trading strict consistency or fixed schema for scale and flexibility."
+    ],
+    "internalWorking": {
+      "intro": [
+        "NoSQL splits into different models for different needs — document storage and key-value/cache are the two most common in backend systems."
+      ],
+      "topics": [
+        {
+          "heading": "Document Databases",
+          "points": [
+            "**MongoDB** — stores JSON-like documents (BSON) with a flexible schema; collections instead of tables.",
+            "**Use cases** — content management, product catalogs, user profiles, real-time analytics.",
+            "**Spring Data MongoDB** — `@Document` and `MongoRepository` for basic access; `MongoTemplate` for complex queries.",
+            "**Indexing** — `@Indexed`, compound indexes, text indexes, and TTL indexes for automatic document expiry."
+          ]
+        },
+        {
+          "heading": "Key-Value & Cache",
+          "points": [
+            "**Redis** — an in-memory data structure store with sub-millisecond latency; strings, lists, sets, hashes, sorted sets.",
+            "**Use cases** — caching, session storage, rate limiting, leaderboards, pub/sub, distributed locks.",
+            "**Spring Data Redis** — `RedisTemplate`, `@Cacheable`, `@CacheEvict`.",
+            "**TTL & eviction** — set expiry with `EXPIRE key seconds`; eviction policies include `allkeys-lru`, `volatile-lru`, `noeviction`."
+          ]
+        },
+        {
+          "heading": "When SQL vs NoSQL",
+          "points": [
+            "**Choose SQL** — complex queries/joins, strong consistency (ACID), a well-defined schema, transactional systems.",
+            "**Choose NoSQL** — flexible schema, horizontal scaling, specific access patterns, high write throughput.",
+            "**Polyglot persistence** — use different databases for different needs: SQL for orders, Redis for cache, MongoDB for logs.",
+            "**CAP theorem** — in a distributed system, choose 2 of 3: Consistency, Availability, Partition tolerance."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"New data storage requirement\"] --> B{\"Needs joins, strong ACID transactions?\"}\n    B -- \"Yes\" --> C[\"Use SQL - e.g. PostgreSQL, MySQL\"]\n    B -- \"No\" --> D{\"Schema changes often, semi-structured?\"}\n    D -- \"Yes\" --> E[\"Use Document DB - e.g. MongoDB\"]\n    D -- \"No\" --> F{\"Needs sub-millisecond lookups/caching?\"}\n    F -- \"Yes\" --> G[\"Use Key-Value store - e.g. Redis\"]\n    F -- \"No\" --> C",
+      "caption": "A practical decision path — most systems end up using more than one of these together (polyglot persistence), not picking just one for the whole application."
+    },
+    "simpleExample": {
+      "scenario": "Cache a frequently requested product's details in Redis so repeated lookups skip the database entirely.",
+      "code": "@Cacheable(value = \"products\", key = \"#productId\")\npublic Product getProduct(String productId) {\n    return productRepository.findById(productId)\n        .orElseThrow(() -> new ProductNotFoundException(productId));\n}",
+      "input": "A request for `productId = \"P-1001\"` that hasn't been cached yet.",
+      "execution": "The first call misses the cache, runs `productRepository.findById()` against the database, then Spring stores the result in Redis under the key `products::P-1001`.",
+      "output": "The first call returns from the database; every subsequent call for the same `productId` returns instantly from Redis, without hitting the database.",
+      "explanation": "`@Cacheable` intercepts the method call — if the key already exists in the Redis cache, the method body never executes at all."
+    },
+    "realWorldExample": {
+      "scenario": "An e-commerce platform stores structured orders in PostgreSQL, but customer activity logs (highly variable in shape) in MongoDB.",
+      "code": "@Document(collection = \"activity_logs\")\npublic class ActivityLog {\n    @Id\n    private String id;\n    private String customerId;\n    private String eventType;\n    private Map<String, Object> metadata;\n    @Indexed(expireAfterSeconds = 2_592_000)\n    private Instant createdAt;\n}",
+      "input": "Activity events like `PAGE_VIEW`, `CART_ADD`, or `WISHLIST_SAVE`, each with a different shape of `metadata`.",
+      "execution": "MongoDB accepts each event as-is, with `metadata` varying per event type, since there's no fixed column schema to enforce or migrate.",
+      "output": "A flexible `activity_logs` collection where every event type can carry different fields, and old logs auto-expire after 30 days via the TTL index.",
+      "explanation": "This is polyglot persistence in practice — PostgreSQL handles `orders` where schema and ACID guarantees matter, while MongoDB handles logs where structure varies and rigid schema would slow down development."
+    },
+    "comparisonTables": [
       {
-        "heading": "Document Databases",
-        "points": [
-          "**MongoDB** — JSON-like documents (BSON). Flexible schema. Collections instead of tables.",
-          "**Use Cases** — Content management, product catalogs, user profiles, real-time analytics.",
-          "**Spring Data MongoDB** — `@Document`, `MongoRepository`. `MongoTemplate` for complex queries.",
-          "**Indexing** — `@Indexed`, compound indexes, text indexes, TTL indexes for auto-expiry."
+        "title": "SQL vs NoSQL",
+        "columns": ["Aspect", "SQL", "NoSQL"],
+        "rows": [
+          ["Schema", "Fixed, defined upfront", "Flexible, can evolve per document"],
+          ["Consistency", "Strong (ACID)", "Often eventual consistency"],
+          ["Scaling", "Primarily vertical", "Horizontal, across many nodes"],
+          ["Query style", "Joins, complex relational queries", "Simple lookups, denormalized reads"],
+          ["Best for", "Transactional systems (orders, payments)", "Flexible or high-throughput workloads"]
         ]
       },
       {
-        "heading": "Key-Value & Cache",
-        "points": [
-          "**Redis** — In-memory data structure store. Sub-millisecond latency. Strings, lists, sets, hashes, sorted sets.",
-          "**Use Cases** — Caching, session storage, rate limiting, leaderboards, pub/sub, distributed locks.",
-          "**Spring Data Redis** — `RedisTemplate`, `@Cacheable`, `@CacheEvict`.",
-          "**TTL & Eviction** — Set expiry: `EXPIRE key seconds`. Policies: `allkeys-lru`, `volatile-lru`, `noeviction`."
-        ]
-      },
-      {
-        "heading": "When SQL vs NoSQL",
-        "points": [
-          "**Choose SQL** — Complex queries/joins, strong consistency (ACID), well-defined schema, transactional systems.",
-          "**Choose NoSQL** — Flexible schema, horizontal scaling, specific access patterns, high write throughput.",
-          "**Polyglot Persistence** — Use different databases for different needs. SQL for orders, Redis for cache, MongoDB for logs.",
-          "**CAP Theorem** — Choose 2 of 3: Consistency, Availability, Partition tolerance."
+        "title": "MongoDB (Document) vs Redis (Key-Value)",
+        "columns": ["Aspect", "MongoDB", "Redis"],
+        "rows": [
+          ["Data model", "JSON-like documents (BSON)", "Key-value pairs, plus lists/sets/hashes"],
+          ["Storage", "Primarily on disk", "Primarily in-memory"],
+          ["Typical use", "Product catalogs, user profiles, logs", "Caching, sessions, rate limiting, leaderboards"],
+          ["Query complexity", "Supports rich queries and indexes", "Simple key-based access, very fast"]
         ]
       }
-    ]
+    ],
+    "bestPractices": [
+      "Adopt polyglot persistence deliberately — pick the database that matches each specific workload, not one database for everything.",
+      "Set a TTL on cache entries and logs that don't need to live forever, instead of manually managing expiry.",
+      "Keep transactional, consistency-critical data (payments, orders) in a SQL database even in a NoSQL-heavy architecture."
+    ],
+    "commonMistakes": [
+      "Using MongoDB for data that actually needs multi-row ACID transactions and relational integrity.",
+      "Treating Redis as a primary data store instead of a cache, without a durable fallback if it's flushed or restarted.",
+      "Forgetting to set eviction policies, letting Redis run out of memory unpredictably under load."
+    ],
+    "interviewTips": [
+      "Be ready to justify SQL vs NoSQL for a specific scenario the interviewer gives you, not just recite definitions.",
+      "Mention CAP theorem naturally when asked about NoSQL trade-offs — it's the theoretical backbone of the SQL vs NoSQL discussion."
+    ],
+    "faq": [
+      {
+        "q": "Can NoSQL databases support transactions at all?",
+        "a": "Some do to a degree — MongoDB supports multi-document ACID transactions since version 4.0 — but it's generally less central to the model than in relational databases, and often avoided for performance reasons."
+      },
+      {
+        "q": "Is Redis only used for caching?",
+        "a": "No — while caching is the most common use, Redis is also used for session storage, rate limiting, distributed locks, leaderboards (sorted sets), and pub/sub messaging."
+      },
+      {
+        "q": "Does using NoSQL mean giving up on data consistency entirely?",
+        "a": "No — it means choosing a different consistency model, often eventual consistency, which is acceptable for many workloads (like logs or activity feeds) but not for financial transactions."
+      }
+    ],
+    "summary": [
+      "NoSQL databases trade some of the relational model's guarantees for schema flexibility, horizontal scale, or raw speed.",
+      "MongoDB fits semi-structured, evolving data; Redis fits caching and any workload needing sub-millisecond key-based access.",
+      "Most real systems use polyglot persistence — SQL for transactional data, NoSQL for the workloads that specifically benefit from it."
+    ],
+    "quickRevision": [
+      "NoSQL trades relational guarantees for schema flexibility, scale, or speed.",
+      "MongoDB = document database, JSON-like BSON documents, flexible schema.",
+      "Redis = in-memory key-value store, sub-millisecond latency, used for caching/sessions/rate limiting.",
+      "Spring Data MongoDB: @Document, MongoRepository, MongoTemplate.",
+      "Spring Data Redis: RedisTemplate, @Cacheable, @CacheEvict.",
+      "Choose SQL for joins, strong consistency, and transactional systems.",
+      "Choose NoSQL for flexible schema, horizontal scale, high write throughput.",
+      "CAP theorem: pick 2 of Consistency, Availability, Partition tolerance.",
+      "Polyglot persistence: use different databases for different needs, not one-size-fits-all."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the main difference between SQL and NoSQL databases?",
+        "What is MongoDB, and how does it store data?",
+        "What is Redis typically used for?"
+      ],
+      "intermediate": [
+        "What does @Cacheable do, and what triggers a cache miss versus a cache hit?",
+        "Explain the CAP theorem and how it applies to NoSQL databases.",
+        "When would you choose polyglot persistence over a single database for a whole system?"
+      ],
+      "advanced": [
+        "Design a data storage strategy for an e-commerce platform using both SQL and NoSQL — justify what goes where.",
+        "How does MongoDB's support for multi-document transactions change the classic SQL vs NoSQL trade-off?",
+        "What are the risks of relying on Redis as more than a cache, and how would you mitigate them?"
+      ]
+    }
   }
 ]

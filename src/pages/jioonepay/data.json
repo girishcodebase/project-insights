@@ -2,170 +2,726 @@
   {
     "id": "overview",
     "title": "Overview",
-    "topics": [
+    "overview": [
+      "JioOnePay is a **payment aggregation platform** built by Jio Platforms.",
+      "Merchants integrate with it once, instead of separately with every payment gateway or bank.",
+      "It sits directly **between the Merchant and the Payment Gateway/Bank** — the merchant only ever talks to JioOnePay, never to the bank directly.",
+      "It's a **microservices-based** system that routes, processes, and tracks payments across UPI, cards, wallets, and net banking."
+    ],
+    "why": [
+      "A merchant that wants to accept UPI, cards, wallets, and net banking needs a separate integration for each one.",
+      "Every payment gateway has its own API, its own auth mechanism, and its own response format.",
+      "An aggregator absorbs all of that complexity once, so merchants integrate with a single, consistent API."
+    ],
+    "problem": [
+      "Before aggregators, a merchant integrated **individually** with every gateway — high effort, high ongoing maintenance.",
+      "Adding a new payment method meant a brand-new integration project, not a config change.",
+      "There was no single place to monitor transactions, handle refunds, or retry failures across all payment methods."
+    ],
+    "internalWorking": {
+      "intro": [
+        "The architecture, stack, and my specific role in building this platform."
+      ],
+      "topics": [
+        {
+          "heading": "Application Architecture",
+          "points": [
+            "**Microservices architecture** — each service is independently deployable, scalable, and easy to extend.",
+            "**API Gateway pattern** — `jop-gateway-service` is the single entry point for all traffic; it routes requests and handles resilience (circuit breaker, rate limiting)."
+          ]
+        },
+        {
+          "heading": "Technologies Used",
+          "points": [
+            "**Backend** — Core Java, Spring Boot, Spring Data JPA, Oracle Database, REST APIs.",
+            "**Frontend** — React, Next.js, TypeScript."
+          ]
+        },
+        {
+          "heading": "Key Features",
+          "points": [
+            "Merchant Onboarding.",
+            "Payment Gateway Integration.",
+            "Multiple Payment Modes (UPI, Card, Wallet, Net Banking).",
+            "Dynamic Payment Routing.",
+            "Refunds & Transaction Monitoring."
+          ]
+        },
+        {
+          "heading": "My Roles & Responsibilities",
+          "points": [
+            "Building REST APIs & business logic in Spring Boot, integrating new payment gateways, writing optimized Oracle SQL.",
+            "Frontend development in React/Next.js — building UI components and wiring them to backend APIs.",
+            "Code reviews, unit tests, debugging, and working with QA/Product/DevOps through release."
+          ]
+        },
+        {
+          "heading": "Challenges",
+          "points": [
+            "**Problem** — integrating multiple payment gateways, each with different request/response formats and authentication mechanisms.",
+            "**Solution** — a common abstraction layer converts our internal request into the gateway-specific format, and transforms the gateway response back into our standard model.",
+            "**Impact** — merchants use a single API, and new gateways can be integrated without impacting existing merchants."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph LR\n    A[\"Merchant\"] --> B[\"JioOnePay\"]\n    B --> C[\"Payment Gateway\"]\n    C --> D[\"Bank\"]\n    D --> E[\"Response\"]",
+      "caption": "The simplest possible view — JioOnePay sits between the merchant and the payment gateway/bank. The full flow is broken down layer by layer next."
+    },
+    "simpleExample": {
+      "scenario": "A merchant's checkout page initiates a UPI payment through JioOnePay's REST API.",
+      "code": "POST /api/v1/payments/initiate\n{\n  \"merchantId\": \"MERCH1024\",\n  \"orderId\": \"ORD98213\",\n  \"amount\": 499.00,\n  \"paymentMode\": \"UPI\",\n  \"vpa\": \"customer@upi\"\n}",
+      "input": "A merchant-initiated payment request for a fixed order amount, specifying UPI as the payment mode.",
+      "execution": "JioOnePay validates the merchant and order, resolves UPI as the payment mode, and routes the request to the configured UPI-handling service/bank without the merchant needing to know which bank actually processes it.",
+      "output": "A response containing a transactionId and a status (e.g. PENDING, moving to SUCCESS or FAILED once the bank responds).",
+      "explanation": "The merchant only ever talks to one API — JioOnePay — regardless of which underlying bank or gateway actually settles the UPI transaction."
+    },
+    "realWorldExample": {
+      "scenario": "Integrating multiple payment gateways, each with a different request/response format and authentication mechanism.",
+      "code": "interface PaymentGatewayAdapter {\n    GatewayRequest toGatewayFormat(InternalPaymentRequest request);\n    InternalPaymentResponse toInternalFormat(GatewayResponse response);\n}\n\nclass RazorpayAdapter implements PaymentGatewayAdapter { ... }\nclass PhonePeAdapter implements PaymentGatewayAdapter { ... }",
+      "input": "An internal, standard payment request that must be sent to different gateways with completely different APIs.",
+      "execution": "Each gateway gets its own adapter implementing the same interface — converting the internal request into that gateway's specific format, and transforming its response back into JioOnePay's standard response model.",
+      "output": "Merchants and internal services always see the same standard request/response shape, regardless of which gateway actually handled the transaction.",
+      "explanation": "This is the Adapter design pattern applied at a system level — new gateways can be added by writing one new adapter class, without touching any existing merchant integration."
+    },
+    "comparisonTables": [
       {
-        "heading": "Project Introduction",
-        "points": [
-          "JioOnePay is a **payment aggregation platform** by Jio Platforms — merchants integrate once with us instead of separately with every payment gateway or bank."
+        "title": "Direct Integration vs Payment Aggregator",
+        "columns": [
+          "Aspect",
+          "Direct Gateway Integration",
+          "JioOnePay (Aggregator)"
+        ],
+        "rows": [
+          [
+            "Integrations required",
+            "One per gateway/bank",
+            "One, for all gateways"
+          ],
+          [
+            "Adding a new payment method",
+            "New integration project",
+            "Config/routing change"
+          ],
+          [
+            "Monitoring & refunds",
+            "Handled separately per gateway",
+            "Centralized across all gateways"
+          ],
+          [
+            "Authentication handling",
+            "Different per gateway, merchant's problem",
+            "Abstracted away by JioOnePay"
+          ]
         ]
+      }
+    ],
+    "bestPractices": [
+      "Build one common internal request/response model, and translate to/from each gateway's format only at the edges.",
+      "Keep gateway-specific quirks (auth, format, error codes) isolated inside that gateway's own adapter.",
+      "Centralize monitoring and refund handling at the aggregator layer for one consistent merchant experience."
+    ],
+    "commonMistakes": [
+      "Letting one payment gateway's request/response shape leak into the shared internal domain model.",
+      "Hardcoding gateway-specific logic in shared services instead of isolating it behind an adapter.",
+      "Treating a new gateway integration as a special case instead of another implementation of the same adapter interface."
+    ],
+    "interviewTips": [
+      "When asked \"tell me about your project,\" lead with the business problem, then the solution.",
+      "Be ready to go deep on the Challenges section — interviewers often follow up on **how** you solved it, not just what you built."
+    ],
+    "faq": [
+      {
+        "q": "Why not let merchants integrate with each payment gateway directly?",
+        "a": "Every gateway has its own API, auth mechanism, and response format — pushing that complexity to every merchant multiplies the integration and maintenance cost across the whole ecosystem. An aggregator absorbs that complexity exactly once."
       },
       {
-        "heading": "Business Problem",
-        "points": [
-          "Before aggregators, merchants integrated individually with every gateway — high effort, high complexity. JioOnePay is the single integration point that handles routing, processing, and response for them."
-        ]
+        "q": "What pattern solves the multi-gateway integration problem?",
+        "a": "An adapter layer: one standard internal request/response model, with a dedicated adapter class per gateway that converts to/from that gateway's specific format. Adding a gateway means adding one adapter, not touching existing code."
       },
       {
-        "heading": "High-Level Flow",
-        "points": [
-          "Customer picks a payment method (UPI / Card / Wallet / Net Banking) on a merchant app.",
-          "Merchant sends the request to JioOnePay via REST APIs.",
-          "Platform validates it and routes it to the right payment gateway/bank.",
-          "Response (plus status updates, refunds, monitoring) flows back to the merchant."
-        ]
+        "q": "What's the actual business impact of this abstraction?",
+        "a": "Merchants use a single, stable API regardless of how many gateways JioOnePay adds or changes behind the scenes — and new gateways can be onboarded without any risk to existing merchant integrations."
+      }
+    ],
+    "summary": [
+      "JioOnePay is a payment aggregation platform: merchants integrate once instead of once per gateway.",
+      "A microservices architecture with an API Gateway (jop-gateway-service) as the single entry point routes and protects all traffic.",
+      "The core engineering challenge — many gateways, many formats — is solved with a per-gateway adapter layer around one standard internal model."
+    ],
+    "quickRevision": [
+      "JioOnePay = payment aggregation platform by Jio Platforms.",
+      "Solves: merchants previously integrated individually with every gateway/bank.",
+      "Flow: customer picks payment mode → merchant calls JioOnePay REST API → routed to gateway/bank → response flows back.",
+      "Architecture: microservices + API Gateway pattern (jop-gateway-service, port 9985).",
+      "Backend stack: Core Java, Spring Boot, Spring Data JPA, Oracle DB, REST APIs.",
+      "Frontend stack: React, Next.js, TypeScript.",
+      "Key features: merchant onboarding, gateway integration, multiple payment modes, dynamic routing, refunds & monitoring.",
+      "Core challenge solved: a common abstraction layer normalizes every gateway's request/response format."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What problem does JioOnePay solve for merchants?",
+        "What payment modes does JioOnePay support?",
+        "What is an API Gateway, and which service plays that role in JioOnePay?"
+      ],
+      "intermediate": [
+        "How does JioOnePay handle the fact that every payment gateway has a different API format?",
+        "Walk through what happens end-to-end when a customer makes a UPI payment.",
+        "What was your specific role in building JioOnePay?"
+      ],
+      "advanced": [
+        "How would you design the abstraction layer that lets JioOnePay add a new payment gateway without affecting existing merchants?",
+        "What are the tradeoffs of a microservices + API Gateway architecture for a payment platform specifically?",
+        "How would you extend JioOnePay's architecture to support a new payment method end-to-end?"
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Complete Payment Lifecycle — the full sequence diagram",
+        "sectionId": "jioonepay",
+        "subsectionId": "payment-lifecycle"
       },
       {
-        "heading": "Application Architecture",
-        "points": [
-          "**Microservices architecture** — each service is independently deployable, scalable, and easy to extend.",
-          "**API Gateway pattern** — `jop-gateway-service` is the single entry point for all traffic; it routes requests to the right microservice and handles resilience (circuit breaker, rate limiting)."
-        ]
-      },
-      {
-        "heading": "Technologies Used",
-        "points": [
-          "**Backend** — Core Java, Spring Boot, Spring Data JPA, Oracle Database, REST APIs",
-          "**Frontend** — React, Next.js, TypeScript"
-        ]
-      },
-      {
-        "heading": "Key Features",
-        "points": [
-          "Merchant Onboarding",
-          "Payment Gateway Integration",
-          "Multiple Payment Modes (UPI, Card, Wallet, Net Banking)",
-          "Dynamic Payment Routing",
-          "Refunds & Transaction Monitoring"
-        ]
-      },
-      {
-        "heading": "My Roles & Responsibilities",
-        "points": [
-          "Building REST APIs & business logic in Spring Boot, integrating new payment gateways, writing optimized Oracle SQL.",
-          "Frontend development in React/Next.js — building UI components and wiring them to backend APIs.",
-          "Code reviews, unit tests, debugging, and working with QA/Product/DevOps through release."
-        ]
-      },
-      {
-        "heading": "Challenges",
-        "points": [
-          "**Problem** — Integrating multiple payment gateways, where each gateway had different request/response formats, authentication mechanisms, and APIs.",
-          "**Solution** — Implemented a common abstraction layer that converts our internal request into the gateway-specific format and transforms the gateway response back into our standard response model.",
-          "**Impact** — Merchants use a single API, and new gateways can be integrated without impacting existing merchants."
-        ]
-      },
-      {
-        "heading": "Outcome",
-        "points": [
-          "Working on JioOnePay has given me hands-on experience building enterprise-scale payment systems, developing RESTful microservices, integrating third-party payment gateways, optimizing SQL queries, handling production issues, and working in a distributed microservices environment."
-        ]
+        "label": "Architecture Layers — the seven layers this system is built from",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
       }
     ]
   },
   {
-    "id": "api-gateway-architecture",
-    "title": "API Gateway Architecture",
-    "topics": [
+    "id": "payment-lifecycle",
+    "title": "Complete Payment Lifecycle",
+    "overview": [
+      "Before looking at individual services, it helps to see the **entire journey** a payment takes — from the merchant's first request to the merchant getting notified of the outcome.",
+      "This page walks through that full journey once, end-to-end, using JioOnePay's actual service names.",
+      "Every layer and service introduced later in this section is just a closer look at one step in this same journey."
+    ],
+    "why": [
+      "Jumping straight into ~15 named microservices without first seeing the journey they're part of makes each one feel arbitrary.",
+      "Seeing the whole lifecycle once gives every later detail — a specific service, a specific layer — an obvious place to slot into."
+    ],
+    "problem": [
+      "A payment isn't one request-response — it's a multi-step journey involving a redirect, a UI, a mode choice, and two independent completion signals.",
+      "Without seeing the full journey first, it's easy to assume a payment is confirmed the moment the customer's browser redirects back — which is not actually true here."
+    ],
+    "internalWorking": {
+      "intro": [
+        "The journey has three natural parts: getting the customer to the checkout page, processing their chosen payment mode, and confirming the outcome to everyone who needs to know."
+      ],
+      "topics": [
+        {
+          "heading": "Part 1 — Initiation to Checkout",
+          "points": [
+            "The Merchant sends an initiate request; `jop-payment-link-service` validates it and stores the context in Redis under a token.",
+            "It returns an auto-submitting HTML form back to the merchant's page.",
+            "The merchant's browser auto-submits that form, which routes through the gateway to `jop-payment-options-service`.",
+            "The Options service looks up the token, fetches the merchant's configured payment modes, and redirects to the actual checkout UI — which calls back to the Options service the moment it renders, to load the dashboard."
+          ]
+        },
+        {
+          "heading": "Part 2 — Mode Selection to Gateway",
+          "points": [
+            "The customer picks a mode (UPI, Card, Wallet, Net Banking) from the options shown.",
+            "That choice routes to a mode-specific service — `jop-upi-service`, `jop-ccdcnb-service`, or a wallet/other service.",
+            "Non-card modes call a `jop-core-*-service` adapter, which talks to the actual bank/gateway. Card payments instead go to the isolated `jop-pci-ccdc-card-service`, which calls the bank/ACS directly."
+          ]
+        },
+        {
+          "heading": "Part 3 — Completion & Notification",
+          "points": [
+            "The bank/gateway sends back **two independent signals**: a browser redirect (to `jop-payment-b2b-service`) and a server-to-server callback (to `jop-payment-s2s-service`).",
+            "`jop-payment-s2s-service` is the authoritative one — it writes the final outcome to the Oracle transaction database and sends the merchant a webhook with a checksum.",
+            "`jop-payment-b2b-service` redirects the customer's browser back to the merchant, and typically also triggers an internal webhook to `jop-payment-s2s-service` to keep both paths in sync."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "sequenceDiagram\n    participant M as Merchant\n    participant GW as jop-gateway-service\n    participant PLS as jop-payment-link-service\n    participant PGD as jop-core-pg-details-service\n    participant R as Redis\n    participant CHK as jop-payment-options-service\n    participant MODE as Mode Service (UPI / CCDCNB / Wallet)\n    participant CORE as jop-core-* / PCI service\n    participant BANK as Bank / PG / ACS\n    participant B2B as jop-payment-b2b-service\n    participant S2S as jop-payment-s2s-service\n    participant DB as Oracle Txn DB\n\n    M->>GW: 1. Initiate payment request\n    GW->>PLS: forward\n    PLS->>PGD: validate checksum + config\n    PLS->>R: store token to jopMsg\n    PLS-->>M: htmlForm (Base64)\n    M->>GW: 2. Browser auto-POST\n    GW->>CHK: forward\n    CHK->>R: lookup token\n    CHK->>PGD: fetch configured modes\n    CHK-->>M: redirect to Payment Options UI\n    M->>CHK: 3. UI calls back on render\n    M->>MODE: 4. Customer selects mode\n    MODE->>CORE: forward (or direct to PCI service for cards)\n    CORE->>BANK: 5. Process payment\n    BANK-->>B2B: 6a. Browser return\n    BANK-->>S2S: 6b. Server callback\n    S2S->>DB: 7. Write transaction outcome\n    B2B-->>M: 8a. Redirect customer\n    S2S-->>M: 8b. Webhook plus checksum",
+      "caption": "The complete journey, using JioOnePay's real service names, from initiation through both completion paths."
+    },
+    "simpleExample": {
+      "scenario": "A customer completes a ₹499 UPI payment, followed end-to-end.",
+      "code": "1. Merchant -> jop-payment-link-service: initiate\n2. jop-payment-link-service -> Redis: store token\n3. Merchant browser auto-POSTs -> jop-payment-options-service\n4. Customer selects UPI on the checkout UI\n5. jop-upi-service -> jop-core-<provider>-service -> Bank\n6. Bank -> jop-payment-s2s-service (server callback)\n7. jop-payment-s2s-service -> Oracle DB + merchant webhook",
+      "input": "A single UPI payment request for a fixed amount.",
+      "execution": "The request moves through initiation, checkout, mode selection, and gateway processing, exactly once, in order.",
+      "output": "The merchant receives a webhook confirming SUCCESS; the customer sees a confirmation screen via the browser-redirect path.",
+      "explanation": "Every payment mode follows this same overall shape — only the mode-selection and gateway-integration steps differ based on what the customer picked."
+    },
+    "realWorldExample": {
+      "scenario": "The bank's server callback (S2S) arrives, but the customer's browser never redirects back — they closed the tab.",
+      "code": "BANK -->> S2S: server callback (SUCCESS)\nS2S ->> DB: write SUCCESS\nS2S -->> Merchant: webhook + checksum\n\n# Browser redirect (B2B) never happens - customer closed the tab\n# Merchant still gets the correct outcome via the webhook",
+      "input": "A completed payment where the customer's browser never returns to the merchant's site.",
+      "execution": "The server-to-server callback still fires independently of the browser, since it's a direct bank-to-JioOnePay signal, not something that depends on the customer's browser at all.",
+      "output": "The merchant is correctly notified of the SUCCESS outcome via the webhook, even though the browser-redirect path never completed.",
+      "explanation": "This is exactly why the server callback (S2S), not the browser redirect (B2B), is the authoritative signal — the browser path can fail for reasons that have nothing to do with whether the payment actually succeeded."
+    },
+    "comparisonTables": [
       {
-        "heading": "Overview",
-        "points": [
-          "**jop-gateway-service** is the single entry point for all JioOnePay traffic — an **API Gateway pattern** implementation. It only routes requests and protects the system (circuit breaker, rate limit, bulkhead); no business logic, no database.",
-          "Nothing is hardcoded — routes and resilience limits live in Zookeeper as JSON and refresh live, no restart needed.",
-          "Runs on **port 9985**."
+        "title": "Browser Redirect (B2B) vs Server Callback (S2S)",
+        "columns": [
+          "Aspect",
+          "Browser Redirect (B2B)",
+          "Server Callback (S2S)"
+        ],
+        "rows": [
+          [
+            "Purpose",
+            "Get the customer back to the merchant's site",
+            "Authoritative confirmation of the outcome"
+          ],
+          [
+            "Depends on",
+            "The customer's browser staying open",
+            "Direct bank-to-JioOnePay signal"
+          ],
+          [
+            "Can be missed?",
+            "Yes — tab closed, network drop, etc.",
+            "Retried by the bank if delivery fails"
+          ],
+          [
+            "Who trusts it",
+            "Just the UI experience",
+            "The database write and the merchant webhook"
+          ]
         ]
+      }
+    ],
+    "advantages": [
+      "Splitting the journey into initiation, mode selection, and completion makes each part independently understandable.",
+      "Having two independent completion signals means the transaction outcome doesn't depend on the customer's browser behaving well."
+    ],
+    "tradeoffs": [
+      "Two independent completion paths (B2B and S2S) mean extra reconciliation logic is needed to keep the customer-facing and merchant-facing outcomes in sync."
+    ],
+    "bestPractices": [
+      "Always treat the server-to-server callback as the source of truth — never the browser redirect alone.",
+      "Store enough context in Redis at initiation time that every later step (checkout, mode selection) can be resumed from just the token."
+    ],
+    "commonMistakes": [
+      "Assuming a customer reaching the browser-redirect page means the payment succeeded — it only means the browser came back, not that the transaction did.",
+      "Treating the Payment Options UI's render-time call as optional — it's how the UI actually gets the merchant's configured modes."
+    ],
+    "interviewTips": [
+      "When asked to describe your project, walk through this exact lifecycle in order — it demonstrates you understand the flow, not just a list of service names.",
+      "Be ready to explain, specifically, why the browser redirect isn't trusted as the confirmation of success."
+    ],
+    "faq": [
+      {
+        "q": "What happens if the browser redirect (B2B) never fires?",
+        "a": "The transaction is still correctly recorded and the merchant is still correctly notified, because the server callback (S2S) to jop-payment-s2s-service is independent of the browser — it's a direct signal from the bank."
       },
       {
-        "heading": "Tech Stack (from pom.xml)",
-        "points": [
-          "**Core** — Spring Boot 3.1.5, Java 17, Spring Cloud 2022.0.2",
-          "**Gateway engine** — Spring Cloud Gateway (WebFlux + Netty, reactive, non-blocking)",
-          "**Config** — Spring Cloud Zookeeper Config — pulls routes + resilience limits from Zookeeper",
-          "**Resilience** — Resilience4j (Circuit Breaker, Rate Limiter, Bulkhead, Time Limiter)",
-          "**Observability** — Log4j2, Micrometer + Prometheus, Brave tracing"
-        ]
+        "q": "Why does the UI call back to jop-payment-options-service the moment it renders?",
+        "a": "That's how it fetches the actual data to display — the merchant's configured payment modes, fetched live rather than baked into the redirect itself."
       },
       {
-        "heading": "How Routing Works",
-        "points": [
-          "All routes live in one Zookeeper key, `config-properties` (Base64 JSON) — each service's id, real URL, and path mappings.",
-          "`ApiRoutesLocatorService` builds the in-memory route table from this JSON on every lookup — no restart needed when routes change.",
-          "`ZookeeperRefreshListener` auto-refreshes the config when Zookeeper data changes.",
-          "**Important:** no Consul/Kubernetes discovery — target URLs are pre-configured directly in Zookeeper."
-        ]
+        "q": "Is the token stored in Redis at initiation reused throughout the whole journey?",
+        "a": "Yes — it's what lets the Checkout Layer, and later steps, look up the original request's context (the jopMsg) without the merchant needing to resend it."
+      }
+    ],
+    "summary": [
+      "A JioOnePay payment is a multi-step journey: initiation and checksum validation, a checkout redirect, mode selection, gateway processing, and two independent completion signals.",
+      "The server-to-server callback, not the browser redirect, is the authoritative confirmation of a payment's outcome.",
+      "Every service and layer covered next in this section is a closer look at one specific step in this same journey."
+    ],
+    "quickRevision": [
+      "Initiation: jop-payment-link-service validates checksum/config, stores context in Redis under a token.",
+      "Checkout: merchant's browser auto-POSTs the returned HTML form; jop-payment-options-service serves the payment options UI.",
+      "The UI calls jop-payment-options-service on render to load its actual data (configured modes).",
+      "Mode selection routes to jop-upi-service / jop-ccdcnb-service / wallet, or to the isolated PCI service for cards.",
+      "The bank sends TWO signals: a browser redirect (jop-payment-b2b-service) and a server callback (jop-payment-s2s-service).",
+      "jop-payment-s2s-service is authoritative — it writes to the Oracle DB and sends the merchant's webhook.",
+      "jop-payment-b2b-service only handles the customer-facing redirect, and often also triggers an internal webhook to keep S2S in sync."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What are the main steps in a JioOnePay payment, from initiation to notification?",
+        "What is the difference between the browser redirect and the server callback?",
+        "Which signal is treated as authoritative — the browser redirect or the server callback?"
+      ],
+      "intermediate": [
+        "Why does JioOnePay store a token in Redis at initiation time?",
+        "Walk through what happens if a customer closes their browser tab before the redirect completes.",
+        "Why does the Payment Options UI call back to its service on render, instead of receiving everything in the redirect?"
+      ],
+      "advanced": [
+        "How would you design reconciliation logic to keep the B2B and S2S completion paths in sync?",
+        "What would break if the browser redirect were mistakenly treated as the authoritative confirmation?",
+        "How would you extend this lifecycle to support a brand-new payment mode end-to-end?"
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Overview — where JioOnePay sits between Merchant and Gateway",
+        "sectionId": "jioonepay",
+        "subsectionId": "overview"
       },
       {
-        "heading": "Request Flow (simple diagram)",
-        "image": "jop-gateway-architecture.svg",
-        "imageAlt": "jop-gateway-service architecture diagram showing client to gateway to resilience filters to downstream service or fallback",
-        "points": [
-          "Client → Gateway (:9985) → route match → path rewrite.",
-          "Circuit Breaker, Rate Limiter, and Bulkhead each check the call, in that order.",
-          "All checks pass → forwarded to the real service URL, response returned as-is.",
-          "Any check fails → redirected to `/fallback`, which returns a clean JSON error instead of a raw one."
-        ]
-      },
-      {
-        "heading": "Resilience Settings",
-        "points": [
-          "Circuit Breaker, Rate Limiter, Bulkhead, and Time Limiter can each be tuned **per route** (or fall back to global defaults) via a second Zookeeper key, `resilience-properties`.",
-          "Circuit Breaker fallback only triggers on HTTP 500/502/503/504. Rate Limiter and Bulkhead reject immediately with their own error message — they don't go through `/fallback`."
-        ]
+        "label": "Architecture Layers — each step in this journey, in depth",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
       }
     ]
   },
   {
-    "id": "service-communication",
-    "title": "Service Communication",
-    "topics": [
+    "id": "architecture-layers",
+    "title": "Architecture Layers",
+    "overview": [
+      "JioOnePay's payment flow is organized into **seven layers**, each with one clear responsibility — from receiving the merchant's request to notifying them of the final outcome.",
+      "Understanding the system layer by layer, instead of all ~15+ payment-related microservices at once, is the only way the architecture actually makes sense.",
+      "Each layer maps to real running services — this isn't a generic textbook diagram, it's how JioOnePay is actually built."
+    ],
+    "why": [
+      "A payment aggregator genuinely has this many moving parts — explaining them as one flat list of services hides *why* each one exists.",
+      "Layers group services by responsibility, so a new engineer, or an interviewer, can reason about one concern at a time: routing, checkout, mode selection, card security, gateway integration, completion."
+    ],
+    "problem": [
+      "Without layering, ~15+ payment services look like an undifferentiated mess — impossible to reason about or explain clearly in an interview.",
+      "Card payments specifically need to be isolated for PCI-DSS compliance — mixing that into a generic \"payment mode\" layer would be a real security and audit problem."
+    ],
+    "internalWorking": {
+      "intro": [
+        "The seven layers, in the order a request actually passes through them."
+      ],
+      "topics": [
+        {
+          "heading": "Layer 1 — Edge Layer",
+          "points": [
+            "**Purpose** — the single public entry point for all merchant traffic; nothing about payments is decided here, no business logic, no database.",
+            "**Services** — Load Balancer, `jop-gateway-service` (:9985) — Spring Boot 3.1.5, Java 17, Spring Cloud Gateway (WebFlux + Netty, reactive, non-blocking).",
+            "**Routing** — all routes live in one Zookeeper key, `config-properties` (Base64 JSON); `ApiRoutesLocatorService` builds the in-memory route table from it and `ZookeeperRefreshListener` auto-refreshes on change — no restart needed, and no Consul/Kubernetes discovery involved.",
+            "**Resilience order** — every request is checked by **Circuit Breaker**, then **Rate Limiter**, then **Bulkhead**, in that exact order, before being forwarded.",
+            "**Failure handling** — Circuit Breaker failures redirect to `/fallback` (only on HTTP 5xx); Rate Limiter and Bulkhead reject immediately with their own error instead. All three are tunable **per route** via a second Zookeeper key, `resilience-properties`."
+          ],
+          "mermaid": "graph TD\n    A[\"Request arrives at Gateway :9985\"] --> B[\"Route match + path rewrite\"]\n    B --> C{\"Circuit Breaker open?\"}\n    C -->|\"Yes\"| F[\"Redirect to /fallback\"]\n    C -->|\"No\"| D{\"Rate Limiter allows?\"}\n    D -->|\"No\"| G[\"Reject immediately: rate-limit error\"]\n    D -->|\"Yes\"| E{\"Bulkhead has capacity?\"}\n    E -->|\"No\"| H[\"Reject immediately: bulkhead error\"]\n    E -->|\"Yes\"| I[\"Forwarded to real service URL\"]\n    I -->|\"5xx response\"| F",
+          "mermaidCaption": "The exact order resilience checks run in, for every request the gateway receives."
+        },
+        {
+          "heading": "Layer 2 — Payment Initiation Layer",
+          "points": [
+            "**Purpose** — receives the merchant's initiate request, validates it, and hands back a checkout form.",
+            "**Services** — `jop-payment-link-service` (`POST /jop/initiate/payment/request`), `jop-core-pg-details-service` (merchant config/modes), Redis (token → jopMsg).",
+            "**Request Flow** — the merchant calls `jop-payment-link-service`, which validates a checksum and merchant config against `jop-core-pg-details-service`, stores the request context in Redis under a token, and returns an auto-submitting HTML form (Base64-encoded) back to the merchant.",
+            "**Failure handling** — an invalid checksum or unknown merchant config is rejected here, before any token is even created."
+          ],
+          "mermaid": "graph TD\n    A[\"Merchant: initiate request\"] --> B[\"jop-payment-link-service\"]\n    B --> C[\"jop-core-pg-details-service: validate checksum + config\"]\n    B --> D[(\"Redis: token to jopMsg\")]\n    B --> E[\"Return htmlForm (Base64) to Merchant\"]",
+          "mermaidCaption": "The request is validated and stashed under a token before any UI is even shown."
+        },
+        {
+          "heading": "Layer 3 — Checkout Layer",
+          "points": [
+            "**Purpose** — renders the payment options page the customer actually sees and interacts with.",
+            "**Services** — `jop-payment-options-service` (`/payment-options` → redirect UI), the Payment Options UI itself.",
+            "**Request Flow** — the merchant's page auto-POSTs the htmlForm from Layer 2; `jop-gateway-service` forwards it to `jop-payment-options-service`, which looks up the token in Redis, fetches the merchant's dynamically configured modes, and redirects the browser to the UI. The UI itself calls back to the options service on render, to load the dashboard.",
+            "**Failure handling** — an expired or unknown token at this point means the checkout session itself is invalid, and the customer sees an error instead of a payment form."
+          ],
+          "mermaid": "sequenceDiagram\n    participant M as Merchant Browser\n    participant GW as jop-gateway-service\n    participant CHK as jop-payment-options-service\n    participant R as Redis\n    participant UI as Payment Options UI\n    M->>GW: auto-POST htmlForm\n    GW->>CHK: forward\n    CHK->>R: lookup token\n    CHK-->>UI: redirect\n    UI->>CHK: payment-dashboard request on render",
+          "mermaidCaption": "The UI calls back to the options service the moment it renders — that's how it gets the actual payment modes to display."
+        },
+        {
+          "heading": "Layer 4 — Payment Mode Orchestration Layer",
+          "points": [
+            "**Purpose** — routes the customer's chosen payment mode (UPI, Card, Net Banking, Wallet, and more) to the service that handles it.",
+            "**Services** — `jop-upi-service`, `jop-ccdcnb-service` (credit/debit card + net banking), plus wallet and other mode-specific services.",
+            "**Dynamic configuration** — payment modes aren't hardcoded; they're configured per-merchant in an admin portal, and the Checkout Layer only shows modes actually enabled for that merchant.",
+            "**Request Flow** — the UI calls the mode-specific service directly (via the gateway) once the customer picks a mode; card payments are handed off to the PCI Layer instead of following the standard path."
+          ],
+          "mermaid": "graph TD\n    A[\"Customer selects mode\"] --> B{\"Which mode?\"}\n    B -->|\"UPI\"| C[\"jop-upi-service\"]\n    B -->|\"Card / Net Banking\"| D[\"jop-ccdcnb-service\"]\n    B -->|\"Wallet / other\"| E[\"Wallet service\"]\n    D -->|\"Card specifically\"| F[\"PCI Layer\"]",
+          "mermaidCaption": "Mode selection branches here; card payments are handed off to the isolated PCI layer."
+        },
+        {
+          "heading": "Layer 5 — PCI Layer",
+          "points": [
+            "**Purpose** — the only layer allowed to touch raw card data (PAN), isolated so the rest of the system never has to be PCI-DSS scoped.",
+            "**Services** — `jop-pci-ccdc-card-service`, reached specifically for credit/debit card payments.",
+            "**Why it's isolated** — PCI-DSS compliance requires strict controls (encryption, access logging, network segmentation) around anything that touches a card number; keeping that inside one dedicated service means the other services never need those controls.",
+            "**Request Flow** — `jop-ccdcnb-service` hands card payments to `jop-pci-ccdc-card-service`, which calls the bank/ACS **directly** over HTTP — it bypasses the normal core-gateway-adapter path entirely, keeping the card-data path as short as possible."
+          ],
+          "mermaid": "graph LR\n    A[\"jop-ccdcnb-service\"] -->|\"CC/DC only\"| B[\"jop-pci-ccdc-card-service\"]\n    B -->|\"direct HTTP\"| C[\"Bank / ACS\"]",
+          "mermaidCaption": "Card data takes the shortest, most isolated path in the entire system — straight to the bank."
+        },
+        {
+          "heading": "Layer 6 — Gateway Integration Layer",
+          "points": [
+            "**Purpose** — talks to the actual external payment gateways and banks on behalf of every non-card payment mode.",
+            "**Services** — `jop-core-*-service` adapters, one per provider: Razorpay, PhonePe, Easebuzz, Citi, and others — each with its own **Apache HttpClient 5 wrapper**; there's no shared HTTP client abstraction across providers, since different banks have genuinely different requirements.",
+            "**Routing** — Zookeeper-based dynamic routing picks a provider by health, cost, or merchant preference.",
+            "**Security** — bank-grade integrations use **mTLS** — e.g. Citi loads a **PKCS12 client certificate** over **TLS 1.2**, so the bank verifies JioOnePay's identity too, not just the reverse. Timeouts, proxy settings, and certificate paths come from Zookeeper config, tunable per environment without a redeploy.",
+            "**Internal calls (how this layer is reached)** — services call each other via **Spring Cloud OpenFeign** (`@FeignClient(name = \"service-name\")`), resolved at call-time through Zookeeper-based service discovery — a plain Java interface that reads like a local method call. These calls go directly service-to-service and never pass through the Edge Layer's gateway, which is for external client traffic only.",
+            "**No message broker** — every call, internal or external, is a direct synchronous HTTP request/response; there's no Kafka or RabbitMQ anywhere in this system. `jop-common-redis-lib` provides shared caching (idempotency keys, session state) across services — that's caching, not messaging.",
+            "**Failure handling** — Spring Retry (`@Retryable`) layers on top of some Feign clients for transient internal failures; external retries are handled per-adapter. This synchronous, broker-less design is exactly why the Edge Layer's Circuit Breaker/Bulkhead exist — to contain a slow downstream call, since there's no async buffer to fall back on."
+          ],
+          "mermaid": "graph TD\n    A[\"jop-upi-service / jop-ccdcnb-service\"] --> B[\"jop-core-razorpay-service\"]\n    A --> C[\"jop-core-phonepe-service\"]\n    A --> D[\"jop-core-citi-service\"]\n    B --> E[\"External PG / Bank\"]\n    C --> E\n    D --> E",
+          "mermaidCaption": "One adapter per provider — new gateways are added here without touching upstream services."
+        },
+        {
+          "heading": "Layer 7 — Completion Layer",
+          "points": [
+            "**Purpose** — records the final outcome and tells everyone who needs to know: the customer's browser and the merchant's system.",
+            "**Services** — `jop-payment-b2b-service` (browser redirect back to the merchant) and `jop-payment-s2s-service` (server-to-server callback, database write, merchant webhook).",
+            "**Two separate completion paths** — the bank returns the customer's **browser** to `jop-payment-b2b-service` for the redirect, while a **server-to-server callback** goes to `jop-payment-s2s-service` independently; the two aren't the same request.",
+            "**Request Flow** — `jop-payment-s2s-service` writes the outcome to the Oracle transaction database and sends the merchant a webhook with a checksum; `jop-payment-b2b-service` redirects the customer's browser back to the merchant, and often also triggers an internal webhook to `jop-payment-s2s-service` to keep both paths in sync."
+          ],
+          "mermaid": "graph TD\n    A[\"Bank / PG\"] -->|\"browser return\"| B[\"jop-payment-b2b-service\"]\n    A -->|\"server callback\"| C[\"jop-payment-s2s-service\"]\n    B -.->|\"internal webhook\"| C\n    C --> D[(\"Oracle Txn DB\")]\n    B --> E[\"Redirect customer to Merchant\"]\n    C --> F[\"Webhook + checksum to Merchant\"]",
+          "mermaidCaption": "Two independent completion paths that converge on the same transaction record."
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    L1[\"Layer 1: Edge\"] --> L2[\"Layer 2: Payment Initiation\"]\n    L2 --> L3[\"Layer 3: Checkout\"]\n    L3 --> L4[\"Layer 4: Payment Mode Orchestration\"]\n    L4 --> L5[\"Layer 5: PCI\"]\n    L4 --> L6[\"Layer 6: Gateway Integration\"]\n    L5 --> L6\n    L6 --> L7[\"Layer 7: Completion\"]",
+      "caption": "The seven layers in request order — each detailed individually above."
+    },
+    "simpleExample": {
+      "scenario": "Tracing a single ₹499 UPI payment through all seven layers.",
+      "code": "1. Merchant -> Edge Layer (jop-gateway-service)\n2. Edge -> Payment Initiation (jop-payment-link-service): checksum OK, token stored\n3. Checkout Layer (jop-payment-options-service): renders UPI as an available mode\n4. Payment Mode Orchestration: customer selects UPI -> jop-upi-service\n5. Gateway Integration: jop-upi-service -> jop-core-<provider>-service -> Bank\n6. Completion: server callback -> jop-payment-s2s-service -> DB + merchant webhook",
+      "input": "A single UPI payment request for ₹499.",
+      "execution": "The request passes through all seven layers exactly once, in order, each one adding exactly one piece of the puzzle.",
+      "output": "The merchant receives a webhook confirming SUCCESS, and the customer sees a confirmation screen.",
+      "explanation": "This is the same shape every payment mode follows — only Layer 4 and 5/6 differ based on which mode the customer picked."
+    },
+    "realWorldExample": {
+      "scenario": "A card payment specifically, which routes through the isolated PCI Layer instead of the standard Gateway Integration path.",
+      "code": "1-3. Same as UPI: Edge -> Payment Initiation -> Checkout\n4. Payment Mode Orchestration: customer selects Card -> jop-ccdcnb-service\n5. PCI Layer: jop-ccdcnb-service hands off to jop-pci-ccdc-card-service\n6. jop-pci-ccdc-card-service calls the Bank/ACS DIRECTLY (bypasses jop-core-*-service adapters)\n7. Completion: same as any other mode",
+      "input": "A card payment, where raw card data must be handled.",
+      "execution": "Layer 4 detects the mode is a card payment and routes to the PCI Layer instead of a standard core-gateway adapter; the PCI service talks to the bank directly, keeping the card-data path as short and isolated as possible.",
+      "output": "The transaction completes through a completely separate path for the card-handling step, converging back to the same Completion Layer as every other mode.",
+      "explanation": "This is exactly why the PCI Layer exists as its own thing — it's the one place in the whole system where card data flows, and it's designed to be as small and auditable as possible."
+    },
+    "comparisonTables": [
       {
-        "heading": "Overview",
-        "points": [
-          "JioOnePay is a **synchronous, REST-only** platform — every call, internal or external, is a direct HTTP request/response. There is no message broker (no Kafka, no RabbitMQ) anywhere in the ~60 microservices checked.",
-          "Internal calls (service-to-service) and external calls (to banks/payment gateways) use **two completely different HTTP client approaches** — that split is the main thing to remember."
+        "title": "Layer Details Reference",
+        "columns": [
+          "Layer",
+          "Purpose",
+          "Services",
+          "Incoming Request",
+          "Outgoing Request",
+          "Failure Handling"
+        ],
+        "rows": [
+          [
+            "1. Edge",
+            "Public entry point",
+            "jop-gateway-service",
+            "Merchant HTTP request",
+            "Forwarded to matching layer",
+            "Circuit Breaker / Rate Limiter / Bulkhead"
+          ],
+          [
+            "2. Payment Initiation",
+            "Validate + start checkout",
+            "jop-payment-link-service, jop-core-pg-details-service",
+            "POST /jop/initiate/payment/request",
+            "htmlForm (Base64) to Merchant",
+            "Reject invalid checksum/config"
+          ],
+          [
+            "3. Checkout",
+            "Render payment options",
+            "jop-payment-options-service",
+            "Browser auto-POST",
+            "Redirect to Payment Options UI",
+            "Invalid/expired token → error page"
+          ],
+          [
+            "4. Payment Mode Orchestration",
+            "Route to mode-specific service",
+            "jop-upi-service, jop-ccdcnb-service, wallet/other",
+            "Mode selection from UI",
+            "Forwarded to mode service (or PCI Layer for cards)",
+            "Unsupported/disabled mode rejected"
+          ],
+          [
+            "5. PCI",
+            "Isolate card data",
+            "jop-pci-ccdc-card-service",
+            "Card details from Mode Layer",
+            "Direct HTTP to Bank/ACS",
+            "Isolated — doesn't affect non-card modes"
+          ],
+          [
+            "6. Gateway Integration",
+            "Talk to external providers",
+            "jop-core-razorpay-service, jop-core-phonepe-service, jop-core-citi-service, etc.",
+            "Payment request from Mode/PCI Layer",
+            "Request to external PG/Bank",
+            "Per-adapter retries, mTLS for bank-grade calls"
+          ],
+          [
+            "7. Completion",
+            "Record outcome, notify",
+            "jop-payment-b2b-service, jop-payment-s2s-service",
+            "Bank response (browser return + server callback)",
+            "DB write + webhook + browser redirect",
+            "Webhook retried if merchant unreachable"
+          ]
         ]
       },
       {
-        "heading": "Internal — Service to Service",
-        "points": [
-          "**Spring Cloud OpenFeign** is the client — a declarative REST client: you write a Java interface annotated `@FeignClient(name = \"service-name\")`, call it like a local method, and Feign builds the actual HTTP call underneath.",
-          "The `name` isn't a hardcoded URL — it's resolved at call-time via **Zookeeper-based service discovery**.",
-          "Example: `jop-core-service` calls `jop-payment-s2s-service`, the wallet service, and `jop-core-pg-details-service` — each through its own `@FeignClient` interface.",
-          "**Spring Retry** (`@Retryable`) is layered on top of some Feign clients for transient failures — e.g. a 3-second backoff on the PG-config client.",
-          "**Important:** these calls go **directly** service-to-service — they do **not** pass through `jop-gateway-service`. The gateway is only for external, client-facing traffic."
+        "title": "Circuit Breaker vs Rate Limiter vs Bulkhead (Layer 1: Edge)",
+        "columns": [
+          "Aspect",
+          "Circuit Breaker",
+          "Rate Limiter",
+          "Bulkhead"
+        ],
+        "rows": [
+          [
+            "Protects against",
+            "A failing downstream service",
+            "Too many requests overall",
+            "One route consuming all resources"
+          ],
+          [
+            "Trigger",
+            "Failure rate crosses threshold",
+            "Requests exceed configured rate",
+            "Concurrent calls exceed configured limit"
+          ],
+          [
+            "Response when tripped",
+            "Redirects to /fallback",
+            "Rejects immediately, own error",
+            "Rejects immediately, own error"
+          ]
         ]
       },
       {
-        "heading": "External — Banks & Payment Gateways",
-        "points": [
-          "Each bank/PG integration is its own microservice (`jop-core-razorpay-service`, `jop-core-citi-service`, `jop-core-phonepe-service`, etc.), and each one writes its **own Apache HttpClient 5 wrapper class** to call that PG's API.",
-          "There's **no shared HTTP client abstraction across PGs** — Razorpay's wrapper and Citi's wrapper are separate, independently-written classes, not implementations of one common interface.",
-          "**mTLS (mutual TLS)** is used for bank-grade integrations — e.g. Citi loads a **PKCS12 client certificate** over **TLS 1.2**, so the bank verifies the caller's identity too, not just the caller trusting the bank.",
-          "Timeouts, proxy URL/port, and certificate file paths are all pulled from **Zookeeper config** — so they can be tuned per environment without a redeploy."
+        "title": "Internal (Feign) vs External (Apache HttpClient + mTLS) — Layer 6",
+        "columns": [
+          "Aspect",
+          "Internal Calls",
+          "External Calls"
+        ],
+        "rows": [
+          [
+            "Client",
+            "Spring Cloud OpenFeign",
+            "Apache HttpClient 5 (per-gateway wrapper)"
+          ],
+          [
+            "Address resolution",
+            "Zookeeper-based service discovery",
+            "Fixed URL from Zookeeper config"
+          ],
+          [
+            "Security",
+            "Internal network trust",
+            "mTLS (e.g. PKCS12 cert + TLS 1.2) for banks"
+          ],
+          [
+            "Retry handling",
+            "Spring Retry (@Retryable)",
+            "Handled per-wrapper, gateway-specific"
+          ],
+          [
+            "Goes through the Edge Layer gateway?",
+            "No — direct service-to-service",
+            "No — direct from the owning microservice"
+          ]
         ]
+      }
+    ],
+    "advantages": [
+      "Layering means a new engineer, or an interviewer, can reason about one responsibility at a time instead of ~15+ services at once.",
+      "Isolating card data into one PCI-scoped service keeps the other services entirely out of PCI-DSS audit scope."
+    ],
+    "tradeoffs": [
+      "More layers means more network hops for a single payment — each layer boundary is a potential point of latency or failure.",
+      "Two independent completion paths (B2B and S2S) require careful reconciliation logic to keep them in sync, rather than one simpler path."
+    ],
+    "bestPractices": [
+      "Isolate card data (PCI Layer) completely from every other payment mode — never let PAN flow through a shared/generic service.",
+      "Keep mode selection dynamic (admin-configured) rather than hardcoded, so enabling a new mode for a merchant is a config change, not a deployment.",
+      "Give the two completion paths (browser redirect vs server callback) independent responsibility — never assume one guarantees the other happened."
+    ],
+    "commonMistakes": [
+      "Assuming the browser redirect (B2B) alone confirms a successful payment — only the server-to-server callback (S2S) is authoritative.",
+      "Letting card-handling logic leak outside the PCI Layer, expanding PCI-DSS audit scope unnecessarily.",
+      "Treating all payment services as one flat list instead of reasoning about them layer by layer."
+    ],
+    "interviewTips": [
+      "When asked to explain this architecture, walk through the layers in request order — it's a much stronger answer than listing services alphabetically.",
+      "Be ready to explain specifically why card payments get their own isolated layer — this is a favorite senior-level follow-up."
+    ],
+    "faq": [
+      {
+        "q": "Why does the browser redirect and the server callback go to two different services?",
+        "a": "The browser redirect (B2B) is for the customer's experience — getting them back to the merchant's site. The server callback (S2S) is the authoritative, machine-to-machine confirmation that's actually trusted for recording the transaction and notifying the merchant. Relying on the browser redirect alone would be unreliable — a customer can close the tab before it completes."
       },
       {
-        "heading": "Why No Message Broker",
-        "points": [
-          "Every request is synchronous end-to-end — simple to reason about and easy to trace one request through the whole chain, but it means a slow downstream call (e.g. a bank taking long to respond) blocks that entire chain.",
-          "This is exactly why the **Circuit Breaker / Bulkhead / Rate Limiter** layer exists at the gateway — to contain that blast radius since there's no async buffer (queue) to fall back on."
-        ]
+        "q": "Why is there a separate PCI Layer instead of handling cards inside the normal Gateway Integration Layer?",
+        "a": "PCI-DSS compliance requires strict controls around anything that touches raw card data. Isolating that into one dedicated service means only that one service needs the heavy compliance controls — everything else in the system stays out of PCI scope entirely."
       },
       {
-        "heading": "Shared Infrastructure",
-        "points": [
-          "**`jop-common-redis-lib`** — a shared Redis client used across services for caching and shared state (e.g. idempotency keys, temporary session data). It's for **caching, not messaging**.",
-          "**`jop-common-lib`** — the shared base library that pulls in Feign, Zookeeper config, and Spring Retry, so each service doesn't configure these from scratch."
-        ]
+        "q": "How does the Checkout Layer know which payment modes to show a specific merchant?",
+        "a": "It's not hardcoded — modes are configured per-merchant in an admin portal, and jop-payment-options-service fetches that configuration live from jop-core-pg-details-service before rendering the checkout page."
+      },
+      {
+        "q": "Why is the Edge Layer gateway built on Spring Cloud Gateway (WebFlux) instead of a traditional servlet-based gateway?",
+        "a": "Spring Cloud Gateway is reactive and non-blocking (built on WebFlux + Netty), which lets a single gateway instance handle many concurrent in-flight requests — including slow downstream calls — without needing a thread per request."
+      },
+      {
+        "q": "Why use Feign instead of a raw RestTemplate or WebClient for internal calls in Layer 6?",
+        "a": "Feign lets you declare a REST client as a plain Java interface — you call it like a local method, and Feign plus Zookeeper-based discovery handle resolving the real address and making the HTTP call, cutting out repetitive client boilerplate."
+      }
+    ],
+    "summary": [
+      "JioOnePay's payment flow is organized into seven layers: Edge, Payment Initiation, Checkout, Payment Mode Orchestration, PCI, Gateway Integration, and Completion.",
+      "Each layer has one clear responsibility, and card payments specifically get isolated into their own PCI layer for compliance.",
+      "The Completion layer has two independent paths — browser redirect and server callback — with the server callback being the authoritative source of truth."
+    ],
+    "quickRevision": [
+      "7 layers in request order: Edge → Payment Initiation → Checkout → Payment Mode Orchestration → (PCI | Gateway Integration) → Completion.",
+      "Edge: jop-gateway-service, port 9985, routes + protects.",
+      "Payment Initiation: jop-payment-link-service validates checksum/config, stores token in Redis, returns an HTML auto-submit form.",
+      "Checkout: jop-payment-options-service serves the payment options UI, fetching dynamically configured modes.",
+      "Payment Mode Orchestration: routes to jop-upi-service / jop-ccdcnb-service / wallet, based on admin-configured modes per merchant.",
+      "PCI Layer: jop-pci-ccdc-card-service is the only service allowed to touch card PAN, calling the bank/ACS directly.",
+      "Gateway Integration: one jop-core-*-service adapter per provider (Razorpay, PhonePe, Easebuzz, Citi), each with its own HttpClient wrapper — no shared abstraction across providers.",
+      "Completion: jop-payment-b2b-service (browser redirect) and jop-payment-s2s-service (server callback, DB write, merchant webhook) are two independent paths.",
+      "No message broker anywhere — every call, internal (Feign + Zookeeper discovery) or external (per-adapter HttpClient + mTLS), is direct synchronous HTTP.",
+      "jop-common-redis-lib = shared caching (idempotency keys, session state), not messaging. jop-common-lib = shared Feign/Zookeeper/Retry setup."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What are the seven layers of JioOnePay's architecture?",
+        "What is the Edge Layer responsible for?",
+        "Why does JioOnePay have a separate PCI Layer?"
+      ],
+      "intermediate": [
+        "Walk through what happens from Merchant initiation to the Checkout page being shown.",
+        "Why are there two separate completion services (B2B and S2S)?",
+        "How does the Checkout Layer decide which payment modes to display?",
+        "What is the exact order in which Circuit Breaker, Rate Limiter, and Bulkhead are checked in the Edge Layer?",
+        "How does a Feign client in Layer 6 know the real network address of the service it's calling?"
+      ],
+      "advanced": [
+        "Why does the PCI Layer call the bank directly instead of going through the Gateway Integration Layer's adapters?",
+        "How would you add a new payment mode to this architecture with minimal changes?",
+        "What could go wrong if the browser redirect (B2B) were treated as the authoritative confirmation of payment success?",
+        "What are the risks of a fully synchronous, broker-less architecture for a payment platform, and how does JioOnePay's Edge Layer mitigate them?"
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Overview — where JioOnePay sits between Merchant and Gateway",
+        "sectionId": "jioonepay",
+        "subsectionId": "overview"
+      },
+      {
+        "label": "Complete Payment Lifecycle — the full sequence diagram",
+        "sectionId": "jioonepay",
+        "subsectionId": "payment-lifecycle"
+      },
+      {
+        "label": "Resilience Patterns — Circuit Breaker, Bulkhead, and Retry in general-purpose depth",
+        "sectionId": "microservices",
+        "subsectionId": "resilience"
       }
     ]
   }
