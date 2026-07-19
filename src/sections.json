@@ -21,8 +21,13 @@
   },
   {
     "id": "database",
-    "title": "Database & SQL",
+    "title": "Database",
     "color": "#336791"
+  },
+  {
+    "id": "sql",
+    "title": "SQL",
+    "color": "#b8860b"
   },
   {
     "id": "microservices",

@@ -778,7 +778,7 @@
       { "label": "Reliability — the previous goal", "sectionId": "systemdesign", "subsectionId": "reliability" },
       { "label": "Scalability — back to the first goal", "sectionId": "systemdesign", "subsectionId": "scalability" },
       { "label": "Communication Patterns — Kafka mechanics in depth", "sectionId": "microservices", "subsectionId": "communication" },
-      { "label": "Indexes & Performance — database indexing in depth", "sectionId": "database", "subsectionId": "indexes-performance" }
+      { "label": "Indexing — database indexing in depth", "sectionId": "database", "subsectionId": "indexing" }
     ]
   }
 ]

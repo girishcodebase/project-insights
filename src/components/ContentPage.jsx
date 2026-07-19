@@ -150,6 +150,22 @@ function StepList(steps) {
   );
 }
 
+function InterviewExplanation({ points }) {
+  if (!points?.length) return null;
+  return (
+    <div className="interview-explanation-box">
+      <span className="interview-explanation-icon">🎤</span>
+      <div className="interview-explanation-body">
+        {points.map((p, i) => (
+          <p className="interview-explanation-text" key={i}>
+            {renderPoint(p)}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RelatedTopicsList({ items }) {
   if (!items?.length) return null;
   return (
@@ -265,6 +281,23 @@ function RichTopicPage({ subsection, section }) {
       {rich.performanceConsiderations?.length > 0 && (
         <RichSection heading="Performance Considerations">
           {PointList(rich.performanceConsiderations)}
+        </RichSection>
+      )}
+
+      {rich.interviewExplanation?.length > 0 && (
+        <RichSection heading="How to Explain in an Interview">
+          <InterviewExplanation points={rich.interviewExplanation} />
+        </RichSection>
+      )}
+
+      {rich.followUpQuestions?.length > 0 && (
+        <RichSection heading="Follow-up Interview Questions">
+          {rich.followUpQuestions.map((item, i) => (
+            <div className="faq-item" key={i}>
+              <div className="faq-question">Q: {item.q}</div>
+              <div className="faq-answer">{renderPoint(item.a)}</div>
+            </div>
+          ))}
         </RichSection>
       )}
 

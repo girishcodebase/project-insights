@@ -22,7 +22,9 @@
       "All of this happened before you wrote a single line of business logic."
     ],
     "internalWorking": {
-      "intro": ["Spring Boot solves the problem above in a few specific ways."],
+      "intro": [
+        "Spring Boot solves the problem above in a few specific ways."
+      ],
       "topics": [
         {
           "heading": "What Spring Boot Actually Adds",
@@ -43,6 +45,67 @@
             "`@ComponentScan` — scan this package, and everything below it, for `@Component` classes.",
             "**`SpringApplication.run(App.class, args)`** starts the whole application.",
             "It scans for components, applies auto-configuration, starts the embedded server, and builds the `ApplicationContext`."
+          ]
+        },
+        {
+          "heading": "Behind the Scenes: What SpringApplication.run() Actually Does",
+          "points": [
+            "**`SpringApplication`** is the class orchestrating the whole startup — it decides the application type, prepares the environment, and creates the `ApplicationContext`.",
+            "**`ApplicationContextInitializer`** — hook implementations that run against the context before it's refreshed, useful for programmatic setup.",
+            "**`ConfigurationClassPostProcessor`** — a `BeanFactoryPostProcessor` that scans `@Configuration` classes and registers their `@Bean` methods as bean definitions.",
+            "**`AutoConfigurationImportSelector`** — decides which auto-configuration classes actually get imported, filtering candidates through `@Conditional` checks.",
+            "Together, these four pieces turn one `SpringApplication.run()` call into a fully wired `ApplicationContext`."
+          ]
+        },
+        {
+          "heading": "Auto-Configuration Internals",
+          "points": [
+            "**`@Conditional`** is the base mechanism — a configuration class or bean only registers if its condition is true.",
+            "**`@ConditionalOnClass`** — only apply this config if a given class is on the classpath.",
+            "**`@ConditionalOnMissingBean`** — only apply this config if the developer hasn't already defined their own bean of that type.",
+            "**`@ConditionalOnProperty`** — only apply this config if a specific property is set to a specific value.",
+            "Every candidate auto-configuration class is listed in `META-INF/spring/...AutoConfiguration.imports` (the older `spring.factories` served the same purpose).",
+            "`AutoConfigurationImportSelector` reads that full candidate list, then filters it down using each class's `@Conditional` checks."
+          ]
+        },
+        {
+          "heading": "Execution Timeline: Startup Sequence",
+          "mermaid": "sequenceDiagram\n    participant Main as \"main()\"\n    participant SA as \"SpringApplication\"\n    participant Env as \"Environment\"\n    participant CCPP as \"ConfigurationClassPostProcessor\"\n    participant ACIS as \"AutoConfigurationImportSelector\"\n    participant Ctx as \"ApplicationContext\"\n    participant Server as \"Embedded Server\"\n    Main->>SA: run(PaymentServiceApplication.class, args)\n    SA->>Env: prepare Environment, publish ApplicationEnvironmentPreparedEvent\n    SA->>Ctx: create ApplicationContext, publish ApplicationContextInitializedEvent\n    Ctx->>CCPP: process Configuration classes, register Bean definitions\n    Ctx->>ACIS: resolve and filter auto-configuration candidates via Conditional checks\n    SA->>Ctx: publish ApplicationPreparedEvent\n    Ctx->>Ctx: refresh - instantiate singletons, publish ContextRefreshedEvent\n    Ctx->>Server: start embedded Tomcat\n    SA->>SA: publish ApplicationStartedEvent, then ApplicationReadyEvent",
+          "mermaidCaption": "A more granular view of the same startup shown in the diagram above — auto-configuration resolution and application events now placed in sequence.",
+          "points": [
+            "This is the same overall flow as the diagram at the top of this page, just with the internal classes and events placed on a timeline.",
+            "Auto-configuration resolution happens **before** the context refresh finishes instantiating singleton beans.",
+            "The embedded server starts as part of the context refresh, not before it.",
+            "`ApplicationStartedEvent` and `ApplicationReadyEvent` both fire only after the server is already listening."
+          ]
+        },
+        {
+          "heading": "Application Events",
+          "points": [
+            "Spring Boot publishes its own lifecycle events, in order: `ApplicationStartingEvent` → `ApplicationEnvironmentPreparedEvent` → `ApplicationContextInitializedEvent` → `ApplicationPreparedEvent` → `ContextRefreshedEvent` → `ApplicationStartedEvent` → `ApplicationReadyEvent`.",
+            "Any bean can observe these with `@EventListener`, or by implementing `ApplicationListener<T>`.",
+            "**`ApplicationReadyEvent`** is the common hook for \"run this once the app is fully ready to serve traffic\" logic — the server is already up at this point.",
+            "Events are published through the same `ApplicationEventPublisher` used for any other custom application event."
+          ],
+          "code": "@Component\nclass StartupNotifier {\n\n    @EventListener(ApplicationReadyEvent.class)\n    void onReady() {\n        log.info(\"PaymentServiceApplication is ready to accept traffic\");\n    }\n}"
+        },
+        {
+          "heading": "CommandLineRunner vs ApplicationRunner",
+          "points": [
+            "Both run code right after the `ApplicationContext` is built and the app is basically ready, but before it starts serving requests.",
+            "**`CommandLineRunner.run(String... args)`** — receives the raw, unparsed `String` arguments exactly as passed on the command line.",
+            "**`ApplicationRunner.run(ApplicationArguments args)`** — receives a parsed `ApplicationArguments` object, with named options and non-option arguments already split out.",
+            "If multiple runners exist, `@Order` (or implementing `Ordered`) controls which one runs first."
+          ],
+          "code": "@Component\nclass CacheWarmerCommandLineRunner implements CommandLineRunner {\n    @Override\n    public void run(String... args) {\n        System.out.println(\"Raw args: \" + String.join(\", \", args));\n    }\n}\n\n@Component\nclass CacheWarmerApplicationRunner implements ApplicationRunner {\n    @Override\n    public void run(ApplicationArguments args) {\n        boolean warmCache = args.containsOption(\"warm-cache\");\n        System.out.println(\"warm-cache option present: \" + warmCache);\n    }\n}"
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "Gate readiness/traffic checks on `ApplicationReadyEvent` rather than assuming the app is instantly ready the moment `main()` returns.",
+            "Use `CommandLineRunner`/`ApplicationRunner` for one-off startup tasks like cache warming — never for request-handling logic.",
+            "Keep auto-configuration overrides explicit and documented — silent overrides via `@ConditionalOnMissingBean` are a common source of \"why is this bean different in prod\" confusion.",
+            "Prefer the newer `META-INF/spring/...AutoConfiguration.imports` file over `spring.factories` in any auto-configuration module you own."
           ]
         }
       ]
@@ -70,13 +133,67 @@
     "comparisonTables": [
       {
         "title": "Spring Framework vs Spring Boot",
-        "columns": ["Aspect", "Spring Framework", "Spring Boot"],
+        "columns": [
+          "Aspect",
+          "Spring Framework",
+          "Spring Boot"
+        ],
         "rows": [
-          ["Configuration", "Manual XML or Java config for every bean", "Auto-configuration based on the classpath"],
-          ["Dependencies", "Pick and match every library version yourself", "One starter dependency pulls in a matched set"],
-          ["Server", "External Tomcat, deploy a WAR", "Embedded server, run a JAR"],
-          ["Setup time", "Hours of configuration before writing logic", "Minutes — a working app in one file"],
-          ["Relationship", "The core framework", "Spring Framework + auto-config + embedded server"]
+          [
+            "Configuration",
+            "Manual XML or Java config for every bean",
+            "Auto-configuration based on the classpath"
+          ],
+          [
+            "Dependencies",
+            "Pick and match every library version yourself",
+            "One starter dependency pulls in a matched set"
+          ],
+          [
+            "Server",
+            "External Tomcat, deploy a WAR",
+            "Embedded server, run a JAR"
+          ],
+          [
+            "Setup time",
+            "Hours of configuration before writing logic",
+            "Minutes — a working app in one file"
+          ],
+          [
+            "Relationship",
+            "The core framework",
+            "Spring Framework + auto-config + embedded server"
+          ]
+        ]
+      },
+      {
+        "title": "CommandLineRunner vs ApplicationRunner",
+        "columns": [
+          "Aspect",
+          "CommandLineRunner",
+          "ApplicationRunner"
+        ],
+        "rows": [
+          [
+            "Method signature",
+            "`run(String... args)`",
+            "`run(ApplicationArguments args)`"
+          ],
+          [
+            "Argument form",
+            "Raw, unparsed `String` values",
+            "Parsed — option and non-option arguments split out"
+          ],
+          [
+            "Typical use",
+            "Simple scripts that don't need named options",
+            "Startup tasks that read named `--flags`"
+          ],
+          [
+            "Ordering",
+            "`@Order` / `Ordered`, same as ApplicationRunner",
+            "`@Order` / `Ordered`, same as CommandLineRunner"
+          ]
         ]
       }
     ],
@@ -139,7 +256,24 @@
         "What happens internally when `SpringApplication.run()` is called, in order?",
         "How does component scanning behave if `@SpringBootApplication` is placed in a non-root package?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "DI & IoC — how ApplicationContext wires dependencies",
+        "sectionId": "springboot",
+        "subsectionId": "dependency-injection"
+      },
+      {
+        "label": "Bean Lifecycle & Scopes — what happens after the context is built",
+        "sectionId": "springboot",
+        "subsectionId": "bean-lifecycle-scopes"
+      },
+      {
+        "label": "JioOnePay Overview — a real Spring Boot application",
+        "sectionId": "jioonepay",
+        "subsectionId": "overview"
+      }
+    ]
   },
   {
     "id": "dependency-injection",
@@ -163,7 +297,9 @@
       "This tight coupling makes the code harder to change and harder to test."
     ],
     "internalWorking": {
-      "intro": ["IoC is the goal. DI is how Spring actually reaches it. Here's each piece."],
+      "intro": [
+        "IoC is the goal. DI is how Spring actually reaches it. Here's each piece."
+      ],
       "topics": [
         {
           "heading": "How It Looks After IoC",
@@ -235,6 +371,26 @@
             "Needed for third-party classes you can't annotate yourself.",
             "**XML config (legacy)** — `<bean id=\"orderService\" class=\"...\"/>`. Rarely used in new code today."
           ]
+        },
+        {
+          "heading": "Behind the Scenes: Which Classes Actually Perform DI",
+          "points": [
+            "**`ConfigurationClassPostProcessor`** — processes every `@Configuration` class first, registering each `@Bean` method as a bean definition.",
+            "**`DefaultListableBeanFactory`** — the concrete `BeanFactory` underneath `ApplicationContext`. It holds all bean definitions and actually instantiates beans.",
+            "**`AutowiredAnnotationBeanPostProcessor`** — a `BeanPostProcessor` that scans each bean as it's created and injects whatever its `@Autowired` fields or constructor need.",
+            "**Order matters** — bean definitions are registered first, then `AutowiredAnnotationBeanPostProcessor` acts during each individual bean's creation, not before.",
+            "This is why a bad `@Bean` method fails fast at startup, while a missing `@Autowired` candidate surfaces later, as `NoUniqueBeanDefinitionException`."
+          ]
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "**Constructor injection scales well in teams** — a class's required dependencies are all visible in one place, its constructor signature.",
+            "Treat `@Lazy` as a warning sign, not a fix — a circular dependency between `OrderService` and `PaymentGateway` usually means refactor, not `@Lazy`.",
+            "Keep shared interfaces like `PaymentGateway` in a common module when multiple services depend on the same abstraction.",
+            "Favor one `@Primary` implementation per environment over scattering `@Qualifier` everywhere — it keeps most call sites simple.",
+            "Constructor injection keeps unit tests plain — `new OrderService(fakeGateway)` needs no Spring context at all."
+          ]
         }
       ]
     },
@@ -261,22 +417,67 @@
     "comparisonTables": [
       {
         "title": "IoC vs DI",
-        "columns": ["Aspect", "IoC", "DI"],
+        "columns": [
+          "Aspect",
+          "IoC",
+          "DI"
+        ],
         "rows": [
-          ["What it is", "A principle", "A technique that implements the principle"],
-          ["Scope", "Broader — control of the whole object lifecycle", "Narrower — specifically supplying dependencies"],
-          ["Alternatives", "Dependency Lookup, Factory pattern", "Constructor, setter, field injection"],
-          ["Spring's role", "Provides the IoC container", "The container performs DI to achieve IoC"]
+          [
+            "What it is",
+            "A principle",
+            "A technique that implements the principle"
+          ],
+          [
+            "Scope",
+            "Broader — control of the whole object lifecycle",
+            "Narrower — specifically supplying dependencies"
+          ],
+          [
+            "Alternatives",
+            "Dependency Lookup, Factory pattern",
+            "Constructor, setter, field injection"
+          ],
+          [
+            "Spring's role",
+            "Provides the IoC container",
+            "The container performs DI to achieve IoC"
+          ]
         ]
       },
       {
         "title": "Constructor vs Setter vs Field Injection",
-        "columns": ["Aspect", "Constructor", "Setter", "Field"],
+        "columns": [
+          "Aspect",
+          "Constructor",
+          "Setter",
+          "Field"
+        ],
         "rows": [
-          ["Can be `final`", "Yes", "No", "No"],
-          ["Fails fast at startup", "Yes", "Not always", "Not always"],
-          ["Easy to unit test", "Yes — plain `new()` with mocks", "Moderate", "Hard — needs Spring or reflection"],
-          ["Recommended for", "Every required dependency", "Genuinely optional dependencies", "Avoid"]
+          [
+            "Can be `final`",
+            "Yes",
+            "No",
+            "No"
+          ],
+          [
+            "Fails fast at startup",
+            "Yes",
+            "Not always",
+            "Not always"
+          ],
+          [
+            "Easy to unit test",
+            "Yes — plain `new()` with mocks",
+            "Moderate",
+            "Hard — needs Spring or reflection"
+          ],
+          [
+            "Recommended for",
+            "Every required dependency",
+            "Genuinely optional dependencies",
+            "Avoid"
+          ]
         ]
       }
     ],
@@ -341,7 +542,24 @@
         "Walk through Spring's exact resolution order when multiple `@Autowired` candidates exist.",
         "When would Dependency Lookup be a more appropriate choice than Dependency Injection?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "Core Spring & Spring Boot — how ApplicationContext is built at startup",
+        "sectionId": "springboot",
+        "subsectionId": "core-spring"
+      },
+      {
+        "label": "Bean Lifecycle & Scopes — what happens after a dependency is injected",
+        "sectionId": "springboot",
+        "subsectionId": "bean-lifecycle-scopes"
+      },
+      {
+        "label": "JioOnePay Overview — dependency injection in a real production system",
+        "sectionId": "jioonepay",
+        "subsectionId": "overview"
+      }
+    ]
   },
   {
     "id": "annotations",
@@ -364,7 +582,9 @@
       "Annotations moved that configuration next to the code it actually affects."
     ],
     "internalWorking": {
-      "intro": ["Five annotation groups cover almost everything a typical REST backend needs."],
+      "intro": [
+        "Five annotation groups cover almost everything a typical REST backend needs."
+      ],
       "topics": [
         {
           "heading": "Stereotype Annotations",
@@ -419,6 +639,33 @@
             "This gives the whole API one consistent error-response shape.",
             "**`ProblemDetail`** (Spring 6+) — a built-in RFC 7807 error format, instead of a hand-rolled error DTO."
           ]
+        },
+        {
+          "heading": "Behind the Scenes: DispatcherServlet Request Lifecycle",
+          "points": [
+            "**`DispatcherServlet`** — the single servlet that receives every incoming HTTP request; it's Spring MVC's Front Controller.",
+            "**`RequestMappingHandlerMapping`** — scans all `@Controller` beans and finds which method matches this request's path and HTTP method, based on `@GetMapping`/`@PostMapping`/etc.",
+            "**`RequestMappingHandlerAdapter`** — actually invokes the matched method, resolving `@RequestBody`/`@PathVariable`/`@RequestParam` arguments and processing the return value.",
+            "**`HandlerExceptionResolver`** — the internal mechanism `@ControllerAdvice` and `@ExceptionHandler` are built on top of; it catches exceptions the adapter throws and turns them into a response.",
+            "None of this is visible in application code — the annotations are just metadata these classes read at request time."
+          ]
+        },
+        {
+          "heading": "Execution Timeline: One Request, Start to Finish",
+          "points": [
+            "This is the class-level machinery behind the annotations/validation flow shown in the architecture diagram above, traced request by request."
+          ],
+          "mermaid": "sequenceDiagram\n    participant Client\n    participant DS as DispatcherServlet\n    participant HM as RequestMappingHandlerMapping\n    participant HA as RequestMappingHandlerAdapter\n    participant OC as OrderController\n    Client->>DS: HTTP request\n    DS->>HM: Which handler matches this path/method?\n    HM-->>DS: Matched OrderController.getOrder\n    DS->>HA: Invoke this handler\n    HA->>HA: Resolve PathVariable/RequestBody/RequestParam\n    HA->>OC: Call getOrder(id)\n    OC-->>HA: Return Order\n    HA-->>DS: Serialize response body\n    DS-->>Client: HTTP response",
+          "mermaidCaption": "The DispatcherServlet/HandlerMapping/HandlerAdapter machinery that runs underneath every annotated controller method."
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "**One `@ControllerAdvice` per API** (or per API version) — scattering exception handling across multiple advice classes makes it hard to guarantee every error looks the same.",
+            "**Use `ProblemDetail` consistently** — every error response across the whole platform should share one shape, not a different hand-rolled DTO per team.",
+            "**Decide API versioning early** — retrofitting a versioning strategy after clients are already integrated breaks them; it's much cheaper to decide upfront.",
+            "**Keep validation at the boundary** — DTO-level `@Valid` annotations belong on the request object, not duplicated as manual checks deeper in the service layer."
+          ]
         }
       ]
     },
@@ -445,22 +692,62 @@
     "comparisonTables": [
       {
         "title": "@Component vs @Service vs @Repository vs @Controller",
-        "columns": ["Annotation", "Layer", "Extra behavior"],
+        "columns": [
+          "Annotation",
+          "Layer",
+          "Extra behavior"
+        ],
         "rows": [
-          ["`@Component`", "Any (generic)", "None — the base annotation"],
-          ["`@Service`", "Business logic", "None — purely semantic"],
-          ["`@Repository`", "Data access", "Translates persistence exceptions automatically"],
-          ["`@Controller`", "Web (views)", "Resolves return values to view templates"],
-          ["`@RestController`", "Web (REST APIs)", "= `@Controller` + `@ResponseBody` — returns JSON directly"]
+          [
+            "`@Component`",
+            "Any (generic)",
+            "None — the base annotation"
+          ],
+          [
+            "`@Service`",
+            "Business logic",
+            "None — purely semantic"
+          ],
+          [
+            "`@Repository`",
+            "Data access",
+            "Translates persistence exceptions automatically"
+          ],
+          [
+            "`@Controller`",
+            "Web (views)",
+            "Resolves return values to view templates"
+          ],
+          [
+            "`@RestController`",
+            "Web (REST APIs)",
+            "= `@Controller` + `@ResponseBody` — returns JSON directly"
+          ]
         ]
       },
       {
         "title": "@RequestParam vs @PathVariable",
-        "columns": ["Aspect", "@RequestParam", "@PathVariable"],
+        "columns": [
+          "Aspect",
+          "@RequestParam",
+          "@PathVariable"
+        ],
         "rows": [
-          ["Where the value lives", "Query string: `?page=2`", "The URL path itself: `/orders/42`"],
-          ["Typical use", "Optional filters, pagination", "Identifying one specific resource"],
-          ["Example", "`@RequestParam(defaultValue=\"0\") int page`", "`@GetMapping(\"/orders/{id}\")` + `@PathVariable Long id`"]
+          [
+            "Where the value lives",
+            "Query string: `?page=2`",
+            "The URL path itself: `/orders/42`"
+          ],
+          [
+            "Typical use",
+            "Optional filters, pagination",
+            "Identifying one specific resource"
+          ],
+          [
+            "Example",
+            "`@RequestParam(defaultValue=\"0\") int page`",
+            "`@GetMapping(\"/orders/{id}\")` + `@PathVariable Long id`"
+          ]
         ]
       }
     ],
@@ -523,7 +810,24 @@
         "How would you write a custom validation annotation, end to end?",
         "How does Spring decide which `@ExceptionHandler` method to call when an exception has multiple matching handlers in the class hierarchy?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "Core Spring & Spring Boot — how the embedded server starts",
+        "sectionId": "springboot",
+        "subsectionId": "core-spring"
+      },
+      {
+        "label": "Spring Data JPA — validating and persisting the request body",
+        "sectionId": "springboot",
+        "subsectionId": "spring-data-jpa"
+      },
+      {
+        "label": "JioOnePay Architecture Layers — a real request lifecycle across multiple services",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      }
+    ]
   },
   {
     "id": "bean-lifecycle-scopes",
@@ -545,7 +849,9 @@
       "There would also be no reliable moment to release resources like connections before shutdown."
     ],
     "internalWorking": {
-      "intro": ["The lifecycle has five stages. Scope is a separate, related decision."],
+      "intro": [
+        "The lifecycle has five stages. Scope is a separate, related decision."
+      ],
       "topics": [
         {
           "heading": "The Five Stages",
@@ -577,6 +883,26 @@
             "**Fix 1** — inject `ObjectProvider<T>` instead, and call `.getObject()` each time a fresh instance is needed.",
             "**Fix 2** — use a scoped proxy: `@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)`."
           ]
+        },
+        {
+          "heading": "Behind the Scenes: BeanPostProcessor & the Real Bean Creation Pipeline",
+          "points": [
+            "\"The Five Stages\" is the simplified view — under the hood, every bean actually passes through the **`BeanPostProcessor`** interface.",
+            "**`postProcessBeforeInitialization`** runs right before `@PostConstruct`/`afterPropertiesSet` — most implementations just pass the bean through untouched.",
+            "**`postProcessAfterInitialization`** runs right after — this is exactly where Spring AOP proxies, like the ones behind `@Transactional`, get created and returned instead of the raw bean.",
+            "**`AutowiredAnnotationBeanPostProcessor`** is one concrete, already-registered `BeanPostProcessor` — it's the thing that actually handles `@Autowired` injection.",
+            "**`InitializingBean`**/**`DisposableBean`** are the older interface-based alternative to `@PostConstruct`/`@PreDestroy` — implement `afterPropertiesSet()`/`destroy()` directly instead of annotating a method.",
+            "Rarely used in new code since it couples a class to Spring-specific interfaces, but worth recognizing in legacy codebases."
+          ]
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "Most teams never write a custom `BeanPostProcessor` themselves — it's a framework-level extension point, mostly exercised by Spring itself and by library authors.",
+            "`@PostConstruct` is the practical default over implementing `InitializingBean`, since annotating a method doesn't couple the class to a Spring-specific interface.",
+            "The prototype-in-singleton gotcha is a very common source of a subtle production bug — shared mutable state that looks scoped per-call but isn't.",
+            "If a proxy-based `@Transactional` bean isn't behaving as expected, `postProcessAfterInitialization` is the mental model to reach for: the object you're calling may not be the raw bean at all."
+          ]
         }
       ]
     },
@@ -603,21 +929,57 @@
     "comparisonTables": [
       {
         "title": "Bean Scopes",
-        "columns": ["Scope", "Instances", "Typical use"],
+        "columns": [
+          "Scope",
+          "Instances",
+          "Typical use"
+        ],
         "rows": [
-          ["singleton", "One per container (default)", "Stateless services, repositories"],
-          ["prototype", "New instance every request", "Stateful, short-lived helper objects"],
-          ["request", "One per HTTP request", "Per-request state in a web app"],
-          ["session", "One per HTTP session", "User-specific state across requests"]
+          [
+            "singleton",
+            "One per container (default)",
+            "Stateless services, repositories"
+          ],
+          [
+            "prototype",
+            "New instance every request",
+            "Stateful, short-lived helper objects"
+          ],
+          [
+            "request",
+            "One per HTTP request",
+            "Per-request state in a web app"
+          ],
+          [
+            "session",
+            "One per HTTP session",
+            "User-specific state across requests"
+          ]
         ]
       },
       {
         "title": "Constructor vs @PostConstruct",
-        "columns": ["Aspect", "Constructor", "@PostConstruct"],
+        "columns": [
+          "Aspect",
+          "Constructor",
+          "@PostConstruct"
+        ],
         "rows": [
-          ["Runs when", "Object creation, before DI completes", "After every dependency is injected"],
-          ["Safe to use injected fields?", "Not guaranteed", "Yes — guaranteed to be set"],
-          ["Typical use", "Assign constructor parameters to fields", "Validation, one-time setup logic"]
+          [
+            "Runs when",
+            "Object creation, before DI completes",
+            "After every dependency is injected"
+          ],
+          [
+            "Safe to use injected fields?",
+            "Not guaranteed",
+            "Yes — guaranteed to be set"
+          ],
+          [
+            "Typical use",
+            "Assign constructor parameters to fields",
+            "Validation, one-time setup logic"
+          ]
         ]
       }
     ],
@@ -680,7 +1042,24 @@
         "How does a scoped proxy solve the prototype-in-singleton problem internally?",
         "At what exact point in the bean lifecycle can you safely rely on an injected dependency being non-null?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "DI & IoC — how dependencies are injected before PostConstruct runs",
+        "sectionId": "springboot",
+        "subsectionId": "dependency-injection"
+      },
+      {
+        "label": "Core Spring & Spring Boot — how the container is built at startup",
+        "sectionId": "springboot",
+        "subsectionId": "core-spring"
+      },
+      {
+        "label": "Spring Data JPA — repository beans created through this same pipeline",
+        "sectionId": "springboot",
+        "subsectionId": "spring-data-jpa"
+      }
+    ]
   },
   {
     "id": "spring-config",
@@ -701,7 +1080,9 @@
       "Without a clear override order, it's unclear which config value actually wins when several sources set the same key."
     ],
     "internalWorking": {
-      "intro": ["Configuration, precedence, and profiles solve each part of that problem in turn."],
+      "intro": [
+        "Configuration, precedence, and profiles solve each part of that problem in turn."
+      ],
       "topics": [
         {
           "heading": "Property Configuration",
@@ -729,6 +1110,25 @@
             "**Custom health check** — implement `HealthIndicator` to report whether a downstream dependency is reachable.",
             "**Securing it** — expose only what's needed with `management.endpoints.web.exposure.include`."
           ]
+        },
+        {
+          "heading": "Behind the Scenes: How Property Resolution Actually Works",
+          "points": [
+            "**`Environment`** — the abstraction that actually holds and resolves every property; `@Value` and `@ConfigurationProperties` both delegate to it under the hood.",
+            "**`PropertySource`** — each individual source — command-line args, env vars, one specific yml file — is wrapped as one `PropertySource`.",
+            "**`PropertySources`** — an ordered list of every `PropertySource`, held inside `Environment`, in exactly the precedence order shown above.",
+            "**`PropertySourcesPlaceholderConfigurer`** — resolves `${...}` placeholders by walking that ordered list top to bottom, returning the first source that has the key.",
+            "The precedence diagram above isn't a separate rule Spring enforces — it's just the order `PropertySources` happens to hold those sources in."
+          ]
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "Inject secrets as **environment variables**, or pull them from a secrets manager at startup — never commit them to any `application*.yml` file.",
+            "Keep **`management.endpoints.web.exposure.include`** explicit and reviewed on every change, instead of defaulting to exposing every Actuator endpoint.",
+            "Add **`@Validated`** to a `@ConfigurationProperties` class so a missing required value fails the app at **startup**, not later at runtime.",
+            "For multi-service setups, a centralized option like **Spring Cloud Config Server** or **Vault** can serve `application.yml` externally — worth knowing exists, rarely worth detailing in an interview."
+          ]
         }
       ]
     },
@@ -755,11 +1155,27 @@
     "comparisonTables": [
       {
         "title": "@Value vs @ConfigurationProperties",
-        "columns": ["Aspect", "@Value", "@ConfigurationProperties"],
+        "columns": [
+          "Aspect",
+          "@Value",
+          "@ConfigurationProperties"
+        ],
         "rows": [
-          ["Binds", "One property at a time", "A whole group of related properties"],
-          ["Type safety", "Manual, per field", "One typed class for the whole group"],
-          ["Best for", "A single, standalone value", "A cohesive config block, e.g. one integration's settings"]
+          [
+            "Binds",
+            "One property at a time",
+            "A whole group of related properties"
+          ],
+          [
+            "Type safety",
+            "Manual, per field",
+            "One typed class for the whole group"
+          ],
+          [
+            "Best for",
+            "A single, standalone value",
+            "A cohesive config block, e.g. one integration's settings"
+          ]
         ]
       }
     ],
@@ -822,7 +1238,24 @@
         "What are the security risks of exposing Actuator endpoints publicly, and how do you mitigate them?",
         "How would you write a custom `HealthIndicator` that checks a downstream payment gateway's availability?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "Core Spring & Spring Boot — how configuration classes are processed at startup",
+        "sectionId": "springboot",
+        "subsectionId": "core-spring"
+      },
+      {
+        "label": "Spring Data JPA — datasource configuration in practice",
+        "sectionId": "springboot",
+        "subsectionId": "spring-data-jpa"
+      },
+      {
+        "label": "JioOnePay Architecture Layers — externalized config used for live routing changes",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      }
+    ]
   },
   {
     "id": "spring-data-jpa",
@@ -923,6 +1356,25 @@
             "Total: `1 + N` queries, where a single join query would have done the job.",
             "**Fix** — `@EntityGraph`, `JOIN FETCH` in JPQL, or `@BatchSize`."
           ]
+        },
+        {
+          "heading": "Behind the Scenes: How JpaRepository Gets Its Implementation",
+          "points": [
+            "`OrderRepository extends JpaRepository<Order, Long>` has no implementation class anywhere in the codebase — Spring builds one at runtime, not compile time.",
+            "**`RepositoryFactoryBeanSupport`** is a `FactoryBean` — instead of Spring instantiating `OrderRepository` directly, this factory bean's job is to construct the actual repository bean.",
+            "That factory builds a JDK **dynamic proxy** for the `OrderRepository` interface — this proxy is the object your `@Service` actually gets injected with.",
+            "Every call on that proxy is delegated to **`SimpleJpaRepository`**, the real class that implements `save()`, `findById()`, `deleteById()` using an injected `EntityManager` underneath.",
+            "A derived query method like `findByStatusAndMerchantId(...)` is parsed into an actual query **once, at startup** by this same proxy — not re-parsed on every call."
+          ]
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "Tune `spring.jpa.properties.hibernate.jdbc.batch_size` so bulk inserts/updates go out as batched statements instead of one round trip per row.",
+            "**`spring.jpa.open-in-view`** defaults to `true`, keeping the Hibernate session open through view rendering — many teams disable it explicitly to avoid lazy-loading exceptions surfacing as confusing errors at the wrong layer.",
+            "Never rely on `spring.jpa.hibernate.ddl-auto=update` in production — use a migration tool like **Flyway** or **Liquibase** so schema changes are versioned and reviewable.",
+            "Spring Boot auto-configures **HikariCP** as the connection pool — sizing it (`maximum-pool-size`) correctly matters more than most people expect under real load."
+          ]
         }
       ]
     },
@@ -949,23 +1401,67 @@
     "comparisonTables": [
       {
         "title": "JPA vs Hibernate",
-        "columns": ["Aspect", "JPA", "Hibernate"],
+        "columns": [
+          "Aspect",
+          "JPA",
+          "Hibernate"
+        ],
         "rows": [
-          ["What it is", "A specification (interfaces + rules)", "An implementation of that specification"],
-          ["Can you run it directly?", "No — it defines a contract only", "Yes — it's the actual engine"],
-          ["Key types", "`@Entity`, `EntityManager`, JPQL", "`Session`, `SessionFactory`, HQL"],
-          ["Vendor lock-in", "None — code stays portable", "None if you code to the JPA interfaces"],
-          ["Analogy", "Like the `List` interface", "Like `ArrayList`, one implementation of it"]
+          [
+            "What it is",
+            "A specification (interfaces + rules)",
+            "An implementation of that specification"
+          ],
+          [
+            "Can you run it directly?",
+            "No — it defines a contract only",
+            "Yes — it's the actual engine"
+          ],
+          [
+            "Key types",
+            "`@Entity`, `EntityManager`, JPQL",
+            "`Session`, `SessionFactory`, HQL"
+          ],
+          [
+            "Vendor lock-in",
+            "None — code stays portable",
+            "None if you code to the JPA interfaces"
+          ],
+          [
+            "Analogy",
+            "Like the `List` interface",
+            "Like `ArrayList`, one implementation of it"
+          ]
         ]
       },
       {
         "title": "JPQL vs Native Query",
-        "columns": ["Aspect", "JPQL", "Native Query"],
+        "columns": [
+          "Aspect",
+          "JPQL",
+          "Native Query"
+        ],
         "rows": [
-          ["Written against", "Entity names and fields", "Real table and column names"],
-          ["Database portability", "Portable across databases", "Tied to one database's SQL dialect"],
-          ["When to use", "Default choice for almost everything", "Only when JPQL can't express the query"],
-          ["Example", "`SELECT o FROM Order o WHERE o.status = :status`", "`SELECT * FROM orders WHERE status = ?1`"]
+          [
+            "Written against",
+            "Entity names and fields",
+            "Real table and column names"
+          ],
+          [
+            "Database portability",
+            "Portable across databases",
+            "Tied to one database's SQL dialect"
+          ],
+          [
+            "When to use",
+            "Default choice for almost everything",
+            "Only when JPQL can't express the query"
+          ],
+          [
+            "Example",
+            "`SELECT o FROM Order o WHERE o.status = :status`",
+            "`SELECT * FROM orders WHERE status = ?1`"
+          ]
         ]
       }
     ],
@@ -1032,7 +1528,24 @@
         "Why can `List`-typed `@ManyToMany` relationships cause a Hibernate \"multiple bag\" exception, and how does switching to `Set` fix it?",
         "How would you design pagination for an endpoint that must support both fast repeated calls and an accurate total count?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "Bean Lifecycle & Scopes — how the repository bean itself is created",
+        "sectionId": "springboot",
+        "subsectionId": "bean-lifecycle-scopes"
+      },
+      {
+        "label": "Indexing — the database side of query performance",
+        "sectionId": "database",
+        "subsectionId": "indexing"
+      },
+      {
+        "label": "JioOnePay Service Details — a real transaction/amount table schema",
+        "sectionId": "jioonepay",
+        "subsectionId": "services"
+      }
+    ]
   },
   {
     "id": "spring-security",
@@ -1053,7 +1566,9 @@
       "Access rules like \"only admins can call this\" would end up scattered across the codebase as ad-hoc `if` checks."
     ],
     "internalWorking": {
-      "intro": ["Authentication answers \"who are you\". Authorization answers \"what can you do\"."],
+      "intro": [
+        "Authentication answers \"who are you\". Authorization answers \"what can you do\"."
+      ],
       "topics": [
         {
           "heading": "Authentication Basics",
@@ -1085,6 +1600,26 @@
             "**Role vs Authority** — a Role (`ROLE_ADMIN`) is a coarse label; an Authority (`READ_PRIVILEGE`) is fine-grained. A Role is really just an Authority with a naming convention.",
             "**CORS** — controls which browser origins, methods, and headers are allowed to call your API."
           ]
+        },
+        {
+          "heading": "Behind the Scenes: How a Request Actually Gets Authenticated",
+          "points": [
+            "The servlet container only ever registers one filter for Spring Security — **`DelegatingFilterProxy`**, bound to the name `springSecurityFilterChain`.",
+            "That proxy forwards every request into Spring's own **`FilterChainProxy`** — the real container holding the ordered list of security filters.",
+            "That list typically includes `UsernamePasswordAuthenticationFilter`, a JWT filter if one is configured, `ExceptionTranslationFilter`, and `FilterSecurityInterceptor` (or `AuthorizationFilter` in newer versions).",
+            "A successful filter calls **`AuthenticationManager.authenticate(...)`**, which delegates to one or more `AuthenticationProvider`s to actually verify the credentials.",
+            "On success, the resulting `Authentication` object is stored in **`SecurityContextHolder`** — thread-local by default — for the rest of that request.",
+            "Controllers and `@PreAuthorize` checks read the principal from `SecurityContextHolder`, not by re-parsing the token or session again."
+          ]
+        },
+        {
+          "heading": "Production Notes",
+          "points": [
+            "`SecurityContextHolder`'s default **thread-local** strategy doesn't survive onto a different thread — an `@Async` method or a separate thread pool needs `MODE_INHERITABLETHREADLOCAL`, or the context propagated manually.",
+            "Stateless JWT setups explicitly set `SessionCreationPolicy.STATELESS`, since there's no server-side session to create in the first place.",
+            "CORS and CSRF misconfiguration is one of the most common sources of confusing `403`s in real deployments — CSRF is normally disabled for stateless JWT APIs but must stay enabled for cookie/session-based browser clients.",
+            "**Mutual TLS (mTLS)** is a complementary authentication mechanism for service-to-service calls, used instead of (or alongside) tokens — see JioOnePay's Gateway Integration Layer, where bank-grade external calls (e.g. Citi) authenticate via a PKCS12 client certificate over TLS 1.2."
+          ]
         }
       ]
     },
@@ -1111,22 +1646,62 @@
     "comparisonTables": [
       {
         "title": "Session-Based Auth vs JWT",
-        "columns": ["Aspect", "Session-Based", "JWT"],
+        "columns": [
+          "Aspect",
+          "Session-Based",
+          "JWT"
+        ],
         "rows": [
-          ["State", "Server stores a session per user", "Stateless — no server-side session"],
-          ["Scaling", "Needs shared session storage across servers", "Scales horizontally with no shared state"],
-          ["Revoking access", "Delete the session — instant", "Harder — the token is valid until it expires"],
-          ["Typical use", "Server-rendered web apps", "APIs, mobile apps, microservices"]
+          [
+            "State",
+            "Server stores a session per user",
+            "Stateless — no server-side session"
+          ],
+          [
+            "Scaling",
+            "Needs shared session storage across servers",
+            "Scales horizontally with no shared state"
+          ],
+          [
+            "Revoking access",
+            "Delete the session — instant",
+            "Harder — the token is valid until it expires"
+          ],
+          [
+            "Typical use",
+            "Server-rendered web apps",
+            "APIs, mobile apps, microservices"
+          ]
         ]
       },
       {
         "title": "URL-Based vs Method Security",
-        "columns": ["Aspect", "URL-Based", "Method Security"],
+        "columns": [
+          "Aspect",
+          "URL-Based",
+          "Method Security"
+        ],
         "rows": [
-          ["Configured in", "`SecurityFilterChain`", "`@PreAuthorize` on the method itself"],
-          ["Granularity", "Coarse — whole URL patterns", "Fine — can reference method arguments"],
-          ["Example rule", "`/admin/**` requires `ADMIN` role", "`#id == principal.id`"],
-          ["Runs", "Before the request reaches a controller", "Right before the method body runs"]
+          [
+            "Configured in",
+            "`SecurityFilterChain`",
+            "`@PreAuthorize` on the method itself"
+          ],
+          [
+            "Granularity",
+            "Coarse — whole URL patterns",
+            "Fine — can reference method arguments"
+          ],
+          [
+            "Example rule",
+            "`/admin/**` requires `ADMIN` role",
+            "`#id == principal.id`"
+          ],
+          [
+            "Runs",
+            "Before the request reaches a controller",
+            "Right before the method body runs"
+          ]
         ]
       }
     ],
@@ -1189,6 +1764,23 @@
         "How would you design refresh token rotation to limit the damage from a leaked token?",
         "How would you configure two separate `SecurityFilterChain`s — one for a server-rendered admin panel, one for a public JWT-secured API — in the same application?"
       ]
-    }
+    },
+    "relatedTopics": [
+      {
+        "label": "Bean Lifecycle & Scopes — how filter and provider beans are wired",
+        "sectionId": "springboot",
+        "subsectionId": "bean-lifecycle-scopes"
+      },
+      {
+        "label": "JioOnePay Production & Failure Handling — real mTLS between internal services",
+        "sectionId": "jioonepay",
+        "subsectionId": "production-failure-handling"
+      },
+      {
+        "label": "JioOnePay Architecture Layers — Gateway Integration Layer using Feign + mTLS",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      }
+    ]
   }
 ]

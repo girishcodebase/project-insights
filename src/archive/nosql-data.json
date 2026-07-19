@@ -1,0 +1,203 @@
+[
+  {
+    "id": "nosql",
+    "title": "NoSQL Databases",
+    "overview": [
+      "**NoSQL** databases store data in formats other than relational tables — documents, key-value pairs, wide columns, or graphs.",
+      "**MongoDB** is a document database; **Redis** is an in-memory key-value store often used as a cache.",
+      "The choice between SQL and NoSQL depends on consistency needs, schema flexibility, and access patterns."
+    ],
+    "why": [
+      "Relational databases assume a fixed schema and strong consistency — great for orders and payments, less ideal for every workload.",
+      "Some data doesn't fit neatly into rows and columns, or needs to scale horizontally across many machines.",
+      "NoSQL databases exist to serve those specific access patterns — flexible schemas, massive horizontal scale, or sub-millisecond lookups."
+    ],
+    "problem": [
+      "A relational schema requires a migration every time the shape of stored data changes — painful for rapidly evolving data.",
+      "Scaling a relational database horizontally across many servers is hard because of the join and consistency guarantees it maintains.",
+      "NoSQL databases relax some of those guarantees deliberately, trading strict consistency or fixed schema for scale and flexibility."
+    ],
+    "internalWorking": {
+      "intro": [
+        "NoSQL splits into different models for different needs — document storage and key-value/cache are the two most common in backend systems."
+      ],
+      "topics": [
+        {
+          "heading": "Document Databases",
+          "points": [
+            "**MongoDB** — stores JSON-like documents (BSON) with a flexible schema; collections instead of tables.",
+            "**Use cases** — content management, product catalogs, user profiles, real-time analytics.",
+            "**Spring Data MongoDB** — `@Document` and `MongoRepository` for basic access; `MongoTemplate` for complex queries.",
+            "**Indexing** — `@Indexed`, compound indexes, text indexes, and TTL indexes for automatic document expiry."
+          ]
+        },
+        {
+          "heading": "Key-Value & Cache",
+          "points": [
+            "**Redis** — an in-memory data structure store with sub-millisecond latency; strings, lists, sets, hashes, sorted sets.",
+            "**Use cases** — caching, session storage, rate limiting, leaderboards, pub/sub, distributed locks.",
+            "**Spring Data Redis** — `RedisTemplate`, `@Cacheable`, `@CacheEvict`.",
+            "**TTL & eviction** — set expiry with `EXPIRE key seconds`; eviction policies include `allkeys-lru`, `volatile-lru`, `noeviction`."
+          ]
+        },
+        {
+          "heading": "When SQL vs NoSQL",
+          "points": [
+            "**Choose SQL** — complex queries/joins, strong consistency (ACID), a well-defined schema, transactional systems.",
+            "**Choose NoSQL** — flexible schema, horizontal scaling, specific access patterns, high write throughput.",
+            "**Polyglot persistence** — use different databases for different needs: SQL for orders, Redis for cache, MongoDB for logs.",
+            "**CAP theorem** — in a distributed system, choose 2 of 3: Consistency, Availability, Partition tolerance."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"New data storage requirement\"] --> B{\"Needs joins, strong ACID transactions?\"}\n    B -- \"Yes\" --> C[\"Use SQL - e.g. PostgreSQL, MySQL\"]\n    B -- \"No\" --> D{\"Schema changes often, semi-structured?\"}\n    D -- \"Yes\" --> E[\"Use Document DB - e.g. MongoDB\"]\n    D -- \"No\" --> F{\"Needs sub-millisecond lookups/caching?\"}\n    F -- \"Yes\" --> G[\"Use Key-Value store - e.g. Redis\"]\n    F -- \"No\" --> C",
+      "caption": "A practical decision path — most systems end up using more than one of these together (polyglot persistence), not picking just one for the whole application."
+    },
+    "simpleExample": {
+      "scenario": "Cache a frequently requested product's details in Redis so repeated lookups skip the database entirely.",
+      "code": "@Cacheable(value = \"products\", key = \"#productId\")\npublic Product getProduct(String productId) {\n    return productRepository.findById(productId)\n        .orElseThrow(() -> new ProductNotFoundException(productId));\n}",
+      "input": "A request for `productId = \"P-1001\"` that hasn't been cached yet.",
+      "execution": "The first call misses the cache, runs `productRepository.findById()` against the database, then Spring stores the result in Redis under the key `products::P-1001`.",
+      "output": "The first call returns from the database; every subsequent call for the same `productId` returns instantly from Redis, without hitting the database.",
+      "explanation": "`@Cacheable` intercepts the method call — if the key already exists in the Redis cache, the method body never executes at all."
+    },
+    "realWorldExample": {
+      "scenario": "An e-commerce platform stores structured orders in PostgreSQL, but customer activity logs (highly variable in shape) in MongoDB.",
+      "code": "@Document(collection = \"activity_logs\")\npublic class ActivityLog {\n    @Id\n    private String id;\n    private String customerId;\n    private String eventType;\n    private Map<String, Object> metadata;\n    @Indexed(expireAfterSeconds = 2_592_000)\n    private Instant createdAt;\n}",
+      "input": "Activity events like `PAGE_VIEW`, `CART_ADD`, or `WISHLIST_SAVE`, each with a different shape of `metadata`.",
+      "execution": "MongoDB accepts each event as-is, with `metadata` varying per event type, since there's no fixed column schema to enforce or migrate.",
+      "output": "A flexible `activity_logs` collection where every event type can carry different fields, and old logs auto-expire after 30 days via the TTL index.",
+      "explanation": "This is polyglot persistence in practice — PostgreSQL handles `orders` where schema and ACID guarantees matter, while MongoDB handles logs where structure varies and rigid schema would slow down development."
+    },
+    "comparisonTables": [
+      {
+        "title": "SQL vs NoSQL",
+        "columns": [
+          "Aspect",
+          "SQL",
+          "NoSQL"
+        ],
+        "rows": [
+          [
+            "Schema",
+            "Fixed, defined upfront",
+            "Flexible, can evolve per document"
+          ],
+          [
+            "Consistency",
+            "Strong (ACID)",
+            "Often eventual consistency"
+          ],
+          [
+            "Scaling",
+            "Primarily vertical",
+            "Horizontal, across many nodes"
+          ],
+          [
+            "Query style",
+            "Joins, complex relational queries",
+            "Simple lookups, denormalized reads"
+          ],
+          [
+            "Best for",
+            "Transactional systems (orders, payments)",
+            "Flexible or high-throughput workloads"
+          ]
+        ]
+      },
+      {
+        "title": "MongoDB (Document) vs Redis (Key-Value)",
+        "columns": [
+          "Aspect",
+          "MongoDB",
+          "Redis"
+        ],
+        "rows": [
+          [
+            "Data model",
+            "JSON-like documents (BSON)",
+            "Key-value pairs, plus lists/sets/hashes"
+          ],
+          [
+            "Storage",
+            "Primarily on disk",
+            "Primarily in-memory"
+          ],
+          [
+            "Typical use",
+            "Product catalogs, user profiles, logs",
+            "Caching, sessions, rate limiting, leaderboards"
+          ],
+          [
+            "Query complexity",
+            "Supports rich queries and indexes",
+            "Simple key-based access, very fast"
+          ]
+        ]
+      }
+    ],
+    "bestPractices": [
+      "Adopt polyglot persistence deliberately — pick the database that matches each specific workload, not one database for everything.",
+      "Set a TTL on cache entries and logs that don't need to live forever, instead of manually managing expiry.",
+      "Keep transactional, consistency-critical data (payments, orders) in a SQL database even in a NoSQL-heavy architecture."
+    ],
+    "commonMistakes": [
+      "Using MongoDB for data that actually needs multi-row ACID transactions and relational integrity.",
+      "Treating Redis as a primary data store instead of a cache, without a durable fallback if it's flushed or restarted.",
+      "Forgetting to set eviction policies, letting Redis run out of memory unpredictably under load."
+    ],
+    "interviewTips": [
+      "Be ready to justify SQL vs NoSQL for a specific scenario the interviewer gives you, not just recite definitions.",
+      "Mention CAP theorem naturally when asked about NoSQL trade-offs — it's the theoretical backbone of the SQL vs NoSQL discussion."
+    ],
+    "faq": [
+      {
+        "q": "Can NoSQL databases support transactions at all?",
+        "a": "Some do to a degree — MongoDB supports multi-document ACID transactions since version 4.0 — but it's generally less central to the model than in relational databases, and often avoided for performance reasons."
+      },
+      {
+        "q": "Is Redis only used for caching?",
+        "a": "No — while caching is the most common use, Redis is also used for session storage, rate limiting, distributed locks, leaderboards (sorted sets), and pub/sub messaging."
+      },
+      {
+        "q": "Does using NoSQL mean giving up on data consistency entirely?",
+        "a": "No — it means choosing a different consistency model, often eventual consistency, which is acceptable for many workloads (like logs or activity feeds) but not for financial transactions."
+      }
+    ],
+    "summary": [
+      "NoSQL databases trade some of the relational model's guarantees for schema flexibility, horizontal scale, or raw speed.",
+      "MongoDB fits semi-structured, evolving data; Redis fits caching and any workload needing sub-millisecond key-based access.",
+      "Most real systems use polyglot persistence — SQL for transactional data, NoSQL for the workloads that specifically benefit from it."
+    ],
+    "quickRevision": [
+      "NoSQL trades relational guarantees for schema flexibility, scale, or speed.",
+      "MongoDB = document database, JSON-like BSON documents, flexible schema.",
+      "Redis = in-memory key-value store, sub-millisecond latency, used for caching/sessions/rate limiting.",
+      "Spring Data MongoDB: @Document, MongoRepository, MongoTemplate.",
+      "Spring Data Redis: RedisTemplate, @Cacheable, @CacheEvict.",
+      "Choose SQL for joins, strong consistency, and transactional systems.",
+      "Choose NoSQL for flexible schema, horizontal scale, high write throughput.",
+      "CAP theorem: pick 2 of Consistency, Availability, Partition tolerance.",
+      "Polyglot persistence: use different databases for different needs, not one-size-fits-all."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is the main difference between SQL and NoSQL databases?",
+        "What is MongoDB, and how does it store data?",
+        "What is Redis typically used for?"
+      ],
+      "intermediate": [
+        "What does @Cacheable do, and what triggers a cache miss versus a cache hit?",
+        "Explain the CAP theorem and how it applies to NoSQL databases.",
+        "When would you choose polyglot persistence over a single database for a whole system?"
+      ],
+      "advanced": [
+        "Design a data storage strategy for an e-commerce platform using both SQL and NoSQL — justify what goes where.",
+        "How does MongoDB's support for multi-document transactions change the classic SQL vs NoSQL trade-off?",
+        "What are the risks of relying on Redis as more than a cache, and how would you mitigate them?"
+      ]
+    }
+  }
+]

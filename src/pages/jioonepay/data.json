@@ -187,6 +187,197 @@
         "label": "Architecture Layers — the seven layers this system is built from",
         "sectionId": "jioonepay",
         "subsectionId": "architecture-layers"
+      },
+      {
+        "label": "How a Request Reaches JioOnePay — what happens before any service code runs",
+        "sectionId": "jioonepay",
+        "subsectionId": "request-journey"
+      }
+    ]
+  },
+  {
+    "id": "request-journey",
+    "title": "How a Request Reaches JioOnePay",
+    "overview": [
+      "Before diving into JioOnePay's own services, it helps to see what happens **before** a request even reaches them — DNS resolution, load balancing, and HTTPS.",
+      "This is the same journey any web request takes, explained here using JioOnePay's real public domain, `payments.jio.com`, as the running example.",
+      "Understanding this layer explains why a customer's browser or a merchant's server never calls a Spring Boot service directly."
+    ],
+    "why": [
+      "A customer's browser doesn't know or care which server, or which of many instances, actually runs the code — DNS and load balancing are what make that invisible.",
+      "Without this layer, scaling to multiple instances would require every client to somehow know about all of them."
+    ],
+    "problem": [
+      "A raw IP address changes when infrastructure changes — a stable, memorable domain name is what a merchant integration actually depends on.",
+      "A single server handling every request directly would be a single point of failure and a scaling ceiling.",
+      "Without a reverse proxy/load balancer in front, adding or removing backend instances would require every client to know about the change."
+    ],
+    "internalWorking": {
+      "intro": ["Five steps happen before any JioOnePay service code runs."],
+      "topics": [
+        {
+          "heading": "Domain & DNS Resolution",
+          "points": [
+            "The customer's browser, or the merchant's server, sends a request to `payments.jio.com`.",
+            "DNS resolves that domain name to an IP address — the actual server(s) behind it can change without the domain ever changing.",
+            "This is what lets JioOnePay move or scale its infrastructure without every merchant integration needing to update anything."
+          ]
+        },
+        {
+          "heading": "HTTPS",
+          "points": [
+            "The connection is encrypted end-to-end over HTTPS — essential for a payment platform, since requests carry merchant credentials and eventually payment details.",
+            "TLS termination — where the encrypted connection is actually decrypted — happens at the load balancer layer, before the request reaches any internal service."
+          ]
+        },
+        {
+          "heading": "Load Balancer (nginx)",
+          "points": [
+            "JioOnePay uses **nginx** as its load balancer / reverse proxy in front of the API Gateway.",
+            "It spreads incoming requests across multiple instances of the next layer, and is what actually makes horizontal scaling possible.",
+            "Customers never call a Spring Boot service directly — nginx is the only thing the outside world can see."
+          ]
+        },
+        {
+          "heading": "Why Users Never Call a Spring Boot Service Directly",
+          "points": [
+            "If clients called `jop-gateway-service` (or any backend) directly, scaling out would mean every client needs to know about every new instance.",
+            "A load balancer means backend instances can be added, removed, or replaced freely — clients only ever know about one stable entry point.",
+            "The load balancer, not each individual service, is the first line of defense — health checks here decide which backend instances even receive traffic."
+          ]
+        },
+        {
+          "heading": "Into the Gateway Layer",
+          "points": [
+            "Once nginx picks a healthy backend instance, the request reaches `jop-gateway-service` — this is where the Architecture Layers page picks up, at Layer 1: Edge Layer."
+          ]
+        },
+        {
+          "heading": "The Full Request Journey (Sequence)",
+          "points": [
+            "The same journey shown as a sequence over time, instead of a static flow."
+          ],
+          "mermaid": "sequenceDiagram\n    participant C as Customer\n    participant DNS as DNS\n    participant LB as nginx Load Balancer\n    participant GW as jop-gateway-service\n    C->>DNS: Resolve payments.jio.com\n    DNS-->>C: IP address\n    C->>LB: HTTPS request\n    LB->>GW: Forward to healthy instance\n    GW-->>C: Routed onward (Edge Layer)",
+          "mermaidCaption": "The same journey, as a sequence diagram."
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Customer / Merchant\"] --> B[\"payments.jio.com\"]\n    B --> C[\"DNS resolves domain to IP\"]\n    C --> D[\"nginx: Load Balancer\"]\n    D --> E[\"jop-gateway-service\"]\n    E --> F[\"Routed to Payment Initiation Layer\"]",
+      "caption": "Everything before the gateway — resolving a domain name to a specific, load-balanced backend instance."
+    },
+    "stepByStepFlow": [
+      "Customer or merchant sends a request to payments.jio.com.",
+      "DNS resolves the domain to an IP address for JioOnePay's infrastructure.",
+      "The TLS/HTTPS handshake completes, encrypting the connection.",
+      "nginx (Load Balancer) picks a healthy backend instance to route the request to.",
+      "The request reaches jop-gateway-service, and the Architecture Layers' Edge Layer takes over from here."
+    ],
+    "simpleExample": {
+      "scenario": "A merchant's server calls JioOnePay to initiate a payment.",
+      "code": "GET https://payments.jio.com/jop/initiate/payment/request\n\n1. DNS resolves payments.jio.com\n2. TLS handshake completes\n3. nginx picks a healthy jop-gateway-service instance\n4. Request forwarded to jop-gateway-service",
+      "input": "An HTTPS request to JioOnePay's public domain.",
+      "execution": "The request passes through DNS resolution, TLS termination, and load balancing before any JioOnePay-specific code runs.",
+      "output": "The request lands on a specific, healthy jop-gateway-service instance, ready to be routed by the Edge Layer.",
+      "explanation": "None of this is JioOnePay-specific logic — it's the same journey any web request takes before reaching an application, using JioOnePay's real domain as the example."
+    },
+    "realWorldExample": {
+      "scenario": "One jop-gateway-service instance fails its health check during a deploy.",
+      "code": "1. nginx periodically health-checks each backend instance\n2. Instance X fails its check\n3. nginx stops routing new requests to Instance X\n4. Existing requests to Instance X may still complete or fail\n5. Once Instance X passes health checks again, nginx resumes routing to it",
+      "input": "A backend instance becoming temporarily unhealthy.",
+      "execution": "nginx's health checking removes the bad instance from rotation automatically, without any client noticing beyond perhaps one failed request during the transition.",
+      "output": "Customers continue to reach a healthy instance; the failing one is quietly excluded until it recovers.",
+      "explanation": "This is exactly why customers never call a Spring Boot service directly — the load balancer is what absorbs individual instance failures."
+    },
+    "comparisonTables": [
+      {
+        "title": "Without vs With a Load Balancer",
+        "columns": ["Aspect", "Without a Load Balancer", "With nginx as Load Balancer"],
+        "rows": [
+          ["Scaling", "Clients must know about every new instance", "New instances just join the pool"],
+          ["One instance fails", "Every client calling it fails", "Traffic quietly shifts to healthy instances"],
+          ["What the client sees", "A specific server's address", "One stable domain, payments.jio.com"]
+        ]
+      }
+    ],
+    "advantages": [
+      "Customers and merchants only ever depend on one stable domain, regardless of how the backend infrastructure changes underneath it.",
+      "Instance-level failures are absorbed automatically, before they ever reach the customer."
+    ],
+    "tradeoffs": [
+      "Terminating TLS at the load balancer centralizes certificate management, at the cost of the connection being unencrypted for the short hop between the load balancer and the backend (typically mitigated by keeping that hop within a trusted private network)."
+    ],
+    "bestPractices": [
+      "Never expose individual backend instances directly — always route through a load balancer.",
+      "Terminate TLS at the load balancer so certificate management is centralized, not duplicated per service."
+    ],
+    "commonMistakes": [
+      "Assuming DNS resolution and load balancing are irrelevant to application-level design — they directly shape how failures and scaling actually behave.",
+      "Hardcoding a specific backend instance's address anywhere in a client integration."
+    ],
+    "interviewTips": [
+      "If asked to design any web-facing system, mention DNS and load balancing before jumping to application architecture — it shows you think about the full request path.",
+      "Be ready to explain what a health check protects against at this layer, versus what Circuit Breaker protects against deeper in the system."
+    ],
+    "faq": [
+      {
+        "q": "Why does JioOnePay use nginx specifically, and not a cloud load balancer?",
+        "a": "nginx acts as the reverse proxy/load balancer in front of the gateway; the exact choice of nginx vs. a managed cloud load balancer is an infrastructure decision — either serves the same purpose of spreading traffic across healthy instances and hiding backend topology from clients."
+      },
+      {
+        "q": "Does DNS resolution happen on every single request?",
+        "a": "No — DNS responses are cached (with a TTL) by the client's OS/browser/resolver, so repeated requests from the same client typically reuse a cached IP instead of resolving fresh every time."
+      },
+      {
+        "q": "What's the difference between this Load Balancer and the resilience checks inside jop-gateway-service?",
+        "a": "The Load Balancer decides which backend instance receives a request at all, based on instance health. Once a request reaches jop-gateway-service, a separate layer (Circuit Breaker, Rate Limiter, Bulkhead) protects against a specific downstream service failing — they operate at different layers, for different failure types."
+      }
+    ],
+    "summary": [
+      "Before any JioOnePay-specific logic runs, a request resolves payments.jio.com via DNS, completes a TLS handshake, and is routed by nginx to a healthy backend instance.",
+      "This layer is what makes scaling and failure recovery invisible to the customer — they only ever see one stable domain.",
+      "From here, the request enters jop-gateway-service, where the Architecture Layers page's Edge Layer takes over."
+    ],
+    "quickRevision": [
+      "JioOnePay's public domain is payments.jio.com.",
+      "DNS resolves the domain to an IP; responses are cached with a TTL, not resolved on every request.",
+      "TLS/HTTPS terminates at the load balancer layer, before any backend service sees the request.",
+      "nginx is the load balancer/reverse proxy in front of jop-gateway-service.",
+      "Load balancer health checks decide which backend instances receive traffic at all — a separate concern from Circuit Breaker/Rate Limiter/Bulkhead deeper in the Edge Layer.",
+      "Customers/merchants never call a Spring Boot service directly — only ever the load balancer's stable domain."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What is DNS, and what does it resolve?",
+        "What does a Load Balancer do?",
+        "Why don't clients call a backend service directly?"
+      ],
+      "intermediate": [
+        "What's the difference between load-balancer health checks and jop-gateway-service's Circuit Breaker?",
+        "Why does TLS terminate at the load balancer instead of deeper in the system?",
+        "What happens if one backend instance behind nginx becomes unhealthy?"
+      ],
+      "advanced": [
+        "How would you design DNS/load-balancing for zero-downtime failover across two data centers?",
+        "What are the trade-offs of terminating TLS at the load balancer versus end-to-end encryption to the backend?",
+        "How does this layer's failure handling differ from, and complement, the Edge Layer's resilience patterns?"
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Architecture Layers — where this journey continues, starting at the Edge Layer",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      },
+      {
+        "label": "Scalability — why load balancing is a core scaling technique",
+        "sectionId": "systemdesign",
+        "subsectionId": "scalability"
+      },
+      {
+        "label": "Availability — health checks in depth",
+        "sectionId": "systemdesign",
+        "subsectionId": "availability"
       }
     ]
   },
@@ -722,6 +913,586 @@
         "label": "Resilience Patterns — Circuit Breaker, Bulkhead, and Retry in general-purpose depth",
         "sectionId": "microservices",
         "subsectionId": "resilience"
+      },
+      {
+        "label": "Service Details — the individual services inside these layers",
+        "sectionId": "jioonepay",
+        "subsectionId": "services"
+      }
+    ]
+  },
+  {
+    "id": "services",
+    "title": "Service Details",
+    "overview": [
+      "Now that the layers are clear, this page looks at the **individual services** inside them — what each one owns, and how they depend on each other.",
+      "Rather than long explanations, each service is documented as a compact table: purpose, dependencies, data, and failure behavior.",
+      "This is the level of detail an interviewer's follow-up question — \"what does that specific service actually do?\" — is really asking about."
+    ],
+    "why": [
+      "Layers explain the *shape* of the system; services explain what's actually running inside each box.",
+      "A senior-level interview often drills into one specific service — being able to describe its exact responsibility, not just its layer, is what separates a strong answer."
+    ],
+    "problem": [
+      "Without documenting services individually, \"what does jop-payment-link-service do\" only has a layer-level answer, not a precise one.",
+      "A shared understanding of who owns which data — which service, which table — is what prevents two services from writing inconsistent state to the same data."
+    ],
+    "internalWorking": {
+      "intro": ["Data ownership first, since it shapes everything else, then each group of services."],
+      "topics": [
+        {
+          "heading": "How Transaction Data Is Modeled",
+          "points": [
+            "A shared **transactions table** holds one row per transaction per merchant, keyed by a unique **ORN** (order reference number), with a status column tracking the transaction's lifecycle.",
+            "A separate **amount table** holds one or more rows per transaction — this is what allows a single transaction to be paid using **combined payment modes** (e.g. part TWID, part UPI) instead of forcing one mode per transaction.",
+            "This split exists specifically so a transaction's identity (the ORN + status) stays simple and singular, while the amount breakdown can flex to however many modes actually contributed to it."
+          ]
+        },
+        {
+          "heading": "Edge & Initiation Services",
+          "points": [
+            "**jop-gateway-service** — the Edge Layer's single entry point; routes, protects, no business logic.",
+            "**jop-payment-link-service** — validates the initiate request's checksum and merchant config, stores context in Redis under a token, returns the checkout HTML form.",
+            "**jop-core-pg-details-service** — owns merchant configuration and enabled payment modes; queried by both the Initiation and Checkout layers."
+          ]
+        },
+        {
+          "heading": "Checkout & Mode Services",
+          "points": [
+            "**jop-payment-options-service** — serves the payment options UI, looks up the Redis token, fetches configured modes.",
+            "**jop-upi-service** — handles the UPI payment mode.",
+            "**jop-ccdcnb-service** — handles Card and Net Banking modes; hands card payments off to the PCI service.",
+            "**jop-pci-ccdc-card-service** — the only service allowed to touch raw card data; calls the bank/ACS directly."
+          ]
+        },
+        {
+          "heading": "Gateway Integration Services",
+          "points": [
+            "**jop-core-razorpay-service, jop-core-phonepe-service, jop-core-citi-service, jop-core-easebuzz-service**, and similar — one adapter per external provider, each with its own Apache HttpClient 5 wrapper.",
+            "Each adapter reads/writes against the shared transaction and amount tables for its own transactions, keyed by ORN."
+          ]
+        },
+        {
+          "heading": "Completion Services",
+          "points": [
+            "**jop-payment-b2b-service** — handles the customer's browser redirect back to the merchant.",
+            "**jop-payment-s2s-service** — the authoritative server-to-server callback handler; writes the final status to the transactions table and sends the merchant's webhook."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    LINK[\"jop-payment-link-service\"] --> PGD[\"jop-core-pg-details-service\"]\n    CHK[\"jop-payment-options-service\"] --> PGD\n    CHK --> R[(\"Redis\")]\n    UPI[\"jop-upi-service\"] --> CORE[\"jop-core-*-service adapters\"]\n    CCDCNB[\"jop-ccdcnb-service\"] --> PCI[\"jop-pci-ccdc-card-service\"]\n    CCDCNB --> CORE\n    CORE --> DB[(\"Transactions + Amount tables\")]\n    S2S[\"jop-payment-s2s-service\"] --> DB",
+      "caption": "Who depends on whom, and who reads or writes the shared transaction data."
+    },
+    "stepByStepFlow": [
+      "A transaction is created with a unique ORN the moment jop-payment-link-service validates the initiate request.",
+      "Each service that touches the transaction (mode service, gateway adapter, completion service) reads or writes against that same ORN.",
+      "If a payment combines multiple modes, each mode's contribution is a separate row in the amount table, all linked to the one transaction.",
+      "jop-payment-s2s-service is the one service trusted to write the final, authoritative status."
+    ],
+    "simpleExample": {
+      "scenario": "A customer pays using TWID plus UPI combined for one order.",
+      "code": "transactions table:\n  ORN: ORD98213 | status: SUCCESS\n\namount table:\n  ORN: ORD98213 | mode: TWID  | amount: 100.00\n  ORN: ORD98213 | mode: UPI   | amount: 399.00",
+      "input": "A single order for 499.00, split across two payment modes.",
+      "execution": "One transaction row is created under one ORN; two amount rows record how much came from each mode.",
+      "output": "The transaction resolves to a single SUCCESS status, backed by two amount entries that together add up to the full order value.",
+      "explanation": "This is exactly why the amount table is separate from the transaction table — a transaction's identity stays singular even when its payment is split across modes."
+    },
+    "realWorldExample": {
+      "scenario": "Tracing a single-mode UPI transaction versus a combined-mode transaction through the same schema.",
+      "code": "-- Single mode\ntransactions: ORN=A1 status=SUCCESS\namount: ORN=A1 mode=UPI amount=499.00\n\n-- Combined mode\ntransactions: ORN=A2 status=SUCCESS\namount: ORN=A2 mode=TWID amount=100.00\namount: ORN=A2 mode=UPI  amount=399.00",
+      "input": "Two transactions — one single-mode, one combined-mode.",
+      "execution": "Both use exactly the same two tables; the only difference is how many amount rows exist under the same ORN.",
+      "output": "Querying by ORN always returns one transaction row and one or more amount rows, regardless of how the payment was split.",
+      "explanation": "The schema doesn't need a special case for combined payments — it's the same structure, just with more rows in one table."
+    },
+    "comparisonTables": [
+      {
+        "title": "Service Reference",
+        "columns": ["Service", "Purpose", "Key Dependency", "Data Store", "Failure Handling"],
+        "rows": [
+          ["jop-gateway-service", "Edge routing & protection", "Zookeeper (routes)", "None (stateless)", "Circuit Breaker / Rate Limiter / Bulkhead"],
+          ["jop-payment-link-service", "Validate + initiate checkout", "jop-core-pg-details-service (Feign)", "Redis (token)", "Reject invalid checksum/config"],
+          ["jop-core-pg-details-service", "Merchant config & modes", "—", "Merchant config store", "Read-mostly, low failure surface"],
+          ["jop-payment-options-service", "Serve checkout UI, mode list", "Redis, jop-core-pg-details-service", "Redis (token)", "Invalid/expired token → error"],
+          ["jop-upi-service", "Handle UPI mode", "jop-core-*-service adapters", "Transactions + Amount tables", "Per-adapter retry"],
+          ["jop-ccdcnb-service", "Handle Card / Net Banking mode", "jop-pci-ccdc-card-service (cards)", "Transactions + Amount tables", "Hands card errors to PCI service"],
+          ["jop-pci-ccdc-card-service", "Isolated card/PAN handling", "Bank/ACS directly", "Transactions + Amount tables", "Isolated — doesn't affect other modes"],
+          ["jop-core-razorpay- / -phonepe- / -citi- / -easebuzz-service", "One adapter per external provider", "External PG/Bank", "Transactions + Amount tables", "mTLS + per-adapter retry (bank-grade)"],
+          ["jop-payment-b2b-service", "Browser redirect to merchant", "—", "Reads transaction status", "Redirect regardless of outcome"],
+          ["jop-payment-s2s-service", "Authoritative callback, DB write, webhook", "Oracle DB", "Transactions + Amount tables (writes)", "Webhook retried if merchant unreachable"]
+        ]
+      },
+      {
+        "title": "Single-Mode vs Combined-Mode Payment",
+        "columns": ["Aspect", "Single-Mode (e.g. UPI only)", "Combined-Mode (e.g. TWID + UPI)"],
+        "rows": [
+          ["Transaction table rows", "One row, one ORN", "Same — one row, one ORN"],
+          ["Amount table rows", "One row", "Multiple rows, one per mode"],
+          ["Status tracking", "On the one transaction row", "Still on the one transaction row — combined modes share one status"]
+        ]
+      }
+    ],
+    "advantages": [
+      "Keeping a transaction's identity (ORN + status) on one row, even when split across modes, keeps every other service's query simple.",
+      "Documenting data ownership per service prevents two services from writing inconsistent state to the same table."
+    ],
+    "tradeoffs": [
+      "A separate amount table means most reads require a join back to the transaction row — simpler writes, slightly more complex reads."
+    ],
+    "bestPractices": [
+      "Keep a transaction's identity (ORN + status) on one row, even when its payment is split across multiple modes — model the split in a separate table instead.",
+      "Document each service's data ownership explicitly — which table, which columns — so two services never write inconsistent state to the same data."
+    ],
+    "commonMistakes": [
+      "Assuming every transaction has exactly one payment mode — combined-mode payments (e.g. TWID + UPI) are a real case the schema has to support.",
+      "Letting a service reach into another service's owned table directly instead of going through that service's API."
+    ],
+    "interviewTips": [
+      "If asked how you'd model a payment that can be split across multiple methods, this transaction/amount table split is a clean, real answer.",
+      "Be ready to name which service owns which piece of data — a common senior-level follow-up after any architecture walkthrough."
+    ],
+    "faq": [
+      {
+        "q": "Why not just add multiple amount columns to the transactions table instead of a separate table?",
+        "a": "A transaction can combine an arbitrary number of modes — a separate table with one row per mode scales to any combination, where fixed columns would cap how many modes a single transaction could use."
+      },
+      {
+        "q": "What is TWID?",
+        "a": "It's one of the payment modes JioOnePay supports, which can be combined with others (like UPI) in a single transaction, recorded as separate rows in the amount table under the same ORN."
+      },
+      {
+        "q": "Which service is the source of truth for a transaction's final status?",
+        "a": "jop-payment-s2s-service — it writes the authoritative outcome to the transactions table, based on the bank's server-to-server callback, not the browser redirect."
+      }
+    ],
+    "summary": [
+      "Each service documented here has one clear job — from validating a request, to serving checkout, to talking to a specific external provider, to recording the final outcome.",
+      "A shared transactions table (one row per ORN, with a status) and a separate amount table (one row per mode contributing to that transaction) is how JioOnePay supports both single-mode and combined-mode payments with the same schema.",
+      "Knowing which service owns which piece of this data is what turns a layer-level understanding into a precise, interview-ready one."
+    ],
+    "quickRevision": [
+      "Transactions table: one row per transaction per merchant, unique ORN, tracks status.",
+      "Amount table: one or more rows per transaction — supports combined-mode payments (e.g. TWID + UPI) as separate rows under the same ORN.",
+      "jop-payment-link-service validates + creates the transaction context; jop-payment-s2s-service writes the final authoritative status.",
+      "jop-core-pg-details-service is the shared source for merchant config and enabled modes.",
+      "Each external provider (Razorpay, PhonePe, Citi, Easebuzz, ...) has its own jop-core-*-service adapter.",
+      "jop-pci-ccdc-card-service is the only service allowed to touch raw card data."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What does jop-payment-link-service do?",
+        "What's the difference between the transactions table and the amount table?",
+        "Which service writes the final, authoritative transaction status?"
+      ],
+      "intermediate": [
+        "How does the schema support a payment split across two modes, like TWID and UPI?",
+        "Why does jop-pci-ccdc-card-service exist as a separate service instead of being part of jop-ccdcnb-service?",
+        "What would you need to change to add a new payment mode's service?"
+      ],
+      "advanced": [
+        "Design a schema change to support a three-way combined payment (e.g. wallet + UPI + card).",
+        "How would you ensure two services never write inconsistent state to the same ORN concurrently?",
+        "How would you extend this service map to support a new external gateway provider end-to-end?"
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Architecture Layers — the layers these services belong to",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      },
+      {
+        "label": "Payment Flows — the mode-specific and completion flows in depth",
+        "sectionId": "jioonepay",
+        "subsectionId": "payment-flows"
+      }
+    ]
+  },
+  {
+    "id": "payment-flows",
+    "title": "Payment Flows",
+    "overview": [
+      "The Payment Lifecycle page showed one complete journey end-to-end; this page zooms into the flows that differ by **payment mode**, plus what happens on **failure and retry**.",
+      "Each flow gets its own small, focused diagram rather than one large diagram trying to show everything at once.",
+      "Refund and Settlement are intentionally out of scope on this page — they're covered separately."
+    ],
+    "why": [
+      "UPI, Wallet, Net Banking, and Card don't all work identically underneath — Wallet and Net Banking specifically have their own routing worth seeing on their own.",
+      "Failures and retries are common enough in a payment system that they deserve their own dedicated flow, not just a mention inside a happy-path diagram."
+    ],
+    "problem": [
+      "A single diagram trying to show every mode's flow, plus failure handling, plus retries, becomes unreadable — exactly what this page avoids by splitting them.",
+      "Without a dedicated Failure Flow, it's easy to assume failures are rare edge cases instead of a normal, designed-for part of the system."
+    ],
+    "internalWorking": {
+      "intro": ["Five focused flows: two payment modes, plus webhook delivery, failure, and retry."],
+      "topics": [
+        {
+          "heading": "Wallet Flow",
+          "points": [
+            "Wallet is one of the modes handled alongside UPI and Card, selected dynamically per the merchant's configured modes.",
+            "It follows the same overall shape as UPI: the Payment Mode Orchestration Layer routes to a wallet-handling service, which proceeds through Gateway Integration to complete the payment.",
+            "Wallet can also be one half of a **combined-mode** payment alongside another mode (see Service Details) — recorded as its own row in the amount table."
+          ],
+          "mermaid": "graph LR\n    A[\"Customer selects Wallet\"] --> B[\"Payment Mode Orchestration\"]\n    B --> C[\"Wallet service\"]\n    C --> D[\"Gateway Integration\"]\n    D --> E[\"Bank / Provider\"]",
+          "mermaidCaption": "Wallet follows the same shape as UPI, just through its own mode service."
+        },
+        {
+          "heading": "Net Banking Flow",
+          "points": [
+            "Net Banking is handled by `jop-ccdcnb-service`, the same service that handles Card payments — mode selection at the orchestration layer determines which path a request takes inside it.",
+            "Like Card, this can involve a redirect to the bank's own authentication step before the payment completes.",
+            "It converges back to the same Completion Layer (browser redirect + server callback) as every other mode."
+          ],
+          "mermaid": "graph LR\n    A[\"Customer selects Net Banking\"] --> B[\"jop-ccdcnb-service\"]\n    B --> C[\"Bank's own auth step\"]\n    C --> D[\"Completion Layer\"]",
+          "mermaidCaption": "Net Banking shares jop-ccdcnb-service with Card, but takes its own path once selected."
+        },
+        {
+          "heading": "Webhook Flow",
+          "points": [
+            "Once `jop-payment-s2s-service` writes the transaction's final outcome, it sends the merchant a webhook containing the result and a checksum.",
+            "The merchant's endpoint is expected to acknowledge receipt; if it doesn't, delivery can be retried (see Retry Flow).",
+            "This is the merchant's authoritative signal, independent of whatever the customer's browser did via the browser-redirect path."
+          ],
+          "mermaid": "sequenceDiagram\n    participant S2S as jop-payment-s2s-service\n    participant M as Merchant\n    S2S->>M: Webhook plus checksum\n    M-->>S2S: Acknowledge (2xx)\n    Note over S2S,M: If no acknowledgment, delivery is retried",
+          "mermaidCaption": "The merchant is expected to acknowledge; a missing acknowledgment triggers a retry."
+        },
+        {
+          "heading": "Failure Flow",
+          "points": [
+            "A failure can happen at any layer — a bad checksum at Initiation, an unreachable gateway at Gateway Integration, a timeout waiting on the bank.",
+            "Each layer's own failure handling decides what happens locally — reject early, fail over, or mark the transaction ambiguous.",
+            "An ambiguous outcome, like a gateway timeout, is deliberately **not** treated as a hard failure — it's marked for follow-up rather than assumed lost."
+          ],
+          "mermaid": "graph TD\n    A[\"Failure occurs\"] --> B{\"Which layer?\"}\n    B -->|\"Initiation\"| C[\"Reject: bad checksum/config\"]\n    B -->|\"Gateway Integration\"| D[\"Failover or mark ambiguous\"]\n    B -->|\"Bank timeout\"| E[\"Mark PENDING, do not assume failure\"]",
+          "mermaidCaption": "Different layers fail differently — none of them assume the worst by default."
+        },
+        {
+          "heading": "Retry Flow",
+          "points": [
+            "Retries can happen at more than one level: the merchant retrying an initiate request (protected by idempotency via the Redis token), and a service retrying a call to a downstream dependency.",
+            "A retried initiate request reusing the same context (the Redis-stored token) is what prevents a duplicate transaction from being created.",
+            "This page covers retry conceptually; production-level specifics (exact counts, backoff) are covered in Production & Failure Handling."
+          ],
+          "mermaid": "sequenceDiagram\n    participant Merchant\n    participant PLS as jop-payment-link-service\n    participant R as Redis\n    Merchant->>PLS: Initiate (attempt 1)\n    PLS->>R: Store token\n    PLS-->>Merchant: htmlForm\n    Note over Merchant: Network issue, no response received\n    Merchant->>PLS: Initiate (retry, same request)\n    PLS->>R: Token already exists\n    PLS-->>Merchant: Same htmlForm (no duplicate created)",
+          "mermaidCaption": "A retried initiate request reuses the same stored context instead of creating a second transaction."
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Mode selected\"] --> B{\"Which flow?\"}\n    B -->|\"Wallet\"| C[\"Wallet Flow\"]\n    B -->|\"Net Banking\"| D[\"Net Banking Flow\"]\n    C --> E[\"Webhook Flow\"]\n    D --> E\n    E -->|\"Success\"| F[\"Complete\"]\n    E -->|\"Failure\"| G[\"Failure Flow\"]\n    G --> H[\"Retry Flow\"]",
+      "caption": "How the mode-specific flows connect to webhook delivery, failure, and retry."
+    },
+    "simpleExample": {
+      "scenario": "A merchant's webhook endpoint is briefly down when JioOnePay tries to deliver the outcome.",
+      "code": "1. jop-payment-s2s-service sends webhook\n2. Merchant endpoint times out / returns 5xx\n3. Delivery is retried after a backoff\n4. Merchant endpoint recovers, acknowledges\n5. Webhook delivery marked complete",
+      "input": "A webhook delivery attempt against a temporarily unreachable merchant endpoint.",
+      "execution": "The failed delivery is retried rather than dropped, until the merchant acknowledges or retries are exhausted.",
+      "output": "The merchant eventually receives the outcome, despite the temporary outage on their side.",
+      "explanation": "This is why the webhook is retried, not fire-and-forget — a merchant's own downtime shouldn't mean they never learn a transaction's outcome."
+    },
+    "realWorldExample": {
+      "scenario": "A customer's Wallet payment times out waiting on the provider, and the merchant's client retries the initiate call.",
+      "code": "1. Wallet payment times out waiting on the provider\n2. Transaction marked ambiguous (PENDING), not failed\n3. Merchant's client retries the original initiate request\n4. jop-payment-link-service recognizes the existing Redis token\n5. Same transaction context is reused, not duplicated\n6. Real outcome resolves once the ambiguity clears",
+      "input": "A timeout during a Wallet payment, followed by the merchant retrying the original request.",
+      "execution": "The timeout marks the transaction ambiguous rather than failed; the merchant's retry reuses the same idempotency context instead of creating a new transaction.",
+      "output": "Exactly one transaction exists for this attempt, its real outcome resolved once the ambiguity clears.",
+      "explanation": "This is the same safety principle from Architecture Layers applied specifically to Wallet — never assume, never duplicate."
+    },
+    "comparisonTables": [
+      {
+        "title": "Failure Types by Layer",
+        "columns": ["Failure", "Where It Happens", "How It's Handled"],
+        "rows": [
+          ["Bad checksum/config", "Payment Initiation Layer", "Rejected immediately, no transaction created"],
+          ["Gateway unreachable", "Gateway Integration Layer", "Circuit Breaker fails over or fails fast"],
+          ["Bank timeout", "Gateway Integration / PCI Layer", "Marked ambiguous, not assumed failed"],
+          ["Merchant webhook unreachable", "Completion Layer", "Retried with backoff, not dropped"]
+        ]
+      }
+    ],
+    "advantages": [
+      "Splitting flows by concern (per mode, plus failure, plus retry) instead of one all-encompassing diagram keeps each one readable.",
+      "Retrying webhook delivery means a merchant's temporary downtime doesn't mean a permanently lost notification."
+    ],
+    "tradeoffs": [
+      "Retrying webhook delivery indefinitely risks piling up undelivered notifications if a merchant is down for an extended period — this needs a bounded retry policy, covered in Production & Failure Handling."
+    ],
+    "bestPractices": [
+      "Split flows by concern instead of one all-encompassing diagram.",
+      "Always retry webhook delivery with backoff — never treat a merchant's temporary downtime as a reason to drop the notification."
+    ],
+    "commonMistakes": [
+      "Assuming Wallet and Net Banking work identically to UPI just because they follow the same overall shape.",
+      "Treating a retried initiate request as a brand-new transaction instead of resuming the original one."
+    ],
+    "interviewTips": [
+      "When walking through a specific mode (Wallet, Net Banking), be explicit about where it's the same as UPI/Card and where it genuinely differs.",
+      "A dedicated Failure Flow answer signals maturity — most candidates only describe the happy path unless asked."
+    ],
+    "faq": [
+      {
+        "q": "Does Net Banking always redirect to the bank's own site?",
+        "a": "It typically involves the bank's own authentication step, similar in spirit to how Card payments can involve the ACS — the exact experience depends on the specific bank."
+      },
+      {
+        "q": "What happens if a webhook is never acknowledged at all?",
+        "a": "Delivery is retried with backoff; if it keeps failing, this becomes an operational issue to investigate rather than something the system silently gives up on — see Production & Failure Handling."
+      },
+      {
+        "q": "Is a retried initiate request always safe?",
+        "a": "Yes, as long as it reuses the same request — the stored Redis token means the same logical attempt is recognized and resumed, not duplicated."
+      }
+    ],
+    "summary": [
+      "Wallet and Net Banking follow the same overall shape as UPI and Card, routed through their own mode-specific services at the orchestration layer.",
+      "Webhook delivery is retried, not fire-and-forget — a merchant's temporary downtime shouldn't mean a lost notification.",
+      "Failures are handled differently depending on which layer they occur in, and an ambiguous outcome is never assumed to be a failure."
+    ],
+    "quickRevision": [
+      "Wallet: same overall shape as UPI, its own mode service, can be one half of a combined-mode payment.",
+      "Net Banking: shares jop-ccdcnb-service with Card, typically involves the bank's own auth step.",
+      "Webhook delivery is retried with backoff if the merchant doesn't acknowledge.",
+      "Failure handling differs by layer: reject early (bad config), fail over (gateway unreachable), mark ambiguous (bank timeout).",
+      "A retried initiate request reuses its stored context instead of creating a duplicate transaction."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What's similar between the Wallet flow and the UPI flow?",
+        "What does JioOnePay do if a merchant's webhook endpoint is down?",
+        "Why isn't a bank timeout treated the same as a bank failure?"
+      ],
+      "intermediate": [
+        "Why do Card and Net Banking share the same service (jop-ccdcnb-service)?",
+        "How does a retried initiate request avoid creating a duplicate transaction?",
+        "What are the different points in the system where a retry can happen?"
+      ],
+      "advanced": [
+        "Design the webhook retry strategy for a merchant endpoint that's down for an extended period.",
+        "How would you add a brand-new payment mode's flow to this system with minimal changes?",
+        "Walk through every failure-handling decision made across a single payment that times out at the gateway and is later retried."
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Complete Payment Lifecycle — the full end-to-end journey",
+        "sectionId": "jioonepay",
+        "subsectionId": "payment-lifecycle"
+      },
+      {
+        "label": "Architecture Layers — where each of these flows lives",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      },
+      {
+        "label": "Production & Failure Handling — retry counts and production practices",
+        "sectionId": "jioonepay",
+        "subsectionId": "production-failure-handling"
+      }
+    ]
+  },
+  {
+    "id": "production-failure-handling",
+    "title": "Production & Failure Handling",
+    "overview": [
+      "Building the architecture is one thing — keeping it running correctly under real production load is another.",
+      "This page covers how failures are handled across the system, and the broader production concerns any system at this scale has to address.",
+      "Some of this is specific to JioOnePay's confirmed stack (Resilience4j, Log4j2, Micrometer/Prometheus, Brave); the rest is presented as general production practice for a system shaped like this one, not asserted as JioOnePay's exact configuration."
+    ],
+    "why": [
+      "A payment system failing under load, or failing silently, has a direct cost — a stuck transaction is someone's money in an unclear state.",
+      "Production concerns (scaling, deployment, monitoring) are what keep the architecture from the rest of this section actually holding up outside of a design diagram."
+    ],
+    "problem": [
+      "Without deliberate failure handling, a slow dependency (a bank, a merchant webhook endpoint) can cascade into a much bigger outage than the original problem.",
+      "Without monitoring and alerting, a production issue is only discovered when a merchant or customer complains, not when it actually starts."
+    ],
+    "internalWorking": {
+      "intro": ["Failure handling scenario by scenario, then the broader production concerns around them."],
+      "topics": [
+        {
+          "heading": "Timeout & Retry",
+          "points": [
+            "A call to an external bank/gateway that doesn't respond in time is treated as **ambiguous**, not failed — already established in Architecture Layers and Payment Flows.",
+            "Retries apply backoff rather than retrying immediately, to avoid piling more load onto an already-struggling dependency — a standard production pattern for any external dependency.",
+            "Exact retry counts and backoff durations are a tuning decision per dependency, not shown here as a fixed JioOnePay-specific number."
+          ]
+        },
+        {
+          "heading": "Circuit Breaker (confirmed)",
+          "points": [
+            "Already documented in depth on Architecture Layers, Layer 1 — Resilience4j's Circuit Breaker trips per-route after a failure-rate threshold, redirecting to `/fallback`.",
+            "This is JioOnePay's actual, confirmed mechanism — not a generic illustration."
+          ]
+        },
+        {
+          "heading": "Idempotency & Duplicate Requests",
+          "points": [
+            "A duplicate initiate request is handled via the Redis-stored token from Payment Initiation — the same context is reused instead of a new transaction being created.",
+            "This is the concrete mechanism, already established, that prevents a retried request from becoming a duplicate charge."
+          ]
+        },
+        {
+          "heading": "Callback & Webhook Failure",
+          "points": [
+            "If the merchant's webhook endpoint doesn't acknowledge, delivery is retried — covered on the Payment Flows page.",
+            "A callback (server-to-server) failure from the bank's side is different from a webhook failure to the merchant — the former affects whether JioOnePay learns the outcome at all; the latter affects whether the merchant learns it."
+          ]
+        },
+        {
+          "heading": "Database & Downstream Failure (general practice)",
+          "points": [
+            "A database write failure on the authoritative outcome, via `jop-payment-s2s-service`, is the highest-stakes failure in the system — production systems like this typically use transactional writes and dedicated monitoring on this specific path.",
+            "A downstream provider (bank/gateway) outage is handled by the routing and Circuit Breaker mechanisms already covered — this section doesn't introduce new mechanics beyond what's already established."
+          ]
+        },
+        {
+          "heading": "Observability (confirmed stack)",
+          "points": [
+            "**Logging** — Log4j2.",
+            "**Metrics** — Micrometer, scraped by Prometheus.",
+            "**Tracing** — Brave.",
+            "These are JioOnePay's actual, confirmed tools (from the Edge Layer's tech stack) — used to answer \"what's happening right now\" across the system, not just at the gateway."
+          ]
+        },
+        {
+          "heading": "Scaling, Deployment & Rate Limiting (general practice)",
+          "points": [
+            "**Scaling** — stateless services (like the mode and gateway-integration services) scale horizontally behind the Load Balancer, the same pattern covered in System Design's Scalability page.",
+            "**Deployment** — a production payment system typically avoids a hard restart in favor of a zero-downtime strategy (rolling, blue-green, or canary) — see CI/CD Pipelines in DevOps for the general mechanics.",
+            "**Rate Limiting** — already confirmed at the Edge Layer (Resilience4j Rate Limiter, tunable per route); extending this per-merchant is a natural next step for protecting against one merchant's traffic spike affecting others."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"A dependency call fails or times out\"] --> B{\"Timeout or clear failure?\"}\n    B -->|\"Timeout\"| C[\"Mark ambiguous, do not retry blindly\"]\n    B -->|\"Clear failure, retryable\"| D[\"Retry with backoff\"]\n    D --> E{\"Still failing?\"}\n    E -->|\"Yes, threshold crossed\"| F[\"Circuit Breaker opens\"]\n    E -->|\"Recovered\"| G[\"Continue normally\"]",
+      "caption": "The general decision path any failing dependency call takes."
+    },
+    "stepByStepFlow": [
+      "A dependency call either times out (ambiguous) or fails clearly (retryable).",
+      "Retryable failures are retried with backoff, not immediately.",
+      "If failures keep crossing a threshold, the Circuit Breaker opens for that route.",
+      "Once the dependency recovers, normal traffic resumes automatically.",
+      "Throughout, logs/metrics/traces (Log4j2, Micrometer + Prometheus, Brave) record what actually happened for later investigation."
+    ],
+    "simpleExample": {
+      "scenario": "A single downstream gateway call times out once, then recovers.",
+      "code": "1. Call to Bank X times out\n2. Transaction marked PENDING/ambiguous (not failed)\n3. Retry (with backoff) succeeds\n4. Transaction resolves normally",
+      "input": "One transient timeout against an otherwise healthy gateway.",
+      "execution": "The timeout doesn't trigger the Circuit Breaker on its own — a single blip is well within normal tolerance; a retry with backoff resolves it.",
+      "output": "The customer experiences a slightly longer wait, but the transaction still completes correctly.",
+      "explanation": "Not every failure needs to escalate to a Circuit Breaker trip — that's reserved for a sustained failure rate, not one blip."
+    },
+    "realWorldExample": {
+      "scenario": "A downstream gateway degrades over several minutes, crossing the Circuit Breaker's failure-rate threshold.",
+      "code": "1. Failure rate for Bank X's route crosses the configured threshold\n2. Circuit Breaker opens for that route\n3. New requests redirect to /fallback instead of waiting on Bank X\n4. After the configured wait duration, the breaker allows a trial request through\n5. If it succeeds, the breaker closes and normal traffic resumes",
+      "input": "A sustained degradation in one gateway's success rate.",
+      "execution": "This is the exact, confirmed mechanism from Architecture Layers — the difference here is seeing it in the context of a real production incident timeline, not just the request-level flowchart.",
+      "output": "Callers get fast, clean fallback errors during the incident, instead of everyone individually timing out against a known-bad gateway.",
+      "explanation": "This is what actually limits the blast radius of a real production incident — without it, one gateway's slow degradation would slow down every request routed to it."
+    },
+    "comparisonTables": [
+      {
+        "title": "Confirmed JioOnePay Mechanisms vs General Production Practice",
+        "columns": ["Topic", "Status", "Detail"],
+        "rows": [
+          ["Circuit Breaker / Rate Limiter / Bulkhead", "Confirmed", "Resilience4j, documented in Architecture Layers Layer 1"],
+          ["Logging / Metrics / Tracing", "Confirmed", "Log4j2, Micrometer + Prometheus, Brave"],
+          ["Idempotency via Redis token", "Confirmed", "Documented in Payment Initiation / Payment Flows"],
+          ["Exact retry counts / backoff values", "General practice shown", "Illustrative — not asserted as JioOnePay's exact tuning"],
+          ["Scaling approach (K8s vs VM groups)", "General practice shown", "Illustrative — follows the same stateless-scaling pattern as System Design's Scalability page"],
+          ["Deployment strategy (blue-green/rolling/canary)", "General practice shown", "Illustrative — not confirmed which one JioOnePay uses"]
+        ]
+      }
+    ],
+    "advantages": [
+      "Distinguishing ambiguous outcomes from confirmed failures avoids over-triggering the Circuit Breaker on normal transient blips.",
+      "A confirmed observability stack (logs, metrics, traces) means production issues are visible before a merchant has to report them."
+    ],
+    "tradeoffs": [
+      "Retrying with backoff adds latency to the specific request being retried, in exchange for not overwhelming an already-struggling dependency."
+    ],
+    "bestPractices": [
+      "Distinguish an ambiguous outcome (timeout) from a confirmed failure — only the latter should count toward a Circuit Breaker's failure rate.",
+      "Alert on business-meaningful thresholds (a gateway's success rate dropping), not just infrastructure metrics like CPU.",
+      "Keep retries backed off, not immediate, so a struggling dependency doesn't get more load exactly when it can handle the least."
+    ],
+    "commonMistakes": [
+      "Treating every timeout as a failure worth counting toward the Circuit Breaker's threshold.",
+      "Assuming logging alone is sufficient observability without metrics or tracing to see patterns across many requests.",
+      "Deploying via a hard restart instead of a zero-downtime strategy for a system handling live payment traffic."
+    ],
+    "interviewTips": [
+      "Be precise about what's confirmed (Circuit Breaker, the observability stack, idempotency) versus general best practice you're reasoning about — this honesty reads as more credible than overclaiming.",
+      "If asked about scaling for peak sale events, connect it back to the same stateless-scaling pattern already covered for the Payment API layer."
+    ],
+    "faq": [
+      {
+        "q": "Does JioOnePay use Kubernetes for scaling?",
+        "a": "Not confirmed here — the underlying pattern (stateless services scaling horizontally behind a load balancer) is the same regardless of the specific orchestration platform used."
+      },
+      {
+        "q": "What's the exact retry count and backoff used in production?",
+        "a": "Not specified here — these are tuning values configured per dependency, following the same backoff principle already established for Retry in Payment Flows."
+      },
+      {
+        "q": "Is the observability stack (Log4j2, Micrometer/Prometheus, Brave) used everywhere, or just at the gateway?",
+        "a": "It's documented as the gateway's (Layer 1's) confirmed stack; using the same stack across all services is the natural and typical approach, though this page doesn't assert it's confirmed for every individual service."
+      }
+    ],
+    "summary": [
+      "Failure handling follows a consistent decision path: distinguish ambiguous (timeout) from confirmed failure, retry with backoff, and let the Circuit Breaker contain a sustained problem.",
+      "JioOnePay's Circuit Breaker/Rate Limiter/Bulkhead, its observability stack (Log4j2, Micrometer/Prometheus, Brave), and its Redis-based idempotency are confirmed, real mechanisms.",
+      "Exact tuning values (retry counts, scaling platform, deployment strategy) are shown here as general production practice, not asserted as JioOnePay's specific configuration."
+    ],
+    "quickRevision": [
+      "Timeout is not failure — mark ambiguous, don't retry blindly (confirmed pattern).",
+      "Retries use backoff; sustained failure crosses a threshold and trips the Circuit Breaker (confirmed: Resilience4j).",
+      "Idempotency via the Redis-stored token prevents duplicate transactions on retry (confirmed).",
+      "Observability: Log4j2 (logging), Micrometer + Prometheus (metrics), Brave (tracing) — all confirmed.",
+      "Scaling, deployment strategy, and exact retry/backoff tuning are shown as general practice, not confirmed JioOnePay specifics.",
+      "Alert on business-meaningful thresholds, not just infrastructure metrics."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "What's the difference between a timeout and a failure in this system?",
+        "What does JioOnePay use for logging, metrics, and tracing?",
+        "Why does the Circuit Breaker only trip after a threshold, not on the first failure?"
+      ],
+      "intermediate": [
+        "Why should retries use backoff instead of retrying immediately?",
+        "How does the Redis-stored token prevent a duplicate transaction on retry?",
+        "What should alerting thresholds be based on, and why?"
+      ],
+      "advanced": [
+        "Design a scaling strategy for a peak sale event, using the same patterns already established for this system.",
+        "How would you decide what counts toward a Circuit Breaker's failure rate versus what should be excluded?",
+        "Walk through the full incident timeline of a gateway degrading, tripping its Circuit Breaker, and recovering."
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Architecture Layers — the confirmed Circuit Breaker/Rate Limiter/Bulkhead mechanics",
+        "sectionId": "jioonepay",
+        "subsectionId": "architecture-layers"
+      },
+      {
+        "label": "Payment Flows — retry and failure flows in context",
+        "sectionId": "jioonepay",
+        "subsectionId": "payment-flows"
+      },
+      {
+        "label": "Availability — redundancy and failover in general",
+        "sectionId": "systemdesign",
+        "subsectionId": "availability"
+      },
+      {
+        "label": "Reliability — Circuit Breaker, Retry, and Idempotency as general concepts",
+        "sectionId": "systemdesign",
+        "subsectionId": "reliability"
       }
     ]
   }

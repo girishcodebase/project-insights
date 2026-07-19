@@ -1,0 +1,1995 @@
+[
+  {
+    "id": "sql-introduction",
+    "title": "SQL Introduction",
+    "overview": [
+      "SQL (Structured Query Language) is the standard language for talking to a relational database — reading data, writing data, and defining the structure that holds it.",
+      "It's declarative: you describe **what** result you want, and the database engine works out **how** to produce it.",
+      "Every relational database — MySQL, PostgreSQL, Oracle, SQL Server — understands the same core SQL, so the language you learn once transfers everywhere."
+    ],
+    "why": [
+      "Almost every backend application talks to a relational database at some point — users, orders, products, payments — so SQL is the interface between application code and stored data.",
+      "Before declarative query languages existed, retrieving data meant writing procedural code that walked file structures by hand, record by record — tightly coupling application code to the physical layout of the data.",
+      "SQL solved that by introducing a declarative model — you state the desired result, and the engine decides the retrieval strategy — which is why SQL has barely changed in decades even as storage engines underneath it have been completely rebuilt.",
+      "Interviewers use SQL questions to check both raw syntax fluency and whether you understand what a query actually asks the database to do.",
+      "A shaky grasp of basic SQL categories (DDL vs DML vs DQL) is an easy, avoidable way to lose credibility early in an interview."
+    ],
+    "internalWorking": {
+      "intro": [
+        "SQL Introduction covers three things every developer needs before writing a single query: what kind of language SQL is, how its commands are grouped, and — at a high level — what happens when a statement is run."
+      ],
+      "topics": [
+        {
+          "heading": "What Is SQL?",
+          "points": [
+            "SQL is a **declarative** language for relational data — you say **what** you want (\"give me all active users\"), not **how** to fetch it (\"open this file, scan these blocks, follow this pointer\").",
+            "This is the opposite of procedural/imperative code, where you specify each step: loop, compare, collect, return.",
+            "Because SQL is declarative, the same query can run correctly against a tiny table or a billion-row table — the engine decides the retrieval strategy, not the developer.",
+            "SQL operates on **relations** — tables made of rows and columns — which is why databases that use it are called relational databases.",
+            "SQL is standardized (ANSI SQL), but every vendor adds its own extensions, so exact syntax can vary slightly between MySQL, PostgreSQL, and others."
+          ]
+        },
+        {
+          "heading": "SQL Categories",
+          "points": [
+            "**DDL (Data Definition Language)** — defines and modifies structure: `CREATE`, `ALTER`, `DROP`. Think \"shape of the data,\" not the data itself.",
+            "**DML (Data Manipulation Language)** — changes the data inside tables: `INSERT`, `UPDATE`, `DELETE`.",
+            "**DQL (Data Query Language)** — reads data: `SELECT`. Some textbooks fold DQL into DML, but it's useful to call it out separately since it's the command used most often.",
+            "**DCL (Data Control Language)** — manages permissions: `GRANT`, `REVOKE`. Controls who is allowed to run the other categories.",
+            "**TCL (Transaction Control Language)** — manages transaction boundaries: `COMMIT`, `ROLLBACK`, `SAVEPOINT`. Groups multiple statements into a single all-or-nothing unit.",
+            "Recognizing which category a keyword belongs to is a quick way to reason about its blast radius — DDL changes structure for everyone, DML changes rows, DQL changes nothing at all."
+          ]
+        },
+        {
+          "heading": "SQL Execution Basics",
+          "points": [
+            "At a beginner level, running a SQL statement follows three broad steps: the statement is **sent** to the database, **parsed** (checked for valid syntax and that the referenced tables/columns exist), and then **executed** to produce a result.",
+            "The application (or a SQL client) sends the statement as plain text over a connection to the database server.",
+            "The database returns either a result set (for `SELECT`) or an acknowledgment of how many rows were affected (for `INSERT`/`UPDATE`/`DELETE`).",
+            "This page keeps execution deliberately high-level — the deeper mechanics (how the engine picks an execution plan, when indexes get used, how the plan is actually carried out) belong to query execution internals, not the SQL language itself.",
+            "See the Database section's **Query Execution** page for that deeper internals discussion — it isn't duplicated here on purpose, since this SQL section focuses only on how to *write* queries."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Developer writes a SQL statement\"] --> B[\"Statement sent to the database\"]\n    B --> C[\"Parsed for valid syntax and existing tables/columns\"]\n    C --> D[\"Executed by the database engine\"]\n    D --> E[\"Result returned to the caller\"]\n    E --> F1[\"SELECT: rows returned\"]\n    E --> F2[\"INSERT / UPDATE / DELETE: row count returned\"]",
+      "caption": "A bird's-eye view of what happens to a SQL statement after it leaves your application — the deep internals of parsing and execution planning live on the Database section's Query Execution page."
+    },
+    "comparisonTables": [
+      {
+        "title": "SQL Categories at a Glance",
+        "columns": [
+          "Category",
+          "Full Name",
+          "Example Commands",
+          "What It Affects"
+        ],
+        "rows": [
+          [
+            "DDL",
+            "Data Definition Language",
+            "`CREATE`, `ALTER`, `DROP`",
+            "Structure — tables, columns, schemas"
+          ],
+          [
+            "DML",
+            "Data Manipulation Language",
+            "`INSERT`, `UPDATE`, `DELETE`",
+            "Data — the rows inside tables"
+          ],
+          [
+            "DQL",
+            "Data Query Language",
+            "`SELECT`",
+            "Nothing — read-only"
+          ],
+          [
+            "DCL",
+            "Data Control Language",
+            "`GRANT`, `REVOKE`",
+            "Permissions — who can do what"
+          ],
+          [
+            "TCL",
+            "Transaction Control Language",
+            "`COMMIT`, `ROLLBACK`, `SAVEPOINT`",
+            "Transaction boundaries — when changes become permanent"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "A new engineer joins a team and is onboarded onto the `orders` database — they need read-only access, then run their first exploratory query, touching every SQL category along the way.",
+      "code": "CREATE TABLE customers (id INT PRIMARY KEY, name VARCHAR(100));  -- DDL\nINSERT INTO customers (id, name) VALUES (1, 'Asha');            -- DML\n\n-- DBA grants the new engineer read-only access (DCL)\nGRANT SELECT ON customers TO new_engineer;\n\n-- New engineer explores the table (DQL)\nSELECT id, name FROM customers ORDER BY id DESC LIMIT 5;\n\nCOMMIT;  -- TCL",
+      "input": "An empty database, plus a new database user `new_engineer` with no prior grants.",
+      "execution": "Each statement is sent to the database independently; the engine recognizes the leading keyword (`CREATE`, `INSERT`, `GRANT`, `SELECT`, `COMMIT`) and routes it to the appropriate handling — structural change, row change, permission change, read, or transaction boundary. The `GRANT` is DCL — it changes permissions, not data or structure — so once it runs, the engineer's `SELECT` is parsed to confirm the table/columns exist and that the user has permission, then executed.",
+      "output": "A new table exists, one row is inserted, the engineer gains read-only access, their SELECT returns the 5 newest customers, and the pending changes are made permanent.",
+      "explanation": "The five statements map directly onto the five SQL categories — DDL creates the table shape, DML inserts data into it, DCL controls who else can read it, DQL reads it back, and TCL finalizes the change. This mirrors a common real onboarding flow: the categories aren't just academic labels, they describe real permission and blast-radius boundaries."
+    },
+    "interviewExplanation": [
+      "SQL is Structured Query Language — the standard way to talk to a relational database. The key thing I'd call out is that it's declarative: I describe what result I want, not the steps to get there. That's different from writing a loop in Java to scan a list — here the database engine decides how to actually fetch and sort the data, which is also why the same query keeps working whether the table has a hundred rows or a hundred million.",
+      "SQL commands split into five categories. DDL — CREATE, ALTER, DROP — changes structure. DML — INSERT, UPDATE, DELETE — changes data. DQL is just SELECT, reading data without touching it. DCL — GRANT, REVOKE — controls permissions. And TCL — COMMIT, ROLLBACK — manages transaction boundaries. I like knowing these because it tells me a statement's blast radius before I even read the details — a DDL change affects everyone, a DML change affects rows, a DQL statement changes nothing.",
+      "At a basic level, a statement gets sent to the database, parsed for syntax and that the tables/columns exist, then executed, and you get back either rows or a row count. I keep that at a high level on purpose — the deeper mechanics of how the optimizer picks a plan or when an index kicks in is really a database-internals topic, separate from just knowing how to write the query."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why is SQL called a declarative language, and why does that matter?",
+        "a": "Because you describe the desired result — \"rows where status is ACTIVE, sorted by name\" — rather than the steps to produce it. The database engine, not the developer, decides how to retrieve and sort the data. This matters because it decouples the query from the physical storage layout: the engine can change how data is stored or indexed underneath, and the same SQL still works."
+      },
+      {
+        "q": "Is SELECT part of DML or its own category?",
+        "a": "Conventions differ. Many textbooks group SELECT under DML since it's still a data-facing command, but a lot of interview material — and this page — separates it out as DQL because it's read-only and never changes data, unlike INSERT/UPDATE/DELETE."
+      },
+      {
+        "q": "What's the practical difference in impact between running a DDL statement versus a DML statement in production?",
+        "a": "DDL changes structure that every user and every query depends on — dropping a column or altering a type can break other application code instantly and is hard to undo. DML changes data within existing structure, usually scoped to specific rows via WHERE — its blast radius is smaller and more predictable, though a missing WHERE clause can still affect an entire table."
+      },
+      {
+        "q": "What risk does granting broad DCL permissions introduce, and how would you scope access more safely?",
+        "a": "A blanket GRANT ALL gives a user structural and data-changing power they likely don't need, increasing the damage from a mistake or a compromised credential. The safer approach is to grant the narrowest permission that satisfies the use case — e.g., SELECT-only for a reporting user — and add more only when a real need arises."
+      },
+      {
+        "q": "Do you need to understand how the database executes a query internally to write good SQL?",
+        "a": "Not to get started. Writing correct SQL only requires understanding what each clause does. The deeper internals — parsing, planning, optimization, execution — matter more once you're troubleshooting performance, and that material lives separately in database internals rather than in the SQL language itself."
+      }
+    ],
+    "bestPractices": [
+      "Learn to recognize a statement's category on sight — it tells you its blast radius before you even read the details.",
+      "Treat DDL and DCL statements with extra caution in production — they affect structure or access for every user, not just one row.",
+      "When exploring an unfamiliar table for the first time, reach for a narrow `SELECT` with `LIMIT` rather than pulling the whole table."
+    ],
+    "commonMistakes": [
+      "Assuming `SELECT` is the only SQL command that matters and neglecting DDL/DCL/TCL vocabulary — interviewers often ask for the category names directly.",
+      "Confusing DDL with DML — for example, thinking `ALTER TABLE` changes data (it changes structure; it's DDL, not DML).",
+      "Treating SQL as if it were procedural — trying to specify *how* to fetch rows instead of simply describing *what* rows are needed."
+    ],
+    "summary": [
+      "SQL is a declarative language for relational data — you state what you want, and the database figures out how to get it.",
+      "SQL commands fall into five categories: DDL (structure), DML (data), DQL (reads), DCL (permissions), and TCL (transactions).",
+      "At a basic level, a statement is sent to the database, parsed, and executed — the deep mechanics of that process belong to the Database section's Query Execution page, not here."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Database Introduction — what a relational database actually is",
+        "sectionId": "database",
+        "subsectionId": "introduction"
+      }
+    ]
+  },
+  {
+    "id": "crud-operations",
+    "title": "CRUD Operations",
+    "overview": [
+      "CRUD stands for Create, Read, Update, Delete — the four core operations every application performs on stored data.",
+      "In SQL, these map directly onto four statements: `INSERT`, `SELECT`, `UPDATE`, and `DELETE`.",
+      "A fifth pattern, UPSERT, combines insert-or-update into a single statement for cases where you don't know in advance whether a row already exists."
+    ],
+    "why": [
+      "Applications need a consistent, predictable way to create, retrieve, change, and remove data — without that, every feature would need its own bespoke data-access logic.",
+      "SQL solves this by giving each operation its own dedicated statement with a clear, standardized syntax that works the same way across relational databases.",
+      "Virtually every feature in a real application boils down to some combination of these four operations — creating a user, reading a product catalog, updating an order status, deleting a stale session.",
+      "Interviewers use CRUD questions as a baseline check: if you can't confidently write an UPDATE with a WHERE clause, more advanced SQL topics won't matter.",
+      "Getting CRUD statements wrong in production — especially UPDATE/DELETE without a WHERE clause — is one of the most common and most damaging mistakes a developer can make."
+    ],
+    "internalWorking": {
+      "intro": [
+        "CRUD operations in SQL split into five practical patterns: the four core statements plus the UPSERT pattern that combines two of them."
+      ],
+      "topics": [
+        {
+          "heading": "CRUD Operations",
+          "points": [
+            "**SELECT** — `SELECT col1, col2 FROM table WHERE condition ORDER BY col ASC/DESC LIMIT n OFFSET m`.",
+            "**INSERT** — `INSERT INTO users (name, email) VALUES ('John', 'john@mail.com')`. Bulk form: `INSERT INTO ... SELECT ...`.",
+            "**UPDATE** — `UPDATE users SET name = 'Jane' WHERE id = 1`. Always include a `WHERE` clause.",
+            "**DELETE** — `DELETE FROM users WHERE id = 1`. `TRUNCATE TABLE users` is faster and resets auto-increment.",
+            "**UPSERT** — MySQL: `INSERT ... ON DUPLICATE KEY UPDATE`. PostgreSQL: `INSERT ... ON CONFLICT DO UPDATE`."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Application needs a data change\"] --> B{\"Which operation?\"}\n    B -->|\"Create a row\"| C[\"INSERT INTO table (...) VALUES (...)\"]\n    B -->|\"Read rows\"| D[\"SELECT ... FROM table WHERE ...\"]\n    B -->|\"Change existing rows\"| E[\"UPDATE table SET ... WHERE ...\"]\n    B -->|\"Remove rows\"| F[\"DELETE FROM table WHERE ...\"]\n    B -->|\"Insert or update\"| G[\"UPSERT: INSERT ... ON CONFLICT/DUPLICATE KEY\"]",
+      "caption": "The four CRUD operations map one-to-one onto four SQL statements, with UPSERT as a combined insert-or-update shortcut for when existence is uncertain."
+    },
+    "comparisonTables": [
+      {
+        "title": "DELETE vs TRUNCATE",
+        "columns": [
+          "Aspect",
+          "DELETE",
+          "TRUNCATE"
+        ],
+        "rows": [
+          [
+            "Granularity",
+            "Can target specific rows with `WHERE`",
+            "Removes all rows, no `WHERE`"
+          ],
+          [
+            "Speed",
+            "Slower — logged row by row",
+            "Faster — deallocates data pages"
+          ],
+          [
+            "Auto-increment",
+            "Not reset",
+            "Resets the counter"
+          ],
+          [
+            "Triggers",
+            "Fires row-level triggers",
+            "Usually does not fire triggers"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "An e-commerce backend needs to record a new order, look it up for a receipt, mark it shipped, keep a per-customer order-count summary current, and later purge cancelled orders older than a year.",
+      "code": "-- Create: place a new order\nINSERT INTO orders (id, customer_id, status, total)\nVALUES (9321, 501, 'PLACED', 249.99);\n\n-- Read: fetch it for a receipt\nSELECT id, customer_id, status, total\nFROM orders\nWHERE id = 9321;\n\n-- Update: mark it shipped\nUPDATE orders SET status = 'SHIPPED' WHERE id = 9321;\n\n-- Upsert: keep an order-count summary current (PostgreSQL)\nINSERT INTO customer_order_summary (customer_id, order_count)\nVALUES (501, 1)\nON CONFLICT (customer_id)\nDO UPDATE SET order_count = customer_order_summary.order_count + 1;\n\n-- Delete: purge old cancelled orders\nDELETE FROM orders\nWHERE status = 'CANCELLED' AND created_at < NOW() - INTERVAL '1 year';",
+      "input": "An `orders` table used across the checkout, shipping, and admin-cleanup parts of the application, plus a `customer_order_summary` table keyed on `customer_id`.",
+      "execution": "INSERT creates the order row. SELECT retrieves it by primary key for display. UPDATE transitions its status in place. The UPSERT either inserts a fresh summary row for a first-time customer or increments the existing count — the database decides which, based on whether `customer_id` already exists. DELETE removes only rows matching both the status and age conditions.",
+      "output": "A new order exists and is retrievable, its status reflects shipment, the customer's order-count summary is accurate whether they're new or returning, and only genuinely old cancelled orders are removed — active and recent orders are untouched.",
+      "explanation": "Every CRUD operation here is scoped with a WHERE clause (or an ON CONFLICT target) so it only ever touches the intended row(s) — the UPSERT specifically avoids the awkward \"check if it exists, then decide whether to insert or update\" round trip that would otherwise require two separate queries and risk a race condition between them."
+    },
+    "interviewExplanation": [
+      "CRUD maps directly onto SQL: Create is INSERT, Read is SELECT, Update is UPDATE, Delete is DELETE. Almost every feature in a real application is some combination of these four — creating a user, updating an order's status, deleting a stale session. If I can't confidently write an UPDATE with a WHERE clause, nothing more advanced really matters, which is why this is usually one of the first things interviewers check.",
+      "The one thing I always flag is that UPDATE and DELETE should never run without a WHERE clause — leave it off and you silently affect every row in the table. In practice I test the WHERE condition with a plain SELECT first to see exactly which rows would be hit before running the UPDATE or DELETE for real.",
+      "There's also a fifth pattern worth knowing — UPSERT — which inserts a row if it doesn't exist or updates it if it does, all in one statement. It's genuinely useful for things like keeping a running counter in sync, because it avoids a check-then-write round trip in application code that could race with another write. The syntax isn't portable though — MySQL uses ON DUPLICATE KEY UPDATE, PostgreSQL uses ON CONFLICT DO UPDATE, and SQL Server uses MERGE."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why does TRUNCATE reset auto-increment but DELETE doesn't?",
+        "a": "TRUNCATE deallocates the underlying data pages entirely and reinitializes the table, including its identity counter. DELETE removes rows individually and leaves the counter untouched — that's also why DELETE is slower and TRUNCATE is effectively instant."
+      },
+      {
+        "q": "Why reach for UPSERT instead of checking existence first in application code?",
+        "a": "A SELECT-then-branch approach in application code has a race window: two concurrent requests can both see \"no row exists\" and both try to insert, causing a duplicate-key error or a lost update. UPSERT pushes the insert-or-update decision into the database as a single atomic operation, closing that race."
+      },
+      {
+        "q": "Is UPSERT syntax the same across databases?",
+        "a": "No — the concept is universal but the syntax differs: MySQL uses `ON DUPLICATE KEY UPDATE`, PostgreSQL uses `ON CONFLICT DO UPDATE`, and SQL Server uses a `MERGE` statement. Naming more than one shows breadth if asked."
+      },
+      {
+        "q": "Can you undo a DELETE or UPDATE after it runs?",
+        "a": "Only if it happened inside a transaction that hasn't been committed yet — a ROLLBACK can undo it. Once committed, undoing requires restoring from a backup or replaying an audit log; there's no built-in \"undo\" for committed CRUD statements."
+      },
+      {
+        "q": "When would TRUNCATE not be a safe substitute for DELETE, even if you want to clear an entire table?",
+        "a": "When you need to keep the auto-increment counter, when row-level triggers must fire, when the table is referenced by foreign keys that block TRUNCATE, or when you need to remove only some rows rather than all — TRUNCATE offers no WHERE clause."
+      }
+    ],
+    "bestPractices": [
+      "Always pair `UPDATE` and `DELETE` with a `WHERE` clause — test the matching rows with a `SELECT` first.",
+      "Use `LIMIT`/`OFFSET` for pagination instead of loading an entire table into the application.",
+      "Prefer `EXISTS`-style checks or explicit columns over `SELECT *` in production queries.",
+      "Reach for UPSERT when you genuinely don't know if a row exists yet, rather than doing a SELECT-then-branch in application code — it avoids race conditions between the check and the write."
+    ],
+    "commonMistakes": [
+      "Running `UPDATE` or `DELETE` without a `WHERE` clause, silently affecting every row in the table.",
+      "Using `DELETE` when `TRUNCATE` would be both faster and semantically correct for clearing an entire table.",
+      "Assuming UPSERT syntax is portable — it is not; MySQL, PostgreSQL, and SQL Server each use different keywords for the same concept.",
+      "Forgetting that `INSERT` column order must match the `VALUES` order exactly when column names are omitted."
+    ],
+    "summary": [
+      "CRUD — Create, Read, Update, Delete — maps directly onto SQL's INSERT, SELECT, UPDATE, and DELETE statements.",
+      "UPDATE and DELETE should always carry a WHERE clause to avoid silently affecting every row in the table.",
+      "UPSERT combines insert-or-update into one statement, with syntax that varies by database engine; TRUNCATE is a faster, all-or-nothing alternative to DELETE."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Keys & Constraints — rules the database enforces on every INSERT/UPDATE",
+        "sectionId": "database",
+        "subsectionId": "keys-constraints"
+      }
+    ]
+  },
+  {
+    "id": "filtering-sorting",
+    "title": "Filtering & Sorting",
+    "overview": [
+      "Filtering and sorting let you shape a result set down to exactly the rows an application needs, in exactly the order it needs them.",
+      "Filtering happens through the `WHERE` clause and its operators; sorting happens through `ORDER BY`.",
+      "`LIMIT`/`OFFSET` build on both to slice a large result set into pages."
+    ],
+    "why": [
+      "Without a way to narrow down rows, every query would return an entire table, forcing the application to filter and sort in memory after the fact.",
+      "SQL solves this by pushing filtering and sorting down to the database engine itself — closer to where the data lives — via WHERE, ORDER BY, and LIMIT/OFFSET.",
+      "Real tables can hold millions of rows — no application wants, or can afford, to pull all of them back just to find the few that matter.",
+      "Filtering and sorting are used in nearly every query written in practice, from a simple lookup by ID to a paginated list view, and interviewers frequently probe WHERE-clause operators and pagination technique because they're both extremely common and easy to get subtly wrong.",
+      "Getting sorting and pagination right directly affects application performance and user experience — wrong ORDER BY or missing LIMIT can mean scanning and returning far more data than necessary."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Filtering and sorting break down into five practical pieces: WHERE operators, the LIKE pattern-matching operator, combining conditions with AND/OR/NOT, ORDER BY, and LIMIT/OFFSET for pagination.",
+        "This section only covers how these clauses are written and what they do to the result set — not how the engine physically speeds up filtering with indexes, which belongs to the Database section."
+      ],
+      "topics": [
+        {
+          "heading": "Filtering & Sorting",
+          "points": [
+            "**WHERE clauses** — operators like `=`, `!=`, `<`, `>`, `BETWEEN`, `IN`, `LIKE`, `IS NULL`, `IS NOT NULL`.",
+            "**LIKE pattern** — `%` matches any characters, `_` matches a single character. Example: `WHERE name LIKE 'J%'`.",
+            "**AND / OR / NOT** — combine conditions; use parentheses to control precedence.",
+            "**ORDER BY** — `ORDER BY name ASC, created_at DESC`. PostgreSQL adds `NULLS FIRST` / `NULLS LAST`.",
+            "**LIMIT & OFFSET** — pagination: `LIMIT 20 OFFSET 40` returns page 3 at 20 rows per page."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Full table of rows\"] --> B[\"WHERE narrows rows by condition\"]\n    B --> C[\"ORDER BY sorts the remaining rows\"]\n    C --> D[\"LIMIT / OFFSET slices out one page\"]\n    D --> E[\"Result set returned to the application\"]",
+      "caption": "Filtering narrows the rows first, sorting arranges what's left, and LIMIT/OFFSET carves out just the requested page — the same conceptual pipeline every filtered, sorted, paginated query follows."
+    },
+    "comparisonTables": [
+      {
+        "title": "WHERE Operators at a Glance",
+        "columns": [
+          "Operator",
+          "Purpose",
+          "Example"
+        ],
+        "rows": [
+          [
+            "`=` / `!=`",
+            "Exact match / not-equal",
+            "`WHERE status = 'ACTIVE'`"
+          ],
+          [
+            "`<` / `>` / `<=` / `>=`",
+            "Numeric or date comparison",
+            "`WHERE total > 500`"
+          ],
+          [
+            "`BETWEEN`",
+            "Inclusive range check",
+            "`WHERE age BETWEEN 18 AND 30`"
+          ],
+          [
+            "`IN`",
+            "Match any value in a list",
+            "`WHERE status IN ('SHIPPED', 'COMPLETED')`"
+          ],
+          [
+            "`LIKE`",
+            "Pattern match with wildcards",
+            "`WHERE name LIKE 'J%'`"
+          ],
+          [
+            "`IS NULL` / `IS NOT NULL`",
+            "Check for missing values",
+            "`WHERE deleted_at IS NULL`"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "An admin dashboard needs page 3 of active, high-value orders — orders that are not cancelled, placed in the last 90 days, and worth more than 500, sorted by newest first.",
+      "code": "SELECT id, customer_id, status, total, created_at\nFROM orders\nWHERE status != 'CANCELLED'\n  AND total > 500\n  AND created_at >= NOW() - INTERVAL '90 days'\n  AND (status = 'COMPLETED' OR status = 'SHIPPED')\nORDER BY created_at DESC\nLIMIT 20 OFFSET 40;",
+      "input": "An `orders` table containing orders across every status and every customer, spanning several years.",
+      "execution": "WHERE combines multiple conditions with AND/OR: it excludes cancelled orders, requires a total above 500, requires a recent created_at, and — using parentheses to control precedence — requires the status to be either COMPLETED or SHIPPED. ORDER BY then sorts the surviving rows by created_at, newest first. LIMIT 20 OFFSET 40 skips the first 40 matches (pages 1 and 2) and returns the next 20 (page 3).",
+      "output": "Exactly 20 rows — orders 41 through 60 in the newest-first, high-value, non-cancelled result set — ready to render as page 3 of the admin dashboard.",
+      "explanation": "The parentheses around `(status = 'COMPLETED' OR status = 'SHIPPED')` are essential — without them, AND/OR precedence rules would group the conditions differently and silently change which rows match. This is exactly the kind of subtle WHERE-clause mistake interviewers look for."
+    },
+    "interviewExplanation": [
+      "Filtering and sorting are what turn a full table scan into exactly the rows an application needs, in the order it needs them. WHERE narrows the rows down using operators like equality, ranges, BETWEEN, IN, LIKE, and the NULL checks. ORDER BY then sorts what's left, ascending by default. LIMIT and OFFSET slice that sorted result into a page — this is the pipeline behind nearly every paginated list view I've built.",
+      "A couple of things I'm always careful about here. First, NULL — in SQL, comparing anything to NULL with equals gives an unknown result, not true, so WHERE column = NULL matches nothing; you have to use IS NULL. Second, mixing AND and OR without parentheses is a real trap — operator precedence can group conditions differently than you intended and silently change which rows come back, so I always add parentheses explicitly even when I'm fairly sure of the precedence rules.",
+      "On pagination, LIMIT/OFFSET is the simple approach, but it has a real cost at scale — a large OFFSET forces the database to scan and discard all the skipped rows before it can return the requested page, so performance degrades as you paginate deeper. For very large tables I'd bring up keyset or cursor-based pagination — filtering on the last-seen value instead of an offset — as the more scalable alternative."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why doesn't WHERE column = NULL work to find NULL values?",
+        "a": "In SQL, NULL represents an unknown value, and comparing anything to an unknown with = yields an unknown result — not true — so the row never matches. Use IS NULL or IS NOT NULL to check for NULL explicitly."
+      },
+      {
+        "q": "What's the difference between ORDER BY column ASC and just ORDER BY column?",
+        "a": "They're equivalent — ASC (ascending) is the default sort direction if none is specified. DESC must be stated explicitly to sort in descending order."
+      },
+      {
+        "q": "Is LIMIT/OFFSET the only way to paginate results?",
+        "a": "No — it's the simplest and most common approach, but keyset/cursor-based pagination (filtering on the last seen value instead of using OFFSET) scales better for very large tables since it avoids scanning and discarding rows to reach a deep page."
+      },
+      {
+        "q": "Why does a query with a large OFFSET get slower as the offset grows?",
+        "a": "The database still has to scan through all the skipped rows in sorted order before it can start returning the requested page — it can't jump straight to row 10,000 without passing through the first 9,999 first. That scan cost grows linearly with the offset, which is why deep pagination on a big table gets progressively slower."
+      },
+      {
+        "q": "How would you write a WHERE clause to safely filter on a nullable column while still including rows where that column is NULL?",
+        "a": "Combine the condition with an explicit NULL check using OR, wrapped in parentheses — for example `WHERE (status = 'ACTIVE' OR status IS NULL)` — since a plain equality check alone would silently exclude every row where the column is NULL."
+      }
+    ],
+    "bestPractices": [
+      "Wrap mixed AND/OR conditions in parentheses explicitly — never rely on remembering operator precedence rules under pressure.",
+      "Use `LIMIT`/`OFFSET` for pagination instead of loading an entire table into the application and slicing it in memory.",
+      "Prefer `IN (...)` over a long chain of `OR` conditions on the same column — it's easier to read and easier to maintain.",
+      "Be explicit about `NULL` handling — remember that `= NULL` never matches; use `IS NULL` instead."
+    ],
+    "commonMistakes": [
+      "Forgetting that `NULL` is not equal to anything, including itself — `WHERE column = NULL` silently matches zero rows; `IS NULL` is required.",
+      "Mixing AND and OR without parentheses, causing the condition to group differently than intended.",
+      "Using a large `OFFSET` for deep pagination on a big table, which forces the database to scan and discard many rows before reaching the requested page.",
+      "Forgetting that `LIKE` wildcards are `%` and `_` in SQL, not `*` and `?` as in shell globbing."
+    ],
+    "summary": [
+      "WHERE filters individual rows using operators like =, BETWEEN, IN, LIKE, and IS NULL, optionally combined with AND/OR/NOT.",
+      "ORDER BY sorts the surviving rows, ascending by default or descending with DESC, and can sort by multiple columns.",
+      "LIMIT/OFFSET slices a sorted, filtered result set into pages, but parentheses matter when mixing AND and OR — they control which conditions get grouped together."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Indexing — why a WHERE clause can be instant or slow",
+        "sectionId": "database",
+        "subsectionId": "indexing"
+      }
+    ]
+  },
+  {
+    "id": "aggregate-functions",
+    "title": "Aggregate Functions",
+    "overview": [
+      "Aggregate functions collapse many rows into a single summary value — a total, an average, a count.",
+      "SQL provides five core ones: `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()`.",
+      "Each behaves slightly differently around `NULL` values, which is one of the most common places this topic trips people up.",
+      "`DISTINCT` isn't an aggregate function itself, but it's used constantly alongside them to dedupe before counting or summarizing."
+    ],
+    "why": [
+      "Almost every dashboard, invoice, or report question is really an aggregate question — \"how many,\" \"how much,\" \"what's the average.\"",
+      "Without these functions, an application would have to pull every raw row over the network and do the math in code, which is slower and wastes bandwidth.",
+      "SQL pushes that computation down into the database engine, which can compute a sum or count far more efficiently than the application layer.",
+      "Interviewers use `COUNT(*)` vs `COUNT(column)` as a quick, reliable check for whether a candidate understands how NULLs actually behave in aggregation.",
+      "These functions are also the foundation `GROUP BY` and `HAVING` build on — you can't reason about grouping until you know what's being aggregated per group."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Aggregate functions all follow the same basic contract — take a set of rows, return one value — but they differ in exactly how they treat `NULL` and duplicate values."
+      ],
+      "topics": [
+        {
+          "heading": "The Five Core Aggregate Functions",
+          "points": [
+            "**`COUNT()`** — counts rows. `COUNT(*)` counts every row in the set, NULLs included. `COUNT(column)` counts only rows where that column is not `NULL`.",
+            "**`SUM()`** — adds up a numeric column. `NULL` values are ignored, not treated as zero; summing an all-`NULL` column returns `NULL`, not `0`.",
+            "**`AVG()`** — computes an average. Also ignores `NULL`s in both the total and the row count used for the division — it does **not** treat missing values as zero.",
+            "**`MIN()` / `MAX()`** — return the smallest/largest value in a column, working on numbers, strings, and dates alike. `NULL`s are excluded from consideration.",
+            "All five can run over an entire table with no `GROUP BY` at all — in that case the whole table is treated as one implicit group, returning a single summary row."
+          ]
+        },
+        {
+          "heading": "COUNT(*) vs COUNT(column) vs COUNT(DISTINCT column)",
+          "points": [
+            "`COUNT(*)` is a row count — it doesn't look at any column's values, so `NULL`s never exclude a row.",
+            "`COUNT(column)` looks at that specific column's values and skips any row where it's `NULL` — this is the number one source of \"why is my count different\" confusion.",
+            "`COUNT(DISTINCT column)` counts only the unique non-`NULL` values in that column, deduping before counting.",
+            "These three can legitimately return three different numbers on the exact same table — that difference is the point, not a bug."
+          ]
+        },
+        {
+          "heading": "DISTINCT",
+          "points": [
+            "`SELECT DISTINCT department FROM employees` removes duplicate rows from the result — a form of deduplication rather than aggregation.",
+            "`DISTINCT` pairs naturally with aggregates: `COUNT(DISTINCT customer_id)` answers \"how many unique customers,\" not \"how many rows.\"",
+            "`DISTINCT` applies to the whole selected row (or the whole expression it wraps) — with multiple columns, it dedupes on the combination of all of them, not each column independently."
+          ]
+        }
+      ]
+    },
+    "simpleExample": {
+      "scenario": "Summarize an `orders` table — total order count, total revenue, average order value, and the cheapest and priciest order.",
+      "code": "SELECT\n  COUNT(*) AS total_orders,\n  COUNT(discount_code) AS orders_with_discount,\n  SUM(total) AS total_revenue,\n  AVG(total) AS avg_order_value,\n  MIN(total) AS cheapest_order,\n  MAX(total) AS priciest_order\nFROM orders;",
+      "input": "An `orders` table where the `discount_code` column is `NULL` for orders that didn't use a discount.",
+      "execution": "COUNT(*) counts every row regardless of NULLs. COUNT(discount_code) counts only rows where a discount code was actually used, since NULL rows are skipped. SUM and AVG add up and average the total column, ignoring any NULL totals. MIN and MAX scan the same column for the smallest and largest values.",
+      "output": "A single summary row: total order count, a smaller count of only discounted orders, total revenue, the average order value, and the cheapest/priciest order amounts.",
+      "explanation": "This is aggregation with no GROUP BY at all — the whole table is treated as one group, so every function returns exactly one value across all rows. COUNT(*) and COUNT(discount_code) differing is the clearest illustration of NULL-handling in this page."
+    },
+    "interviewExplanation": [
+      "Aggregate functions take a bunch of rows and boil them down into one number — count, sum, average, min, max. The thing that trips people up is NULL handling: COUNT(*) counts rows no matter what, but COUNT(column) only counts rows where that column actually has a value. SUM and AVG both just skip NULLs entirely — they don't treat them as zero, which matters a lot if you're averaging a column that's got some missing data in it.",
+      "If someone asks me to count unique customers instead of unique orders, that's COUNT(DISTINCT customer_id) — DISTINCT dedupes the values before COUNT ever sees them. And all of this works even without a GROUP BY — if you just run SUM(total) on a whole table with no grouping, the engine treats the entire table as one big implicit group and hands back a single row."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "What's the difference between COUNT(*) and COUNT(column_name)?",
+        "a": "COUNT(*) counts every row in the group regardless of NULL values anywhere. COUNT(column_name) counts only rows where that specific column is not NULL — the two can return different numbers on the exact same data if that column has any NULLs in it."
+      },
+      {
+        "q": "Does SUM() or AVG() treat NULL as zero?",
+        "a": "No. Both functions simply ignore NULL values — they're excluded from the total and, for AVG, excluded from the row count used in the division too. Summing a column that's entirely NULL returns NULL, not 0, which surprises people who expect zero as a safe default."
+      },
+      {
+        "q": "What does COUNT(DISTINCT column) do differently from COUNT(column)?",
+        "a": "COUNT(column) counts every non-NULL row, including duplicates. COUNT(DISTINCT column) first dedupes the non-NULL values and then counts only the unique ones — useful for questions like \"how many unique customers placed an order\" versus \"how many orders were placed.\""
+      },
+      {
+        "q": "Can you use an aggregate function without GROUP BY?",
+        "a": "Yes — with no GROUP BY, the database treats the entire result set as a single implicit group, so an aggregate function computes one value across all matching rows and returns exactly one row."
+      },
+      {
+        "q": "Do MIN() and MAX() only work on numbers?",
+        "a": "No — they work on any orderable type, including strings (alphabetical comparison) and dates (chronological comparison), not just numeric columns."
+      },
+      {
+        "q": "Is DISTINCT itself an aggregate function?",
+        "a": "No — DISTINCT is a deduplication modifier, not an aggregate function. It removes duplicate rows from a result set but doesn't compute a summary value the way COUNT, SUM, AVG, MIN, or MAX do. It's often combined with COUNT, as in COUNT(DISTINCT column), but it can also stand alone in a plain SELECT DISTINCT."
+      }
+    ],
+    "bestPractices": [
+      "Use `COUNT(*)` when you want a plain row count, and `COUNT(column)` only when you specifically need to exclude `NULL`s in that column.",
+      "Don't assume `SUM()`/`AVG()` of a nullable column silently defaults missing values to zero — check whether that's actually the behavior you want, and use `COALESCE()` if it isn't.",
+      "Reach for `COUNT(DISTINCT column)` when the question is about unique entities, not row volume.",
+      "Test aggregate expressions on a small, known slice of data first so you can confirm NULL-handling behaves the way you expect before trusting it at scale."
+    ],
+    "commonMistakes": [
+      "Assuming `COUNT(*)` and `COUNT(column)` always return the same number — they diverge as soon as that column has any `NULL`s.",
+      "Expecting `SUM()` of an all-`NULL` column to return `0` — it returns `NULL`.",
+      "Forgetting that `AVG()` divides only by the count of non-`NULL` rows, not the total row count — this changes the result compared to manually summing and dividing by row count in application code.",
+      "Using `COUNT(DISTINCT column)` when a plain `COUNT(column)` was intended (or vice versa), silently changing what the number actually represents."
+    ],
+    "summary": [
+      "`COUNT`, `SUM`, `AVG`, `MIN`, and `MAX` each collapse a set of rows into a single summary value, with NULLs excluded rather than treated as zero.",
+      "`COUNT(*)` counts rows; `COUNT(column)` counts non-NULL values in that column; `COUNT(DISTINCT column)` counts unique non-NULL values.",
+      "All of these work even with no `GROUP BY` — the whole table is treated as one implicit group."
+    ],
+    "relatedTopics": [
+      {
+        "label": "GROUP BY & HAVING — bucketing rows before aggregating them",
+        "sectionId": "sql",
+        "subsectionId": "group-by-having"
+      }
+    ]
+  },
+  {
+    "id": "group-by-having",
+    "title": "GROUP BY & HAVING",
+    "overview": [
+      "`GROUP BY` buckets rows that share a value into groups, so an aggregate function computes one result per bucket instead of one result for the whole table.",
+      "`HAVING` filters those groups **after** they've been formed — it's the `WHERE` clause's counterpart for aggregate values.",
+      "The reason `HAVING` exists at all comes down to timing: a query has a strict logical execution order, and aggregates simply don't exist yet at the point `WHERE` runs."
+    ],
+    "why": [
+      "Most reporting questions aren't about the whole table — they're about totals *per category*, *per customer*, *per day*.",
+      "`GROUP BY` is how SQL expresses \"summarize this, but separately for each distinct value of that column.\"",
+      "`HAVING` lets you filter on the result of that summarization — like \"only categories over ₹100,000 in revenue\" — in the same declarative query, with no second pass needed.",
+      "Interviewers lean on this topic heavily because it exposes whether a candidate actually understands SQL's logical execution order, not just its written order.",
+      "Getting `WHERE` and `HAVING` mixed up is one of the most common — and most revealing — mistakes candidates make live during a SQL interview."
+    ],
+    "internalWorking": {
+      "intro": [
+        "GROUP BY and HAVING work together as a two-stage pipeline: first form the buckets, then optionally throw some buckets away based on their aggregate values."
+      ],
+      "topics": [
+        {
+          "heading": "GROUP BY",
+          "points": [
+            "`SELECT dept, COUNT(*) FROM emp GROUP BY dept` buckets rows by `dept` and computes the aggregate once per bucket, not once per row.",
+            "Every non-aggregate column that appears in `SELECT` must also appear in `GROUP BY` — otherwise the database can't tell which row's value to show for a column that has multiple values within the same group.",
+            "You can group by more than one column at once — `GROUP BY category, status` creates one bucket per unique combination of the two.",
+            "`GROUP BY` can also bucket by an expression, not just a raw column — e.g. `GROUP BY DATE(created_at)` to group timestamps into calendar days."
+          ]
+        },
+        {
+          "heading": "HAVING",
+          "points": [
+            "`SELECT dept, AVG(salary) FROM emp GROUP BY dept HAVING AVG(salary) > 50000` filters out groups whose average salary doesn't clear the bar.",
+            "`HAVING` runs strictly after `GROUP BY`, so it's the only clause that can reference an aggregate function like `SUM()` or `COUNT()` directly in its condition.",
+            "`HAVING` can be used even without an explicit `GROUP BY` — the whole result set is then treated as one implicit group, and `HAVING` filters that single group.",
+            "A plain row-level condition (like `status = 'ACTIVE'`) belongs in `WHERE`, not `HAVING` — using `HAVING` for it still works but wastes effort grouping rows that could have been discarded earlier."
+          ]
+        },
+        {
+          "heading": "WHERE vs HAVING — Why Both Exist",
+          "points": [
+            "`WHERE` filters individual raw rows, and it runs **before** grouping — at that point in the query, no aggregate value has been computed yet.",
+            "`HAVING` filters groups, and it runs **after** grouping — by then, aggregate values like `SUM()` or `AVG()` exist and can be compared.",
+            "Trying to write `WHERE COUNT(*) > 5` fails for exactly this reason: `COUNT(*)` doesn't exist at the point `WHERE` is evaluated.",
+            "The two clauses aren't interchangeable shortcuts for each other — they operate on two different \"shapes\" of data at two different stages of the same query."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"FROM - pick source tables\"] --> B[\"WHERE - filter rows\"]\n    B --> C[\"GROUP BY - form groups\"]\n    C --> D[\"HAVING - filter groups\"]\n    D --> E[\"SELECT - pick columns/expressions\"]\n    E --> F[\"ORDER BY - sort result\"]\n    F --> G[\"LIMIT / OFFSET - page result\"]",
+      "caption": "The database evaluates a query in this logical order, not the order it's typed in. This is exactly why HAVING can filter on an aggregate but WHERE cannot: the aggregate value doesn't exist until GROUP BY has already run."
+    },
+    "comparisonTables": [
+      {
+        "title": "WHERE vs HAVING",
+        "columns": [
+          "Aspect",
+          "WHERE",
+          "HAVING"
+        ],
+        "rows": [
+          [
+            "Filters",
+            "Individual rows",
+            "Groups after GROUP BY"
+          ],
+          [
+            "Runs",
+            "Before grouping",
+            "After grouping"
+          ],
+          [
+            "Aggregate functions",
+            "Cannot reference `SUM()`, `COUNT()`, etc.",
+            "Can reference aggregate functions"
+          ],
+          [
+            "Typical use",
+            "`WHERE status = 'ACTIVE'`",
+            "`HAVING COUNT(*) > 5`"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "A dashboard needs total revenue per product category, but only for categories generating over ₹100,000, among completed orders.",
+      "code": "SELECT category, COUNT(*) AS order_count, SUM(total) AS revenue\nFROM orders\nWHERE status = 'COMPLETED'\nGROUP BY category\nHAVING SUM(total) > 100000\nORDER BY revenue DESC;",
+      "input": "An `orders` table with `category`, `status`, and `total` columns across all customers.",
+      "execution": "WHERE keeps only completed orders before anything is grouped. GROUP BY then buckets those surviving rows by category and computes COUNT(*) and SUM(total) per bucket. HAVING drops any category bucket whose summed revenue doesn't exceed 100000. Finally, ORDER BY sorts the remaining categories by revenue.",
+      "output": "A short list of high-performing categories with their order count and total revenue, highest first.",
+      "explanation": "HAVING is essential here because the filter (SUM(total) > 100000) depends on an aggregate that doesn't exist until after grouping — WHERE physically cannot express that condition, since it runs earlier in the logical execution order."
+    },
+    "interviewExplanation": [
+      "GROUP BY takes rows that share a value and buckets them, so instead of getting one row per order, you get one row per category, or per customer, or whatever you grouped on — with an aggregate computed for each bucket. HAVING then filters those buckets, not the original rows. So if I want categories with revenue over 100,000, I group by category, sum the total per group, and then HAVING drops any group that doesn't clear that bar.",
+      "The reason HAVING has to be a separate clause from WHERE comes down to when each one runs. SQL has a logical execution order — FROM, then WHERE, then GROUP BY, then HAVING, then SELECT, then ORDER BY, then LIMIT — and WHERE runs before GROUP BY even happens. So at the point WHERE is evaluated, there's no SUM or COUNT to compare against yet — it just doesn't exist. HAVING runs after grouping, so by then the aggregate values are real numbers you can filter on."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why can't WHERE filter on an aggregate function?",
+        "a": "Because of execution order — WHERE runs before GROUP BY in the query's logical execution order (FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT). At the point WHERE is evaluated, rows haven't been grouped yet, so an aggregate like SUM() or COUNT() has no value to compare against. HAVING exists specifically because it runs after grouping, once aggregates are actual computed numbers."
+      },
+      {
+        "q": "Can you use HAVING without GROUP BY?",
+        "a": "Yes — without GROUP BY, the entire result set is treated as a single implicit group, so HAVING can filter based on an aggregate computed over all rows, like HAVING COUNT(*) > 100."
+      },
+      {
+        "q": "Does every column in SELECT need to be in GROUP BY?",
+        "a": "Every non-aggregated column does. If a column isn't wrapped in an aggregate function and isn't listed in GROUP BY, the database can't determine a single value to display for it within a group that may contain several different values for that column — most databases will reject the query outright."
+      },
+      {
+        "q": "Can you group by more than one column?",
+        "a": "Yes — GROUP BY category, status creates one bucket per unique combination of category and status, not one bucket per category and a separate one per status. The aggregate is then computed per combination."
+      },
+      {
+        "q": "Is it ever correct to put a plain row-level condition in HAVING instead of WHERE?",
+        "a": "It will work, since HAVING can filter on non-aggregate columns too, but it's not efficient — the database groups every row first and only discards some groups afterward. WHERE removes non-matching rows before grouping ever starts, which is cheaper. HAVING should be reserved for conditions that genuinely depend on an aggregate value."
+      },
+      {
+        "q": "Can GROUP BY bucket on something other than a raw column?",
+        "a": "Yes — you can group by an expression, such as GROUP BY DATE(created_at) to bucket timestamps into calendar days, or GROUP BY YEAR(created_at) to bucket into years. The expression just needs to produce a consistent grouping key per row."
+      }
+    ],
+    "bestPractices": [
+      "Use `WHERE` to eliminate rows as early as possible — it's cheaper than grouping unnecessary rows only to discard them later with `HAVING`.",
+      "Only use `HAVING` when the filter condition genuinely depends on an aggregate function; otherwise a `WHERE` clause is simpler and faster.",
+      "List every non-aggregated `SELECT` column in `GROUP BY` to avoid ambiguous or database-specific behavior.",
+      "When grouping by an expression (like a truncated date), consider whether an equivalent generated/computed column would make the query easier to read and index.",
+      "Recite the logical execution order — FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT — until it's automatic; it explains almost every WHERE/HAVING mixup."
+    ],
+    "commonMistakes": [
+      "Trying to filter on an aggregate inside `WHERE` instead of `HAVING` (e.g. `WHERE COUNT(*) > 5`), which fails because the aggregate isn't computed yet at that stage.",
+      "Forgetting that every non-aggregated column in `SELECT` must also appear in `GROUP BY`.",
+      "Using `HAVING` for a plain row-level condition that `WHERE` could handle more efficiently before grouping even begins.",
+      "Assuming `GROUP BY` preserves the original row order — it doesn't; use `ORDER BY` explicitly if a specific order is required."
+    ],
+    "summary": [
+      "`GROUP BY` buckets rows sharing a value so an aggregate can be computed once per bucket instead of once per row.",
+      "`HAVING` filters those computed buckets, and can reference aggregate functions precisely because it runs after `GROUP BY`.",
+      "`WHERE` and `HAVING` operate at two different stages of the same query — WHERE before grouping, HAVING after — which is the entire reason both clauses need to exist."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Aggregate Functions — the functions HAVING filters on",
+        "sectionId": "sql",
+        "subsectionId": "aggregate-functions"
+      },
+      {
+        "label": "Window Functions — summarizing data without collapsing rows",
+        "sectionId": "sql",
+        "subsectionId": "window-functions"
+      }
+    ]
+  },
+  {
+    "id": "joins",
+    "title": "Joins",
+    "overview": [
+      "Real data is rarely in one table — orders reference customers, customers reference addresses.",
+      "**Joins** combine rows across multiple tables based on a matching column.",
+      "The join type (INNER, LEFT, RIGHT, FULL OUTER, CROSS) determines exactly which rows survive when a match is missing on one side."
+    ],
+    "why": [
+      "Normalized databases split data into separate tables to avoid duplication, but an application usually needs a combined view — an order along with the customer who placed it.",
+      "Without joins, combining two tables would require fetching each separately and merging them in application code — pulling far more data over the network than necessary and pushing relational logic into the app layer.",
+      "Joins let the database do the matching internally, using indexes, and return only the combined rows actually needed — reassembling split data back into a single, useful result entirely inside the database engine.",
+      "Join questions are a staple of SQL interviews because they test whether you understand not just syntax but the consequences of a missing match — which rows survive, which get NULLs, and which disappear entirely."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Joins fall into a handful of types that differ only in one thing: what happens to a row that has no match on the other side."
+      ],
+      "topics": [
+        {
+          "heading": "JOIN Types",
+          "points": [
+            "**INNER JOIN** — returns only matching rows from both tables: `SELECT * FROM orders o INNER JOIN users u ON o.user_id = u.id`.",
+            "**LEFT JOIN** — all rows from the left table, plus matches from the right; `NULL` where there's no match.",
+            "**RIGHT JOIN** — all rows from the right table, plus matches from the left. Less commonly used.",
+            "**FULL OUTER JOIN** — all rows from both tables, `NULL` where there's no match. Not supported in MySQL.",
+            "**CROSS JOIN** — a Cartesian product; every row of A paired with every row of B. Rarely needed."
+          ]
+        },
+        {
+          "heading": "Self Join & Multi-Table",
+          "points": [
+            "**Self join** — a table joined with itself: `SELECT e.name, m.name AS manager FROM emp e JOIN emp m ON e.manager_id = m.id`.",
+            "**Multiple joins** — chain joins across tables: `FROM orders o JOIN users u ON ... JOIN products p ON ...`.",
+            "**Join with aggregation** — `SELECT u.name, COUNT(o.id) FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.name`.",
+            "**Natural join** — joins automatically on columns with the same name. Implicit and fragile — avoid in production."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Read next row from left table\"] --> B{\"Matching row in right table?\"}\n    B -- \"Yes\" --> C[\"Combine columns from both rows\"]\n    B -- \"No\" --> D{\"Join type is LEFT/FULL?\"}\n    D -- \"Yes\" --> E[\"Combine with NULLs for right side\"]\n    D -- \"No - INNER\" --> F[\"Skip this row entirely\"]\n    C --> G[\"Add to result set\"]\n    E --> G",
+      "caption": "How a join decides, row by row, whether to include a match, fill with NULLs, or skip entirely — the difference between INNER and LEFT/FULL joins."
+    },
+    "comparisonTables": [
+      {
+        "title": "INNER vs LEFT vs RIGHT vs FULL OUTER JOIN",
+        "columns": [
+          "Join Type",
+          "Rows Returned",
+          "NULLs Possible?"
+        ],
+        "rows": [
+          [
+            "INNER JOIN",
+            "Only matching rows from both tables",
+            "No"
+          ],
+          [
+            "LEFT JOIN",
+            "All left rows + matches from right",
+            "Yes, on right side"
+          ],
+          [
+            "RIGHT JOIN",
+            "All right rows + matches from left",
+            "Yes, on left side"
+          ],
+          [
+            "FULL OUTER JOIN",
+            "All rows from both tables",
+            "Yes, on either side"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "A reporting query needs every customer, including those who've never ordered, along with their total order count — starting from a simple customer-to-order lookup and then switching join types to reveal inactive customers.",
+      "code": "-- Every order paired with the customer who placed it (INNER JOIN)\nSELECT c.name, o.product_name\nFROM customers c\nINNER JOIN orders o ON o.customer_id = c.id;\n\n-- Every customer, including those with zero orders (LEFT JOIN)\nSELECT c.name, COUNT(o.id) AS order_count\nFROM customers c\nLEFT JOIN orders o ON o.customer_id = c.id\nGROUP BY c.name\nHAVING COUNT(o.id) = 0;",
+      "input": "A `customers` table and an `orders` table linked by `customer_id`.",
+      "execution": "The first query matches each `orders` row to its `customers` row via `customer_id = c.id`, combining the two into one row per match — customers with zero orders are left out entirely. The second query switches to LEFT JOIN, which keeps every customer row even with no matching order (filling order columns with NULL), then HAVING filters down to customers with zero matched orders.",
+      "output": "The first query returns one row per order, showing the customer's name next to the product they bought. The second returns a list of customers who have never placed an order — useful for a re-engagement campaign.",
+      "explanation": "Switching from INNER to LEFT JOIN is what makes customers with no orders visible at all — an INNER JOIN would have silently excluded them. This is the core join lesson: the join type decides whether an unmatched row survives, gets NULLs, or disappears."
+    },
+    "interviewExplanation": [
+      "Joins combine rows across tables using a matching column, since normalized databases split related data — customers, orders, products — into separate tables to avoid duplication. The type of join is really just a rule for what happens when a row has no match on the other side. INNER JOIN keeps only rows that match on both sides. LEFT JOIN keeps every row from the left table regardless, filling in NULLs when there's no match on the right. RIGHT JOIN is the mirror image, and FULL OUTER JOIN keeps everything from both sides.",
+      "The way I think about it row by row: for each row on the left, the engine checks for a match on the right. If there's a match, it combines the columns. If there isn't, an INNER JOIN just skips that row, while a LEFT or FULL join still includes it with NULLs on the right side. That's really the entire distinction between join types.",
+      "A gotcha I watch for is row multiplication — if the right table has multiple matches for one left row, a join produces one output row per match, which can inflate counts unexpectedly, especially right before a GROUP BY. I'd also mention that MySQL doesn't support FULL OUTER JOIN natively, so you'd simulate it with a LEFT JOIN unioned with a RIGHT JOIN."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why might a LEFT JOIN return more rows than the left table has on its own?",
+        "a": "If the right table has multiple matching rows for one left row, the join produces one output row per match — this can multiply row counts unexpectedly, especially before a GROUP BY. Wrapping the query with GROUP BY (and an appropriate aggregate) is the usual fix when you need one row per left-side entity."
+      },
+      {
+        "q": "When would you actually need a CROSS JOIN?",
+        "a": "Rarely — mainly for generating all possible combinations, like pairing every size with every color for a product variant matrix. Outside of that kind of combinatorial generation, an unintentional CROSS JOIN (usually from a missing ON condition) is a bug, not a feature."
+      },
+      {
+        "q": "How do you get a FULL OUTER JOIN in MySQL?",
+        "a": "MySQL doesn't support FULL OUTER JOIN directly. Simulate it with a LEFT JOIN combined with a UNION against a RIGHT JOIN, so unmatched rows from both sides are captured."
+      },
+      {
+        "q": "What's the risk of using a natural join in a production query?",
+        "a": "A natural join matches implicitly on any columns that share a name across the two tables — it isn't explicit about which columns drive the match. If an unrelated column happens to share a name (or a new column is added later that collides), the join silently changes behavior without any error, which makes it fragile and hard to debug."
+      },
+      {
+        "q": "How does the presence or absence of an index on the join column affect performance?",
+        "a": "Without an index on the join column, the engine typically has to scan the entire table on that side to find matches for each row, which is expensive as tables grow. An index lets it look up matches directly, which is why join columns — especially foreign keys — are prime candidates for indexing."
+      }
+    ],
+    "bestPractices": [
+      "Always specify the join condition explicitly with `ON` — never rely on implicit natural joins in production.",
+      "Use `LEFT JOIN` (not `INNER JOIN`) whenever unmatched rows on the left side still need to appear in the result.",
+      "Watch for row multiplication: if the right table has multiple matches per left row, wrap the query with `GROUP BY` when you need one row per left-side entity."
+    ],
+    "commonMistakes": [
+      "Using INNER JOIN when LEFT JOIN was needed, silently dropping rows with no match.",
+      "Forgetting that NULL values appear on the unmatched side of a LEFT/RIGHT/FULL OUTER JOIN, and not accounting for them in later filters or aggregates.",
+      "Relying on natural joins, which break silently if an unrelated column happens to share a name across tables."
+    ],
+    "summary": [
+      "Joins combine rows across tables using a matching column; the type (INNER, LEFT, RIGHT, FULL) determines which unmatched rows survive.",
+      "INNER JOIN keeps only matches, LEFT/RIGHT JOIN preserve one full side with NULLs on the other, and FULL OUTER JOIN preserves both sides.",
+      "Self joins and multi-table joins apply the same matching logic, just against the same table or across more than two tables at once."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Database Design — the relationships joins reassemble",
+        "sectionId": "database",
+        "subsectionId": "database-design"
+      }
+    ]
+  },
+  {
+    "id": "subqueries",
+    "title": "Subqueries",
+    "overview": [
+      "A **subquery** nests one query inside another to answer a question that needs an intermediate result first.",
+      "It can return a single value, a list of values, or simply prove whether any matching rows exist at all.",
+      "Subqueries appear inside `SELECT`, `WHERE`, or `FROM`, letting you build up a result in layers rather than one flat query."
+    ],
+    "why": [
+      "Some questions can't be answered by filtering on a table's own columns alone — they depend on data computed from a related table or another slice of the same table.",
+      "An outer query sometimes needs a value that only exists after examining that other data first; fetching it in a separate round trip means an extra network call and extra application-side code to stitch the results together.",
+      "A subquery lets you compute that related value or condition first, then use it to filter or shape the outer query — the database resolves everything in one pass, staying declarative instead of leaking logic into the application.",
+      "This is exactly the gap subqueries close: they let one query depend on the result of another, without the caller ever seeing two separate round trips."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Subqueries come in a few distinct shapes, depending on what they return and whether they depend on the outer query."
+      ],
+      "topics": [
+        {
+          "heading": "Subqueries",
+          "points": [
+            "**Scalar subquery** — returns a single value: `SELECT name, (SELECT COUNT(*) FROM orders WHERE user_id = u.id) FROM users u`.",
+            "**IN subquery** — `SELECT * FROM users WHERE id IN (SELECT user_id FROM orders WHERE total > 100)`.",
+            "**EXISTS** — `SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)`. Usually faster than `IN`.",
+            "**Correlated subquery** — references the outer query and executes once per outer row; consider a JOIN instead."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Outer query starts evaluating a row\"] --> B{\"Subquery type?\"}\n    B -- \"Scalar\" --> C[\"Run subquery once, get single value\"]\n    B -- \"IN\" --> D[\"Run subquery once, get full list\"]\n    B -- \"EXISTS / Correlated\" --> E[\"Run subquery per outer row, using outer row's values\"]\n    C --> F[\"Use value to filter or project outer row\"]\n    D --> F\n    E --> F\n    F --> G[\"Move to next outer row\"]",
+      "caption": "Non-correlated subqueries (scalar, IN) typically run once regardless of outer row count; correlated subqueries and EXISTS checks are evaluated per outer row, which is why their cost scales differently."
+    },
+    "comparisonTables": [
+      {
+        "title": "IN vs EXISTS",
+        "columns": [
+          "Aspect",
+          "IN",
+          "EXISTS"
+        ],
+        "rows": [
+          [
+            "Evaluates",
+            "Full subquery result list first",
+            "Stops at first matching row"
+          ],
+          [
+            "Best for",
+            "Small, static subquery result sets",
+            "Large subquery result sets"
+          ],
+          [
+            "NULL handling",
+            "Can silently misbehave with NULLs",
+            "Not affected by NULLs in subquery"
+          ],
+          [
+            "Typical speed",
+            "Slower on large subqueries",
+            "Usually faster — short-circuits"
+          ]
+        ]
+      },
+      {
+        "title": "Subquery vs JOIN vs CTE",
+        "columns": [
+          "Aspect",
+          "Subquery",
+          "JOIN",
+          "CTE"
+        ],
+        "rows": [
+          [
+            "Readability",
+            "Can nest deeply, harder to read",
+            "Flat, usually clearer",
+            "Named, very readable"
+          ],
+          [
+            "Reusability",
+            "Not reusable within the query",
+            "Not reusable",
+            "Can be referenced multiple times"
+          ],
+          [
+            "Performance",
+            "Correlated form can be slow",
+            "Generally optimizer-friendly",
+            "Similar to subquery, sometimes materialized"
+          ],
+          [
+            "Best for",
+            "One-off scalar/EXISTS checks",
+            "Combining full row sets",
+            "Breaking complex logic into named steps"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "Find every customer who has placed at least one order over 100.",
+      "code": "SELECT name\nFROM customers\nWHERE id IN (\n  SELECT customer_id FROM orders WHERE total > 100\n);",
+      "input": "A `customers` table and an `orders` table linked by `customer_id`.",
+      "execution": "The inner query first produces the full list of `customer_id`s with a high-value order; the outer query then keeps only customers whose `id` appears in that list.",
+      "output": "The names of customers who have at least one order over 100.",
+      "explanation": "The IN subquery runs once and produces a fixed list — the outer query just checks membership against it, no per-row re-execution needed. Contrast this with a correlated version of the same idea, like `WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.total > 100)`: that form is conceptually re-run once per outer row since it references the outer row's `id`, which is exactly the trade-off interviewers probe when they ask you to pick between IN and EXISTS."
+    },
+    "interviewExplanation": [
+      "A subquery is just a query inside another query, used when the outer query needs a value or a set of values that only exists after looking at some other data first. I'd reach for a scalar subquery when I need exactly one value — like a per-row order count — an IN subquery when I need to check membership against a list, and EXISTS when I only care whether a match exists at all, not what it is.",
+      "The distinction I always call out is correlated versus non-correlated. A non-correlated subquery, like a plain IN list, runs once and produces a fixed result the outer query checks against. A correlated subquery references a column from the outer row, so conceptually it re-runs for every outer row — which is fine at small scale but is usually the first thing I'd look at rewriting as a JOIN if a query is slow.",
+      "The other thing I keep in mind is the NOT IN plus NULL gotcha — if the subquery in a NOT IN can return NULL, the whole condition can silently evaluate to no rows, so I default to NOT EXISTS for absence checks instead."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why do subqueries exist when JOINs already combine tables?",
+        "a": "A JOIN combines full row sets from two tables side by side. A subquery is for when you only need a derived value or a yes/no check from another table or slice of data — not the actual joined columns. Forcing every such case into a JOIN often means an extra GROUP BY and more columns than you actually need just to get one number."
+      },
+      {
+        "q": "What happens internally when a correlated subquery runs?",
+        "a": "Conceptually, the database re-evaluates the inner query once per row produced by the outer query, substituting that row's values into the correlation condition each time. Modern optimizers often rewrite this into a semi-join or anti-join internally so it doesn't literally execute row by row, but you should reason about correctness as if it does — performance is the optimizer's job, not a guarantee."
+      },
+      {
+        "q": "What's the advantage of a subquery over running two separate queries in application code?",
+        "a": "It keeps the whole computation inside the database in one round trip and one execution plan, instead of one query, a network hop back to the app, application logic to extract values, and a second query. It's also easier for the database to optimize a single statement than for you to hand-optimize two separate ones."
+      },
+      {
+        "q": "What's the main disadvantage or risk of subqueries?",
+        "a": "Deep nesting hurts readability fast, and correlated subqueries can silently turn into a per-row cost that only shows up under load. There's also the NOT IN plus NULL trap: if the subquery can return NULL, NOT IN can silently return zero rows instead of erroring, which is a correctness bug, not just a performance one."
+      },
+      {
+        "q": "When would you avoid a subquery entirely?",
+        "a": "When you actually need columns from both tables in the final result — that's a JOIN's job. Also when a correlated subquery is doing a lookup that a window function could do instead, like comparing a row to its group's average — AVG() OVER (PARTITION BY ...) computes that once per group instead of once per row."
+      },
+      {
+        "q": "IN vs EXISTS — when do you pick one over the other, and why?",
+        "a": "EXISTS short-circuits on the first match and isn't affected by NULLs in the subquery result, so I default to it for large subqueries and for absence checks (NOT EXISTS). IN is fine and often more readable for small, static lists, but I'd avoid NOT IN specifically if there's any chance the subquery result contains NULL."
+      }
+    ],
+    "bestPractices": [
+      "Prefer `EXISTS` over `IN` when the subquery returns a large result set.",
+      "Consider rewriting a correlated subquery as a JOIN when it's re-evaluated for every outer row and performance suffers.",
+      "Use a scalar subquery in `SELECT` only for cheap, indexed lookups — an expensive scalar subquery runs once per outer row."
+    ],
+    "commonMistakes": [
+      "Writing a correlated subquery that re-executes per outer row when a JOIN would run once and be faster.",
+      "Forgetting that NULL values inside an IN subquery's result can cause the entire condition to evaluate as unknown.",
+      "Using IN with a subquery that can return NULL, instead of NOT EXISTS, when checking for absence — NOT IN with NULLs in the list can silently return zero rows."
+    ],
+    "summary": [
+      "Subqueries nest a query inside another to compute an intermediate value, check existence, or filter by a related result.",
+      "Scalar subqueries return one value, IN subqueries return a list to check membership against, and EXISTS/correlated subqueries test row-by-row conditions.",
+      "EXISTS generally outperforms IN on large subqueries, and correlated subqueries are often better rewritten as JOINs for performance."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Common Table Expressions — naming a subquery for readability and reuse",
+        "sectionId": "sql",
+        "subsectionId": "cte"
+      }
+    ]
+  },
+  {
+    "id": "cte",
+    "title": "Common Table Expressions",
+    "overview": [
+      "A Common Table Expression (`CTE`) is a named, temporary result set defined with a `WITH` clause that you can reference like a table inside a single `SELECT`, `INSERT`, `UPDATE`, or `DELETE` statement.",
+      "CTEs come in two flavors: **non-recursive** (a readable stand-in for a subquery) and **recursive** (a CTE that refers to itself to walk hierarchical or graph-like data).",
+      "Unlike a view, a CTE is not saved in the database — it exists only for the duration of the query that defines it.",
+      "Recursive CTEs are the standard SQL tool for problems that would otherwise require application-side loops: org charts, category trees, bill-of-materials explosions, and graph traversal."
+    ],
+    "why": [
+      "Complex queries built from nested subqueries become unreadable fast, and the same subquery often gets duplicated if it's needed in more than one place — a CTE lets you name each logical step and read the query top to bottom.",
+      "Hierarchical data (managers and reports, folders and subfolders, categories and subcategories) cannot be unwound with a fixed number of joins because the depth isn't known in advance — recursive CTEs handle arbitrary depth.",
+      "Before CTEs, developers solved hierarchy traversal with application code — query the top-level row, then loop and issue a new query per level, which is slow and chatty — or with proprietary syntax like Oracle's `CONNECT BY` that didn't port across engines.",
+      "CTEs make multi-step ETL-style logic (filter, then aggregate, then rank) expressible in a single statement instead of temporary tables.",
+      "Interviewers use recursive CTEs specifically to test whether a candidate understands iteration expressed declaratively, which is a common gap for developers coming from procedural languages."
+    ],
+    "internalWorking": {
+      "intro": [
+        "A CTE is introduced with `WITH cte_name AS (subquery)` placed before the main statement; recursive CTEs add the keyword `RECURSIVE` and a self-reference inside the CTE body."
+      ],
+      "topics": [
+        {
+          "heading": "Non-Recursive CTEs",
+          "points": [
+            "Syntax: `WITH cte_name (col1, col2) AS (SELECT ...) SELECT * FROM cte_name;` — the column list is optional if the inner `SELECT` already has clear column names.",
+            "Its only job is to give a subquery a name so the outer query reads like plain English: `WITH high_value_orders AS (SELECT * FROM orders WHERE total > 1000) SELECT customer_id, COUNT(*) FROM high_value_orders GROUP BY customer_id;`",
+            "Multiple CTEs can be chained in one `WITH` clause, each separated by a comma, and later CTEs can reference earlier ones: `WITH a AS (...), b AS (SELECT * FROM a WHERE ...) SELECT * FROM b;`",
+            "A CTE is scoped only to the statement it's attached to — it disappears once that statement finishes, unlike a view which persists in the schema.",
+            "Most engines treat a non-recursive CTE as an optimization fence or inline it like a subquery depending on the query planner — behavior differs by database, so don't assume it's always materialized once and reused for free.",
+            "Because a CTE is just a named subquery, it can be filtered, joined, or aggregated in the outer query exactly like a real table."
+          ]
+        },
+        {
+          "heading": "Recursive CTEs",
+          "points": [
+            "Structure: a **base case** (an anchor `SELECT` with no self-reference) `UNION ALL` a **recursive case** (a `SELECT` that references the CTE's own name), wrapped in `WITH RECURSIVE cte_name AS (base UNION ALL recursive)`.",
+            "The base case runs exactly once and seeds the starting rows — for example, the one employee row matching a given `manager_id`.",
+            "The recursive case then re-executes repeatedly, each time joining the CTE to itself using only the rows produced in the previous iteration, not the entire accumulated result.",
+            "The classic use case is a hierarchy: an `employees` table with a self-referencing `manager_id` column pointing to `employees.id`, used to walk down the management chain (find all reports of a manager) or up it (find all managers above an employee).",
+            "The same pattern works for any parent/child structure, such as a `categories` table with a `parent_id` column for a product category tree, or a `parts` table for a bill-of-materials explosion.",
+            "The recursion stops automatically the moment the recursive case's `SELECT` returns zero new rows for that iteration — there is no explicit loop counter to manage."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Base case SELECT runs once\"] --> B[\"Seed rows added to result set\"]\n    B --> C[\"Recursive case joins CTE name against seed rows\"]\n    C --> D{\"Recursive case returned new rows?\"}\n    D -- \"Yes\" --> E[\"Append new rows to result set\"]\n    E --> F[\"Recursive case re-runs using only the newest rows\"]\n    F --> D\n    D -- \"No\" --> G[\"Recursion stops, full result set returned\"]",
+      "caption": "The recursive CTE execution model: the base case seeds the first generation, then each recursive pass joins only against the previous pass's new rows until a pass produces nothing new."
+    },
+    "comparisonTables": [
+      {
+        "title": "CTE vs Subquery vs Temporary Table vs View",
+        "columns": [
+          "Aspect",
+          "CTE",
+          "Subquery",
+          "Temp Table",
+          "View"
+        ],
+        "rows": [
+          [
+            "Lifetime",
+            "Single statement",
+            "Single statement",
+            "Session or transaction",
+            "Persists in schema"
+          ],
+          [
+            "Reusable within the query",
+            "Yes, by name",
+            "No, must repeat",
+            "Yes",
+            "Yes"
+          ],
+          [
+            "Can be recursive",
+            "Yes (`WITH RECURSIVE`)",
+            "No",
+            "No (needs a loop)",
+            "No"
+          ],
+          [
+            "Stored on disk",
+            "No",
+            "No",
+            "Yes, temporarily",
+            "No (query only, unless materialized)"
+          ],
+          [
+            "Readability for nested logic",
+            "High — named steps",
+            "Low — nested parentheses",
+            "High but verbose",
+            "High for stable, reused logic"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "Given an `employees` table with columns `id`, `name`, and `manager_id` (self-referencing `employees.id`), find every employee who reports up to a given manager, directly or indirectly, along with how many levels down they are.",
+      "code": "WITH RECURSIVE reports AS (\n    -- Base case: the manager's direct reports\n    SELECT id, name, manager_id, 1 AS depth\n    FROM employees\n    WHERE manager_id = 101\n\n    UNION ALL\n\n    -- Recursive case: reports of the people already found\n    SELECT e.id, e.name, e.manager_id, r.depth + 1\n    FROM employees e\n    INNER JOIN reports r ON e.manager_id = r.id\n)\nSELECT id, name, depth\nFROM reports\nORDER BY depth, name;",
+      "input": "employees table:\nid=101 name='Aria (VP)'      manager_id=NULL\nid=102 name='Ben (Manager)'  manager_id=101\nid=103 name='Cara (Manager)' manager_id=101\nid=104 name='Dev (Engineer)' manager_id=102\nid=105 name='Ella (Engineer)' manager_id=102\nid=106 name='Finn (Intern)'  manager_id=104",
+      "execution": "1. Base case runs once: finds employees with manager_id = 101 → Ben (depth 1), Cara (depth 1).\n2. Recursive pass 1: joins employees against {Ben, Cara} → finds Dev and Ella (manager_id = 102 = Ben's id), depth 2.\n3. Recursive pass 2: joins employees against {Dev, Ella} → finds Finn (manager_id = 104 = Dev's id), depth 3.\n4. Recursive pass 3: joins employees against {Finn} → no employee has manager_id = 106, so zero rows are returned.\n5. Zero new rows ends the recursion; all accumulated rows are returned by the outer SELECT.",
+      "output": "id=102 name='Ben'  depth=1\nid=103 name='Cara' depth=1\nid=104 name='Dev'  depth=2\nid=105 name='Ella' depth=2\nid=106 name='Finn' depth=3",
+      "explanation": "Each recursive pass only looks one level deeper than the last, so the query naturally handles an org chart of any depth without hardcoding the number of levels. The `depth` column is carried forward and incremented each pass, giving a free by-product: how far down the chain each employee sits. The same shape works for a category tree by swapping `manager_id`/`employees` for `parent_id`/`categories`, and real systems typically add a depth cap or rely on the engine's recursion limit as a safeguard against a corrupted self-reference forming a cycle."
+    },
+    "interviewExplanation": [
+      "A CTE is a named, temporary result set defined with a WITH clause that you can reference like a table for the rest of that one statement. I'd reach for a non-recursive CTE mainly for readability — it lets me name each logical step of a query instead of nesting subqueries inside subqueries — and it disappears once the statement finishes, unlike a view.",
+      "A recursive CTE is the more interesting case: it has a base case that seeds the starting rows, and a recursive case that joins the CTE back to itself, re-running against only the newest rows each pass, until a pass produces nothing new. That's the standard tool for hierarchical data — an employee-manager chain or a category tree — where you don't know the depth ahead of time.",
+      "The thing I always mention is the stopping condition: recursion isn't driven by a loop counter, it stops automatically the moment a pass returns zero new rows. And in practice I'd guard it with a depth cap or lean on the engine's built-in recursion limit, in case the data has a cycle — like a manager_id that loops back on itself."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why does a CTE exist when a subquery already does the same job?",
+        "a": "Mainly readability and reuse. A subquery has to be re-written every place it's needed and reads inside-out when nested. A CTE gets a name, can be referenced multiple times in the outer query, and lets you chain several named steps top to bottom — which matters a lot once a query has more than one derived stage."
+      },
+      {
+        "q": "What happens internally when a recursive CTE runs?",
+        "a": "The engine runs the base case once to produce the first generation of rows. Then it repeatedly runs the recursive member, but only against the rows produced in the immediately previous pass — not the whole accumulated set — unions the new rows in, and repeats. The moment a pass produces zero new rows, recursion stops and the full accumulated result is returned."
+      },
+      {
+        "q": "How is a recursive CTE different from a loop in application code?",
+        "a": "A loop in application code means issuing a new query per level, round-tripping to the database each time and stitching results together yourself — slow and chatty. A recursive CTE expresses the same iteration declaratively inside one statement: the database handles seeding, iterating, and stopping internally, in a single round trip, and it can lean on set-based execution rather than row-by-row network calls."
+      },
+      {
+        "q": "What's the advantage of a CTE over a temp table?",
+        "a": "A CTE needs no separate CREATE/DROP step and no disk or session storage — it's scoped to a single statement and disappears automatically. A temp table is heavier but persists across multiple statements in a session, which is genuinely useful when you need to reuse the same derived data across several separate queries, not just one."
+      },
+      {
+        "q": "What's a real disadvantage or gotcha with CTEs?",
+        "a": "Materialization isn't guaranteed — some engines re-evaluate a non-recursive CTE every place it's referenced instead of computing it once, so assuming free reuse across a query can be wrong depending on the database and version. For recursive CTEs, the real risk is an unguarded cycle in the data causing runaway recursion until the engine's safety limit kills the query."
+      },
+      {
+        "q": "When would you avoid a recursive CTE?",
+        "a": "When the hierarchy has a known, small, fixed depth — a few explicit JOINs are simpler and clearer than the base-case/recursive-case ceremony. I'd also be cautious using one on a very large, ungoverned hierarchy without a depth guard, since a data cycle can turn it into a runaway query."
+      }
+    ],
+    "bestPractices": [
+      "Always include a way to stop runaway recursion — either a `WHERE depth < n` guard in the recursive member or rely on the engine's built-in recursion limit, and know what that limit is for your database.",
+      "Keep the recursive member's `SELECT` list column types identical to the base case's types (use explicit `CAST`) since most engines require matching types across the `UNION ALL`.",
+      "Use `UNION ALL` rather than `UNION` in the recursive step — deduplication is rarely needed and `UNION` forces an expensive distinct check on every pass.",
+      "Name CTEs descriptively (`active_customers`, not `cte1`) since the whole point is readability over a raw subquery.",
+      "When a non-recursive CTE is referenced many times and is expensive to compute, check whether your engine materializes it or re-evaluates it per reference — some databases offer an explicit `MATERIALIZED` hint (e.g., PostgreSQL) for this."
+    ],
+    "commonMistakes": [
+      "Forgetting `RECURSIVE` in the `WITH` clause on engines that require it explicitly (PostgreSQL, MySQL 8+), causing a syntax error or the self-reference to be treated as an unrelated table.",
+      "Referencing the CTE more than once inside the recursive member's `FROM`/`JOIN` — most engines only allow a single reference to the CTE name per recursive step.",
+      "Using `UNION` instead of `UNION ALL`, which silently adds a large performance cost by deduplicating on every recursive pass.",
+      "Not guarding against cycles in the data (for example, an `employees` row where `manager_id` accidentally points back down the chain), which can cause infinite recursion until the engine's safety limit kills the query.",
+      "Assuming a non-recursive CTE always executes once and is cached automatically for reuse — this is engine- and version-specific behavior, not a guarantee of the SQL standard."
+    ],
+    "summary": [
+      "A CTE names a subquery with `WITH name AS (...)` so the outer query can reference it like a table, improving readability without persisting anything to the schema.",
+      "A recursive CTE adds a base case and a self-referencing recursive case joined by `UNION ALL`, making it the standard declarative tool for hierarchical and graph-like data.",
+      "Recursion stops automatically once a pass produces zero new rows, so depth doesn't need to be known in advance."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Window Functions — another tool for advanced result shaping",
+        "sectionId": "sql",
+        "subsectionId": "window-functions"
+      }
+    ]
+  },
+  {
+    "id": "window-functions",
+    "title": "Window Functions",
+    "overview": [
+      "A window function computes a value across a set of related rows — the **window** — and returns that value on every row in the set, without collapsing the rows into one, unlike `GROUP BY`.",
+      "The core syntax is `function() OVER (PARTITION BY col ORDER BY col)`, where `PARTITION BY` defines the window per group and `ORDER BY` defines the row sequence inside it.",
+      "The most common families are ranking functions (`ROW_NUMBER`, `RANK`, `DENSE_RANK`), offset functions (`LAG`, `LEAD`), and running/aggregate-style functions (`SUM`, `AVG` used with `OVER`).",
+      "Because the row count never shrinks, window functions let you show both individual rows and a group-level calculation side by side in the same result set — something `GROUP BY` alone cannot do."
+    ],
+    "why": [
+      "Business questions like 'rank employees by salary within their department' or 'show each month's revenue next to the previous month's' need per-row context alongside a group-level number — solving them with `GROUP BY` requires collapsing rows and then joining back to the original rows, which is verbose and often slower.",
+      "Before window functions, comparing a row to a related row (like the previous month) required a self-join on a computed offset, and running totals or moving averages needed correlated subqueries — one execution per output row — which scales poorly.",
+      "`LAG`/`LEAD` remove the need for a self-join when comparing a row to its neighbor in a sequence, which is both simpler to write and easier for the optimizer to reason about.",
+      "Ranking functions like `RANK` and `DENSE_RANK` give correct tie-handling behavior for leaderboards and top-N-per-group reports that a naive `ROW_NUMBER` or manual counter would get wrong.",
+      "Window functions are a near-universal topic in SQL interviews because they distinguish candidates who only know `GROUP BY` from those who can shape a result set at the row level."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Every window function shares the same structural pieces: an optional `PARTITION BY` to split the data into independent groups, an optional `ORDER BY` to define row order inside each group, and the function itself, which is evaluated once per row using that row's window."
+      ],
+      "topics": [
+        {
+          "heading": "ROW_NUMBER, RANK & DENSE_RANK",
+          "points": [
+            "All three assign a positional number to each row based on `ORDER BY`, but they differ entirely in how they treat **ties** (rows with equal values in the `ORDER BY` column).",
+            "`ROW_NUMBER()` always gives a unique, sequential integer to every row, even if two rows are tied — the tie is broken arbitrarily (or by a secondary `ORDER BY` column if provided).",
+            "`RANK()` gives tied rows the same rank number, then **skips** the next rank(s) by the count of tied rows — e.g., two rows tied for rank 1 means the next row gets rank 3, not 2.",
+            "`DENSE_RANK()` also gives tied rows the same rank number, but does **not** skip — the next distinct value always gets the very next integer.",
+            "Example: `SELECT name, salary, RANK() OVER (ORDER BY salary DESC) AS salary_rank FROM employees;` ranks every employee by salary, tying identical salaries together.",
+            "Choosing between them depends on the question being asked: `ROW_NUMBER` for 'give me exactly N rows,' `RANK` for 'true competition ranking with gaps,' `DENSE_RANK` for 'ranking without gaps.'"
+          ]
+        },
+        {
+          "heading": "LAG & LEAD",
+          "points": [
+            "`LAG(column, offset, default)` reads a value from a **previous** row in the window's order; `LEAD(column, offset, default)` reads a value from a **following** row — both without any self-join.",
+            "The `offset` argument (default 1) controls how many rows back or forward to look; `default` is the value returned when there is no such row (e.g., the very first row has no previous row for `LAG`).",
+            "Classic example: `SELECT month, revenue, LAG(revenue) OVER (ORDER BY month) AS prev_month_revenue FROM monthly_revenue;` puts last month's revenue directly next to this month's for an easy month-over-month comparison in the same row.",
+            "Combine with arithmetic to compute deltas in one pass: `revenue - LAG(revenue) OVER (ORDER BY month) AS revenue_change`.",
+            "`LAG`/`LEAD` respect `PARTITION BY` just like any other window function — partitioning by `product_id` before ordering by `month` gives month-over-month comparisons independently per product.",
+            "Unlike a self-join on `month = month - 1`, `LAG`/`LEAD` need no join condition at all and handle gaps in the sequence according to actual row order, not assumed date arithmetic."
+          ]
+        },
+        {
+          "heading": "PARTITION BY",
+          "points": [
+            "`PARTITION BY` splits the rows into independent groups before the window function is applied — the function's calculation restarts from scratch for each partition.",
+            "Without `PARTITION BY`, the window function treats the entire result set as a single partition — for example, `RANK() OVER (ORDER BY salary DESC)` ranks every employee company-wide.",
+            "With `PARTITION BY`, the same query becomes department-scoped: `RANK() OVER (PARTITION BY department ORDER BY salary DESC)` ranks each employee only against coworkers in their own department, and every department's ranking independently starts back at 1.",
+            "`PARTITION BY` is conceptually similar to `GROUP BY` in that it defines a grouping key, but it never reduces the row count — every original row is still returned, now carrying its group's calculated value alongside it.",
+            "Multiple columns can be used to partition: `PARTITION BY department, job_title` creates a separate window for each department-and-title combination.",
+            "Partitioning also applies to aggregate-style window functions, e.g., `SUM(salary) OVER (PARTITION BY department)` returns each department's total payroll on every row belonging to that department, without collapsing the individual employee rows."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Full result set produced by FROM/WHERE\"] --> B{\"PARTITION BY specified?\"}\n    B -- \"Yes\" --> C[\"Split rows into independent partitions by key\"]\n    B -- \"No\" --> D[\"Treat entire result set as one partition\"]\n    C --> E[\"Order rows inside each partition using ORDER BY\"]\n    D --> E\n    E --> F[\"Apply window function per row using its partition + order position\"]\n    F --> G[\"Attach computed value to that row, original row count unchanged\"]",
+      "caption": "How a window function is evaluated: rows are partitioned, ordered within each partition, then the function computes a value per row using that row's position — without collapsing any rows out of the final result."
+    },
+    "comparisonTables": [
+      {
+        "title": "ROW_NUMBER vs RANK vs DENSE_RANK",
+        "columns": [
+          "Aspect",
+          "ROW_NUMBER",
+          "RANK",
+          "DENSE_RANK"
+        ],
+        "rows": [
+          [
+            "Handles ties by",
+            "Assigning a different number to every row regardless of ties",
+            "Giving tied rows the same rank",
+            "Giving tied rows the same rank"
+          ],
+          [
+            "Gaps after a tie",
+            "Never — always strictly sequential (1,2,3,4)",
+            "Yes — skips ranks equal to the number of ties (1,1,3,4)",
+            "No — next distinct value is always the next integer (1,1,2,3)"
+          ],
+          [
+            "Result for 2 rows tied at top",
+            "1 and 2 (arbitrary which is which)",
+            "1 and 1, next row is 3",
+            "1 and 1, next row is 2"
+          ],
+          [
+            "Typical use case",
+            "Pagination, deduplication, picking exactly one row per group",
+            "Competition-style leaderboards where gaps matter",
+            "Ranking display where you don't want visible gaps"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "Rank employees by salary within their own department, so each department's highest earner is rank 1 independently of other departments.",
+      "code": "SELECT\n    name,\n    department,\n    salary,\n    RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS dept_rank\nFROM employees\nORDER BY department, dept_rank;",
+      "input": "employees table:\nname='Ana'  department='Engineering' salary=95000\nname='Bo'   department='Engineering' salary=95000\nname='Cy'   department='Engineering' salary=88000\nname='Dee'  department='Sales'       salary=70000\nname='Eli'  department='Sales'       salary=65000",
+      "execution": "1. PARTITION BY department splits rows into two independent windows: {Ana, Bo, Cy} and {Dee, Eli}.\n2. Inside Engineering, ORDER BY salary DESC sorts Ana and Bo (tied at 95000) ahead of Cy (88000).\n3. RANK() assigns both Ana and Bo rank 1 since they're tied, then skips rank 2 entirely and gives Cy rank 3.\n4. Inside Sales, Dee (70000) gets rank 1 and Eli (65000) gets rank 2 — this partition's ranking is completely independent of Engineering's.\n5. All 5 original rows are returned; none were collapsed.",
+      "output": "name='Ana' department='Engineering' salary=95000 dept_rank=1\nname='Bo'  department='Engineering' salary=95000 dept_rank=1\nname='Cy'  department='Engineering' salary=88000 dept_rank=3\nname='Dee' department='Sales'       salary=70000 dept_rank=1\nname='Eli' department='Sales'       salary=65000 dept_rank=2",
+      "explanation": "Notice rank 2 never appears in Engineering — `RANK()` skips it because two rows tied for rank 1. Also notice each department restarts numbering at 1 independently, which is exactly what `PARTITION BY` guarantees, and all five original employee rows are still present in the output. Swapping `RANK()` for `LAG(revenue) OVER (ORDER BY month)` on a monthly-revenue table is the same underlying mechanism applied to month-over-month deltas instead of ranking — one query, no self-join, every original row still present."
+    },
+    "interviewExplanation": [
+      "A window function computes something across a set of related rows — the window — but unlike GROUP BY, it doesn't collapse those rows down to one. Every original row comes back, now carrying a computed value alongside it, like a rank, a running total, or the previous row's value. The syntax is always function() OVER (PARTITION BY ... ORDER BY ...), where PARTITION BY restarts the calculation per group and ORDER BY sets the row order the function walks.",
+      "The three ranking functions only differ in tie handling: ROW_NUMBER always gives unique numbers even when values tie, RANK gives tied rows the same number but then skips the next rank by the tie count, and DENSE_RANK gives tied rows the same number without skipping. LAG and LEAD read a neighboring row's value directly, which removes the need for a self-join when you're comparing a row to the previous or next one in a sequence, like month-over-month revenue.",
+      "The thing I always flag as a gotcha is that window functions run after WHERE in the logical execution order, so you can't filter on a window function's result in the same query's WHERE clause — you have to wrap it in a subquery or CTE and filter in the outer query."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Why not just use GROUP BY?",
+        "a": "GROUP BY collapses every row in a group down to one output row, so you lose the individual row detail. A window function computes the same kind of group-level value — a rank, a sum, an average — but keeps every original row, attaching the computed value alongside it. If you need both the per-row detail and a group-level number in the same result, GROUP BY alone can't do that without a second join back to the base table."
+      },
+      {
+        "q": "What happens internally when a window function runs?",
+        "a": "The engine first produces the base result set from FROM/WHERE, splits it into partitions per PARTITION BY (or treats it as one partition if omitted), orders the rows inside each partition per ORDER BY, then evaluates the function once per row using that row's position within its partition. The row count going in equals the row count coming out — nothing is collapsed."
+      },
+      {
+        "q": "What's the advantage of LAG/LEAD over a self-join?",
+        "a": "No join condition to get wrong, and no risk of mismatched rows if there are gaps in the sequence — LAG/LEAD work off actual row order within the partition, not assumed date arithmetic like month = month - 1. It's also usually easier for the optimizer to reason about than an equivalent self-join."
+      },
+      {
+        "q": "What's a real disadvantage or gotcha with window functions?",
+        "a": "You can't reference a window function's alias in that same query's WHERE clause, since window functions are evaluated after WHERE in the logical order — you need an outer query or CTE to filter on the result. It's also easy to forget PARTITION BY and get a single company-wide ranking when a per-department one was intended — that's a silent bug, not an error."
+      },
+      {
+        "q": "When would you avoid a window function?",
+        "a": "When you genuinely only need one row per group with no per-row detail at all — a plain GROUP BY is simpler and often cheaper in that case. Reaching for a window function when a simple aggregate would do just adds unnecessary complexity."
+      },
+      {
+        "q": "How do RANK, DENSE_RANK, and ROW_NUMBER actually differ on tied values, concretely?",
+        "a": "For two rows tied at the top: ROW_NUMBER gives them 1 and 2 arbitrarily, RANK gives them both 1 and then jumps to 3 for the next row, and DENSE_RANK gives them both 1 and gives the next row 2. Which one is correct depends on the question — RANK for a leaderboard where gaps are meaningful, DENSE_RANK when you don't want visible gaps, and ROW_NUMBER when you need exactly one row picked per group regardless of ties."
+      }
+    ],
+    "bestPractices": [
+      "Always pair `RANK()` or `DENSE_RANK()` with a deterministic `ORDER BY` (add a tiebreaker column) if you need reproducible results when the primary sort column has ties.",
+      "Use `ROW_NUMBER()` inside a subquery or CTE plus a `WHERE row_num = 1` filter as the standard pattern for 'top 1 row per group' queries.",
+      "Prefer `LAG`/`LEAD` over a self-join whenever comparing a row to an adjacent row in a sequence — it's shorter, clearer, and usually better optimized.",
+      "Always specify `PARTITION BY` explicitly when you want per-group behavior — omitting it silently makes the window span the entire result set, which is a frequent source of subtle bugs.",
+      "Give window function results descriptive aliases (`dept_rank`, `prev_month_revenue`) rather than generic names so the outer query and any downstream `WHERE` filtering on them stays readable."
+    ],
+    "commonMistakes": [
+      "Trying to filter directly on a window function's result in the same `SELECT`'s `WHERE` clause — window functions are evaluated after `WHERE`, so the filter must go in an outer query or `QUALIFY` (where supported) instead.",
+      "Confusing `RANK` and `DENSE_RANK` and being surprised when a leaderboard has 'missing' numbers — that gap is `RANK` working as designed, not a bug.",
+      "Forgetting `PARTITION BY` when a per-group ranking was intended, resulting in a single ranking across the whole table instead of one per department.",
+      "Assuming `LAG`/`LEAD` return `0` instead of `NULL` at the sequence boundary when no `default` argument is supplied — the first row's `LAG` is `NULL` unless you explicitly pass a default.",
+      "Using a window function when a simple `GROUP BY` was actually sufficient — if the final result truly needs one row per group with no per-row detail, `GROUP BY` is simpler and often faster."
+    ],
+    "summary": [
+      "Window functions compute a value across a set of related rows but return that value on every individual row, unlike `GROUP BY` which collapses rows into one per group.",
+      "`ROW_NUMBER`, `RANK`, and `DENSE_RANK` differ only in tie-handling: unique-always, same-rank-with-gaps, and same-rank-without-gaps respectively.",
+      "`LAG` and `LEAD` read a neighboring row's value directly, eliminating the need for a self-join, while `PARTITION BY` restarts the calculation independently per group without shrinking the row count."
+    ],
+    "relatedTopics": [
+      {
+        "label": "GROUP BY & HAVING — collapses rows into groups, unlike a window function",
+        "sectionId": "sql",
+        "subsectionId": "group-by-having"
+      }
+    ]
+  },
+  {
+    "id": "views",
+    "title": "Views",
+    "overview": [
+      "A view is a saved, named `SELECT` query stored inside the database schema: `CREATE VIEW view_name AS SELECT ...`.",
+      "Once created, you query it exactly like a table — `SELECT * FROM view_name` — even though no table actually exists by that name.",
+      "A view stores no data of its own; every time it's queried, the database re-runs the saved query against the live, current rows in the base tables.",
+      "Because it's always backed by a live query rather than stored data, a view can never go stale — but it also never speeds anything up on its own."
+    ],
+    "why": [
+      "Repeating the same complex multi-table `JOIN` across every report or dashboard is error-prone — a view defines that join once, correctly, in a single place.",
+      "When the underlying tables change shape slightly, fixing the view's definition once fixes every query that depends on it, instead of hunting down dozens of copy-pasted joins.",
+      "A view can expose only certain columns or rows to a group of users, without granting them permission on the sensitive base tables directly — a simple access-control layer.",
+      "Because a view is never materialized by default, it guarantees every read reflects the current state of the data — useful whenever staleness would be unacceptable.",
+      "Interviewers use views to check whether a candidate understands the difference between a saved *query* and a saved *result* — a distinction that trips up a lot of otherwise strong SQL candidates."
+    ],
+    "internalWorking": {
+      "intro": [
+        "A view has exactly one job: give a `SELECT` statement a name so it can be reused like a table. Everything else — updatability, materialization, access control — follows from that one fact."
+      ],
+      "topics": [
+        {
+          "heading": "Views",
+          "points": [
+            "A view is created with `CREATE VIEW view_name AS SELECT ...` and queried afterward with ordinary `SELECT * FROM view_name` syntax, exactly like any real table.",
+            "A view does not store any data of its own — every time it's queried, the database re-runs (or expands) the underlying `SELECT` against the live, current data in the base tables.",
+            "Because a view always reflects the current state of its base tables, it's the natural tool for simplifying a recurring complex join or for hiding columns a given group of users shouldn't see.",
+            "Some engines support a **materialized view**, which does store a physical copy of the result and must be explicitly refreshed — this trades staleness for read speed, unlike a regular view.",
+            "Views can often be used in `INSERT`/`UPDATE`/`DELETE` if they map cleanly to a single underlying table, but views built from joins or aggregates are typically read-only.",
+            "A view can also restrict access: granting a user permission on a view (which exposes only certain columns or rows) without granting permission on the underlying base tables."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Application runs SELECT * FROM view_name\"] --> B[\"Database looks up the view's saved query definition\"]\n    B --> C[\"Saved query is substituted in place of the view name\"]\n    C --> D[\"Substituted query runs against live base tables\"]\n    D --> E[\"Result reflects current data, computed fresh every time\"]",
+      "caption": "A view has no data of its own — every query against it is really a query against the live base tables underneath, expanded at read time."
+    },
+    "comparisonTables": [
+      {
+        "title": "Regular View vs Materialized View",
+        "columns": [
+          "Aspect",
+          "Regular View",
+          "Materialized View"
+        ],
+        "rows": [
+          [
+            "Stores data?",
+            "No — only the query definition",
+            "Yes — a physical snapshot of the result"
+          ],
+          [
+            "Freshness",
+            "Always live, reflects current data",
+            "Can go stale until explicitly refreshed"
+          ],
+          [
+            "Read speed",
+            "Same cost as running the underlying query",
+            "Fast — reads a precomputed result"
+          ],
+          [
+            "Best for",
+            "Reused logic where freshness matters most",
+            "Expensive aggregations read far more often than the data changes"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "Create a view that combines `orders` and `customers` into a single, reusable dataset for a reporting dashboard, so report authors never have to write the join themselves.",
+      "code": "CREATE VIEW order_summary AS\nSELECT\n    o.id AS order_id,\n    o.order_date,\n    o.total,\n    c.id AS customer_id,\n    c.name AS customer_name,\n    c.email\nFROM orders o\nINNER JOIN customers c ON o.customer_id = c.id;\n\n-- Reporting dashboard just queries the view like a table:\nSELECT customer_name, COUNT(*) AS order_count, SUM(total) AS total_spent\nFROM order_summary\nWHERE order_date >= '2026-01-01'\nGROUP BY customer_name\nORDER BY total_spent DESC;",
+      "input": "orders table:\nid=1 customer_id=10 order_date='2026-01-15' total=250.00\nid=2 customer_id=10 order_date='2026-02-01' total=90.00\nid=3 customer_id=11 order_date='2026-01-20' total=500.00\n\ncustomers table:\nid=10 name='Priya Shah' email='priya@example.com'\nid=11 name='Marco Diaz' email='marco@example.com'",
+      "execution": "1. CREATE VIEW saves the join definition in the schema — no data is copied or duplicated at this point.\n2. When the dashboard query runs SELECT ... FROM order_summary, the database substitutes the view's saved SELECT (the orders/customers join) in place of order_summary.\n3. The substituted query runs against the current, live rows in orders and customers.\n4. The outer GROUP BY then aggregates the joined rows exactly as if the join had been written out by hand.\n5. If a new order is inserted into orders tomorrow, querying order_summary again immediately reflects it — the view has no memory of the old result.",
+      "output": "customer_name='Marco Diaz' order_count=1 total_spent=500.00\ncustomer_name='Priya Shah'  order_count=2 total_spent=340.00",
+      "explanation": "The report author never had to know that order_summary is really a two-table join — they queried it exactly like a table. Because the view isn't materialized, it always reflects the live data in orders and customers with no risk of showing stale results."
+    },
+    "interviewExplanation": [
+      "A view is basically a saved SELECT statement with a name — it doesn't store any data itself. Every time you query it, the database re-runs the underlying query against whatever the base tables currently look like. So if I've got a gnarly three-table join that a reporting team needs over and over, I wrap it in a view once, and from then on they just say SELECT FROM the view like it's a normal table.",
+      "The thing people mix up is thinking a view caches something — it doesn't, unless you specifically create a materialized view, which is a different object that does store a physical snapshot and needs an explicit refresh. A regular view is always live, which is exactly the tradeoff: zero staleness, but zero speedup either, since it's still running the same underlying query under the hood.",
+      "Views are also handy for access control — I can grant someone SELECT on a view that only exposes a few safe columns, without giving them any permission on the real table underneath."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "Does a view store a copy of the data?",
+        "a": "No — a regular view stores only the query definition. Every time you query it, the database re-runs that query against the live base tables. A materialized view is the exception: it does store a physical snapshot of the result, which must be refreshed explicitly or on a schedule."
+      },
+      {
+        "q": "Can a view be updated — used in an INSERT, UPDATE, or DELETE?",
+        "a": "Sometimes — if the view maps cleanly to a single underlying table with no aggregation or joins, many engines allow updates through it. Views built from joins, GROUP BY, or DISTINCT are generally read-only, since there's no unambiguous way to map a change back to a single base row."
+      },
+      {
+        "q": "If a view doesn't speed anything up, why use one at all?",
+        "a": "Because its value isn't performance, it's reuse and correctness. It centralizes a complex join or calculation in one place, so a schema tweak means fixing the view once instead of chasing down every copy-pasted query that used the same logic."
+      },
+      {
+        "q": "What's the difference between a view and a CTE?",
+        "a": "A CTE only exists for the duration of a single statement and disappears afterward. A view is a permanent, named object in the schema that any query, from any session, can reference indefinitely until it's explicitly dropped."
+      },
+      {
+        "q": "When would you reach for a materialized view instead of a regular view?",
+        "a": "When the underlying query is expensive — a heavy aggregation or multi-way join — and it's read far more often than the source data actually changes. Trading some staleness for a fast read makes sense there; for data that must always be current, a regular view is the safer default."
+      }
+    ],
+    "bestPractices": [
+      "Keep views focused and composable — a view built from other views is fine, but very deep nesting makes performance and debugging harder to reason about.",
+      "Use a view specifically to hide columns or rows a group of users shouldn't see, rather than managing column-level grants directly on the base table.",
+      "Don't assume a view speeds up a slow query — it only saves you from retyping the join; the underlying cost is identical unless it's materialized.",
+      "Reach for a materialized view only when read frequency clearly outweighs the cost of occasional staleness, and make the refresh schedule explicit."
+    ],
+    "commonMistakes": [
+      "Assuming a view caches or stores data, then being surprised that a slow underlying join makes every query against the view slow too, unless it's specifically a materialized view.",
+      "Trying to INSERT/UPDATE/DELETE through a view built on a join or aggregate and being surprised when the engine rejects it.",
+      "Nesting views many layers deep, making it hard to tell which base tables a query is really touching or why it's slow.",
+      "Forgetting that granting access to a view doesn't automatically restrict access to the base tables — both need to be managed deliberately."
+    ],
+    "summary": [
+      "A view is a saved, named query — it stores no data and always reflects the live state of its base tables.",
+      "Materialized views are the deliberate exception, trading freshness for read speed by storing an actual snapshot.",
+      "Views are as much about reuse and access control as they are about simplifying a query most people forget is really a join underneath."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Stored Procedures — another database object with reusable logic",
+        "sectionId": "sql",
+        "subsectionId": "stored-procedures"
+      }
+    ]
+  },
+  {
+    "id": "stored-procedures",
+    "title": "Stored Procedures",
+    "overview": [
+      "A stored procedure is a named, callable block of SQL and procedural logic saved in the database: `CREATE PROCEDURE proc_name (parameters) BEGIN ... END`, invoked with `CALL proc_name(args)`.",
+      "It can accept parameters, contain control flow (`IF`, `WHILE`, loops), and perform a whole sequence of writes as one reusable unit — but it doesn't have to return anything.",
+      "A function looks similar on the surface, but the two solve different problems: a procedure is something you *run*; a function is something you *evaluate* as part of a larger expression.",
+      "Because both objects live in the same part of the schema and get confused constantly, this page treats them together as one comparison rather than two isolated topics."
+    ],
+    "why": [
+      "Business logic that must run identically no matter which application or team touches the data — like a fund transfer or a monthly billing run — belongs in the database as a stored procedure, not duplicated across every client.",
+      "A procedure lets you bundle several dependent writes (debit one account, credit another, log the transaction) into a single reusable, atomic unit instead of hoping every caller performs all the steps correctly.",
+      "Sometimes the requirement isn't a multi-step workflow at all — it's a single reusable calculation, like tax or a formatted name, that needs to be usable directly inside a `SELECT`. That's exactly what a procedure cannot do and a function can.",
+      "Interviewers ask this pairing constantly because getting it right (return value required vs. optional, callable from SELECT vs. not) is a fast, reliable signal of real hands-on database experience versus surface-level recall.",
+      "Understanding why functions are restricted from freely modifying data — because they can be invoked implicitly, once per row, inside a query — is the deeper insight behind the surface-level syntax difference."
+    ],
+    "internalWorking": {
+      "intro": [
+        "Stored procedures and functions are covered together here because interviewers rarely ask about one without immediately asking how it differs from the other."
+      ],
+      "topics": [
+        {
+          "heading": "Stored Procedures",
+          "points": [
+            "A stored procedure is a named, callable block of SQL and procedural logic saved in the database: `CREATE PROCEDURE proc_name (parameters) BEGIN ... END`, invoked with `CALL proc_name(args)`.",
+            "Procedures can accept input parameters, return output parameters, and contain control flow (`IF`, `WHILE`, loops) — logic that a plain `SELECT` cannot express.",
+            "A procedure does not have to return a value at all — it might simply perform a sequence of `INSERT`/`UPDATE`/`DELETE` statements as a unit, such as processing a monthly billing run.",
+            "Because a procedure is invoked with `CALL`, it cannot be used inside a `SELECT` expression — it's a statement in its own right, not a value-producing expression.",
+            "Procedures are useful for encapsulating multi-step transactional logic (like transferring funds between two accounts: debit one, credit the other, log the transaction) as a single atomic, reusable unit."
+          ]
+        },
+        {
+          "heading": "Functions vs Procedures",
+          "points": [
+            "A function is similar to a stored procedure — named, callable, can take parameters — but it **must** return a value, and that return value is what makes it usable inside a `SELECT` expression: `SELECT name, calculate_bonus(salary) FROM employees;`",
+            "Defined with `CREATE FUNCTION function_name (parameters) RETURNS type ... RETURN value`, a function is called as part of an expression, not with a standalone `CALL` statement.",
+            "Unlike a procedure, a function is expected to be relatively side-effect-free in most databases — many engines restrict or discourage functions from modifying data, precisely because they can be invoked implicitly as part of a larger query's row processing.",
+            "Functions are the right tool whenever the goal is to compute and return a single value (or a table, for table-valued functions) to be consumed directly inside a query, a `WHERE` clause, or a computed column.",
+            "A common example is a reusable calculation like `calculate_tax(amount)` or `full_name(first, last)` used consistently across every query that needs it, instead of repeating the same expression everywhere."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Application needs reusable database-side logic\"] --> B{\"Does it need to run inside a SELECT expression?\"}\n    B -- \"No - it's a workflow of steps\" --> C[\"Stored procedure: CREATE PROCEDURE ... invoked with CALL\"]\n    B -- \"Yes - it must produce a value inline\" --> D[\"Function: CREATE FUNCTION ... RETURNS type\"]\n    C --> E[\"Runs as its own statement, may perform multiple writes, return value optional\"]\n    D --> F[\"Evaluated per row/expression, must return a value, writes usually restricted\"]",
+      "caption": "The fork that decides which object to reach for: a procedure is a standalone callable workflow, a function is an expression that must produce a value and can live inside a SELECT."
+    },
+    "comparisonTables": [
+      {
+        "title": "Stored Procedure vs Function",
+        "columns": [
+          "Aspect",
+          "Stored Procedure",
+          "Function"
+        ],
+        "rows": [
+          [
+            "Can be called from inside a SELECT?",
+            "No — invoked with `CALL`",
+            "Yes — used directly in an expression"
+          ],
+          [
+            "Must return a value?",
+            "No — return value is optional",
+            "Yes — a return type is mandatory"
+          ],
+          [
+            "Can modify data (INSERT/UPDATE/DELETE)?",
+            "Yes, freely — this is a primary use case",
+            "Technically possible in some engines, but discouraged or restricted since functions can be called implicitly mid-query"
+          ],
+          [
+            "Can contain full control flow (loops, conditionals)?",
+            "Yes",
+            "Yes, typically, though some engines limit function complexity"
+          ],
+          [
+            "Typical use",
+            "Multi-step transactional workflows (fund transfers, batch jobs)",
+            "Reusable per-row or per-expression calculations (tax, formatting, scoring)"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "Transfer funds between two accounts as a single atomic stored procedure, then separately compute a formatted display value for a report using a function.",
+      "code": "-- Stored procedure: a multi-step workflow, invoked with CALL, no return value\nCREATE PROCEDURE transfer_funds(IN from_id INT, IN to_id INT, IN amount DECIMAL(12,2))\nBEGIN\n    UPDATE accounts SET balance = balance - amount WHERE id = from_id;\n    UPDATE accounts SET balance = balance + amount WHERE id = to_id;\n    INSERT INTO transaction_log (from_id, to_id, amount) VALUES (from_id, to_id, amount);\nEND;\n\nCALL transfer_funds(501, 502, 200.00);\n\n-- Function: must return a value, usable directly inside a SELECT\nCREATE FUNCTION calculate_tax(amount DECIMAL(12,2))\nRETURNS DECIMAL(12,2)\nBEGIN\n    RETURN amount * 0.18;\nEND;\n\nSELECT id, amount, calculate_tax(amount) AS tax\nFROM invoices;",
+      "input": "accounts table: id=501 balance=1500.00, id=502 balance=300.00. invoices table: id=1 amount=1000.00.",
+      "execution": "CALL transfer_funds runs the procedure as a standalone statement — it debits account 501, credits account 502, and logs the transaction, all as one unit; it produces no return value to consume. Separately, calculate_tax(amount) is evaluated once per row inside the SELECT over invoices, because it's a function and must return a value the query can use.",
+      "output": "accounts: id=501 balance=1300.00, id=502 balance=500.00. transaction_log: one new row recording the transfer. SELECT result: id=1 amount=1000.00 tax=180.00.",
+      "explanation": "The procedure could never appear inside that final SELECT — it isn't a value, it's a sequence of actions invoked with CALL. The function couldn't replace the procedure either, since engines restrict functions from freely performing multi-row writes like the fund transfer. Each object is doing the job the other is structurally unable to do."
+    },
+    "interviewExplanation": [
+      "The fastest way I distinguish these is: a function has to return a value, and because of that it can live inside a SELECT — like calling calculate_tax(amount) as a column. A stored procedure doesn't have to return anything, and you invoke it on its own with CALL, so it can never appear inside a SELECT expression.",
+      "That difference isn't arbitrary — it's why procedures are the right place for multi-step transactional work, like debiting one account and crediting another as a single atomic unit, while functions are for a reusable calculation you want inline, like a tax or formatting function. Most engines also restrict functions from freely writing data, precisely because a function might get called once per row inside a query, and unpredictable side effects there would make the whole query's behavior hard to reason about.",
+      "So when I'm deciding which one to write, the question I actually ask is: does this need to produce a value I can use inside a bigger query, or is it a standalone sequence of steps I'm going to run on its own? That answer picks the object for me."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "What's the difference between a stored procedure and a function?",
+        "a": "A function must return a value and can be called directly inside a SELECT expression, like calculate_tax(amount). A stored procedure's return value is optional, and it's invoked on its own with CALL — it can never appear inside a SELECT. That single distinction is also why procedures are the natural home for multi-step writes, while functions are restricted from freely modifying data since they can be invoked implicitly, once per row."
+      },
+      {
+        "q": "Why can't you call a function using CALL, or a procedure inside a SELECT?",
+        "a": "They're fundamentally different kinds of database objects, not just different syntax for the same thing. CALL invokes a standalone statement, which is what a procedure is. A SELECT expression needs something that evaluates to a value, which is what a function guarantees by contract — a procedure makes no such guarantee, so the engine won't allow it there."
+      },
+      {
+        "q": "Why do many databases restrict functions from modifying data?",
+        "a": "Because a function can be invoked implicitly as part of a larger query's row-by-row processing — for example, once per row in a SELECT. If it were also freely allowed to INSERT/UPDATE/DELETE, the number and order of those writes would depend on incidental query execution details, making behavior unpredictable. Procedures, invoked explicitly with CALL, are the appropriate place for data-modifying logic instead."
+      },
+      {
+        "q": "Can a stored procedure call another stored procedure, or a function?",
+        "a": "Yes — procedures commonly call other procedures or functions as part of their logic. This is a normal way to compose smaller reusable pieces (like a validation function) into a larger workflow (like the fund-transfer procedure)."
+      },
+      {
+        "q": "If a procedure can do everything a function can plus more, why use a function at all?",
+        "a": "Because a procedure literally cannot be used inside a SELECT expression or a computed column — that's a hard syntactic restriction, not a style preference. Any time the logic needs to produce a value consumed inline by a larger query, a function is the only object that fits."
+      },
+      {
+        "q": "When would you choose a stored procedure over putting the equivalent logic in the application layer?",
+        "a": "When the logic must behave identically no matter which application, script, or team touches the data — like an atomic multi-account transfer — and when keeping several dependent writes together as one transaction matters more than flexibility. The tradeoff is that database-side logic is harder to version control and test compared to application code, so it's best reserved for genuinely cross-cutting, must-be-consistent operations."
+      }
+    ],
+    "bestPractices": [
+      "Use table-valued or scalar functions for pure calculations you want reusable inside `SELECT`, and reserve procedures for anything transactional or multi-step.",
+      "Keep procedures focused on one coherent workflow (like a single fund transfer) rather than a grab-bag of unrelated steps.",
+      "Avoid writing functions that modify data, even on engines that technically allow it — the implicit, per-row invocation makes side effects hard to predict.",
+      "Give procedures and functions descriptive, action-oriented names (`transfer_funds`, `calculate_tax`) so their purpose is obvious without reading the body."
+    ],
+    "commonMistakes": [
+      "Trying to call a function with `CALL` or a procedure inside a `SELECT` expression — the two are not interchangeable regardless of how similar their bodies look.",
+      "Writing a function that performs `INSERT`/`UPDATE`/`DELETE` and then using it inside a `SELECT` across many rows — this can cause confusing, hard-to-predict side effects and is restricted outright on some engines.",
+      "Assuming a procedure without an explicit return value can't communicate any result back — output parameters exist precisely for this case.",
+      "Putting a genuinely multi-step transactional workflow into a function just because it needs to be called by name, when a procedure is the structurally correct fit."
+    ],
+    "summary": [
+      "A stored procedure is invoked with `CALL`, may skip returning a value, and is the right tool for multi-step transactional workflows.",
+      "A function must return a value, is used directly inside a `SELECT` expression, and is expected to avoid freely modifying data.",
+      "The two are frequently confused, but the return-value requirement is the root cause of every other difference between them."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Triggers — logic that runs automatically, not on demand",
+        "sectionId": "sql",
+        "subsectionId": "triggers"
+      }
+    ]
+  },
+  {
+    "id": "triggers",
+    "title": "Triggers",
+    "overview": [
+      "A trigger is a block of logic bound to a table that runs automatically in response to an `INSERT`, `UPDATE`, or `DELETE` on that table — you never call a trigger directly.",
+      "It's defined with `CREATE TRIGGER trigger_name {BEFORE|AFTER} {INSERT|UPDATE|DELETE} ON table_name FOR EACH ROW BEGIN ... END`.",
+      "Inside the trigger body, row references (commonly `NEW` and `OLD`) expose the incoming and previous values of the row being changed.",
+      "Because it fires on the data change itself rather than on any particular application code path, a trigger enforces a rule no caller can accidentally skip."
+    ],
+    "why": [
+      "Some rules must be enforced no matter how a row is changed — a trigger guarantees this because it fires on the change itself, not on whichever application happened to make it.",
+      "The canonical case is auditing: automatically writing a record of every change to a sensitive column into a separate audit table, so the guarantee holds even for a direct database console edit.",
+      "Triggers can enforce constraints too complex for a plain `CHECK` constraint, cascade related changes to other tables, or keep denormalized summary columns automatically in sync.",
+      "Choosing `BEFORE` versus `AFTER` matters: `BEFORE` lets you inspect or adjust the incoming row before it's written; `AFTER` reacts once the change has already taken effect, which is what auditing needs.",
+      "Interviewers bring up triggers specifically to test production judgment — not just the syntax, but whether a candidate recognizes the tradeoff between guaranteed enforcement and invisible, hard-to-trace behavior."
+    ],
+    "internalWorking": {
+      "intro": [
+        "A trigger's entire behavior comes down to three choices made at creation time: which table and event it's bound to, whether it runs BEFORE or AFTER that event, and what its body does with the NEW/OLD row values."
+      ],
+      "topics": [
+        {
+          "heading": "Triggers",
+          "points": [
+            "A trigger is a block of logic bound to a table that runs automatically in response to an `INSERT`, `UPDATE`, or `DELETE` on that table — you never call a trigger directly.",
+            "Defined with `CREATE TRIGGER trigger_name {BEFORE|AFTER} {INSERT|UPDATE|DELETE} ON table_name FOR EACH ROW BEGIN ... END`, choosing `BEFORE` to modify/validate incoming data or `AFTER` to react once the change has been committed.",
+            "Inside the trigger body, special row references (commonly `NEW` and `OLD`, naming conventions vary slightly by engine) expose the incoming and previous values of the row being changed.",
+            "The most common real-world use is auditing: automatically writing a record of every change to a sensitive column (like an account balance) into a separate audit table, so the guarantee holds no matter which application performed the change.",
+            "Triggers can also enforce constraints too complex for a plain `CHECK` constraint, cascade related changes to other tables, or maintain denormalized summary columns automatically.",
+            "Because triggers fire silently and invisibly from the caller's perspective, overusing them can make a system's behavior hard to trace — a value can change 'on its own' from an application developer's point of view if they don't know a trigger exists."
+          ]
+        }
+      ]
+    },
+    "architectureFlow": {
+      "mermaid": "graph TD\n    A[\"Application runs INSERT, UPDATE, or DELETE\"] --> B{\"Trigger defined for this table + event?\"}\n    B -- \"No\" --> C[\"Statement completes with no extra action\"]\n    B -- \"Yes, BEFORE\" --> D[\"Trigger body runs first, can inspect or adjust NEW row\"]\n    D --> E[\"Change is applied to the table\"]\n    B -- \"Yes, AFTER\" --> E\n    E --> F[\"AFTER trigger body runs, e.g. writes to an audit table\"]\n    F --> G[\"Statement completes\"]\n    C --> G",
+      "caption": "A trigger never appears in the caller's code at all — it fires automatically off the table event itself, either before the change lands (to validate or adjust it) or after (to react once it's committed)."
+    },
+    "comparisonTables": [
+      {
+        "title": "BEFORE vs AFTER Triggers",
+        "columns": [
+          "Aspect",
+          "BEFORE Trigger",
+          "AFTER Trigger"
+        ],
+        "rows": [
+          [
+            "Runs",
+            "Before the change is applied",
+            "After the change has already taken effect"
+          ],
+          [
+            "Can modify the incoming row?",
+            "Yes — can adjust NEW before it's written",
+            "No — the row is already committed"
+          ],
+          [
+            "Typical use",
+            "Validation, defaulting values",
+            "Auditing, logging, cascading updates"
+          ],
+          [
+            "Sees OLD and NEW?",
+            "Yes, for UPDATE/DELETE",
+            "Yes, for UPDATE/DELETE"
+          ]
+        ]
+      }
+    ],
+    "simpleExample": {
+      "scenario": "A banking system must guarantee that every change to an account's balance is logged for compliance, regardless of which application or script performed the update.",
+      "code": "-- Audit table to record every balance change\nCREATE TABLE account_audit (\n    audit_id INT AUTO_INCREMENT PRIMARY KEY,\n    account_id INT,\n    old_balance DECIMAL(12,2),\n    new_balance DECIMAL(12,2),\n    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\n-- Trigger fires automatically after any UPDATE to accounts.balance\nCREATE TRIGGER trg_log_balance_change\nAFTER UPDATE ON accounts\nFOR EACH ROW\nBEGIN\n    IF OLD.balance <> NEW.balance THEN\n        INSERT INTO account_audit (account_id, old_balance, new_balance)\n        VALUES (OLD.id, OLD.balance, NEW.balance);\n    END IF;\nEND;\n\n-- Any application simply does a normal UPDATE — no explicit logging call needed:\nUPDATE accounts SET balance = balance - 200.00 WHERE id = 501;",
+      "input": "accounts table before the UPDATE:\nid=501 balance=1500.00\n\naccount_audit table: (empty)",
+      "execution": "1. The application runs a plain UPDATE statement on accounts — it has no awareness of the trigger's existence at all.\n2. Before the row is finalized, the database captures OLD.balance (1500.00, the value before the change) and NEW.balance (1300.00, the value being written).\n3. Because this is an AFTER UPDATE trigger, it fires once the UPDATE itself has taken effect on the accounts row.\n4. The trigger body checks OLD.balance <> NEW.balance — true here — so it inserts a new row into account_audit capturing both values and a timestamp.\n5. Both the UPDATE to accounts and the INSERT into account_audit happen as part of the same transaction, so if either fails, both roll back together.",
+      "output": "accounts table after the UPDATE:\nid=501 balance=1300.00\n\naccount_audit table:\naudit_id=1 account_id=501 old_balance=1500.00 new_balance=1300.00 changed_at='2026-07-19 10:32:04'",
+      "explanation": "No application code anywhere had to remember to write an audit row — the guarantee is enforced by the database itself, on the table, for every single UPDATE regardless of which script or service performed it. This is exactly the kind of cross-cutting guarantee that's fragile as application logic but reliable as a trigger."
+    },
+    "interviewExplanation": [
+      "A trigger is logic that fires automatically off a table event — insert, update, or delete — instead of something you call yourself. The classic example is audit logging: I put an AFTER UPDATE trigger on an accounts table that compares OLD.balance to NEW.balance, and if they differ, it writes a row into an audit table. The whole point is that this happens no matter which application, script, or even a raw console command touches that table — the guarantee lives at the data layer, not scattered across every caller.",
+      "The BEFORE versus AFTER choice matters a lot. BEFORE runs before the write lands, so it's the place for validation or defaulting a value — you can still change what actually gets written. AFTER runs once the change is already committed, which is exactly what you want for auditing, since you're logging something that genuinely happened.",
+      "The honest tradeoff I'd bring up myself is that triggers are invisible from the caller's side. An engineer staring at application code has no idea a trigger exists unless they go looking in the schema, so overusing them makes a system's behavior harder to trace than the equivalent logic sitting visibly in application code."
+    ],
+    "followUpQuestions": [
+      {
+        "q": "What is a trigger, and when does it run?",
+        "a": "A trigger is logic bound to a table that fires automatically on an INSERT, UPDATE, or DELETE against that table — never called directly. It runs either BEFORE the change is applied, so it can inspect or adjust the incoming row, or AFTER the change has taken effect, so it can react to something that's already committed."
+      },
+      {
+        "q": "What's the difference between a BEFORE and an AFTER trigger?",
+        "a": "A BEFORE trigger runs before the triggering change is applied, so it can inspect or even modify the incoming row — useful for validation or defaulting values. An AFTER trigger runs once the change has already taken effect, making it the right choice for logging or auditing, since the audit row should reflect a change that actually happened."
+      },
+      {
+        "q": "Why use a trigger instead of just putting the logic in the application code?",
+        "a": "A trigger guarantees the logic runs no matter which application, script, or user makes the change — even a direct database console UPDATE will fire it. Application code only runs the logic if every code path remembers to call it, which is much easier to get wrong at scale."
+      },
+      {
+        "q": "What's a real risk of overusing triggers?",
+        "a": "Triggers fire silently and invisibly from the caller's perspective — a value can appear to change 'on its own' to an application developer who doesn't know a trigger exists on that table. Stack several triggers together, or let one trigger's write cascade into firing another table's trigger, and you get chains of side effects that are genuinely hard to trace back to a root cause during debugging."
+      },
+      {
+        "q": "Does a trigger fire once per statement or once per affected row?",
+        "a": "With `FOR EACH ROW`, it fires once per affected row — so a bulk UPDATE touching 10,000 rows fires the trigger 10,000 times. This is a common, easy-to-miss performance bottleneck: a trigger that looks trivial for one row can meaningfully slow down a large batch operation."
+      },
+      {
+        "q": "Can a trigger stop a change from happening at all?",
+        "a": "Yes — a BEFORE trigger can raise an error or otherwise abort the operation if a condition isn't met, effectively enforcing a constraint too complex for a plain CHECK constraint. Since it runs before the write lands, it still has the chance to reject it entirely."
+      }
+    ],
+    "bestPractices": [
+      "Keep trigger logic small and fast — a slow trigger silently slows down every `INSERT`/`UPDATE`/`DELETE` on that table for every caller, which is easy to miss during code review.",
+      "Document every trigger clearly (and keep a central list of what triggers exist on which tables) since triggers are invisible at the call site and easy to forget about.",
+      "Prefer `AFTER` triggers for auditing/logging (the change is already committed) and `BEFORE` triggers for validation or defaulting values (you can still adjust the row before it's written).",
+      "Avoid chaining triggers that fire other triggers on related tables unless it's genuinely necessary — cascading trigger chains are one of the hardest things to debug in a production schema."
+    ],
+    "commonMistakes": [
+      "Creating multiple triggers for the same event on the same table without coordinating their execution order, leading to unpredictable or duplicated behavior.",
+      "Forgetting that a trigger fires for every single row affected by a bulk `UPDATE`/`DELETE`, so a trigger that seems trivial for one row can become a serious performance bottleneck during a bulk operation.",
+      "Using an AFTER trigger where a BEFORE trigger was needed to actually adjust or reject the incoming row before it's written.",
+      "Letting triggers silently accumulate over time with no central documentation, until nobody on the team can explain why a value in a table keeps changing unexpectedly."
+    ],
+    "summary": [
+      "A trigger runs automatically on `INSERT`/`UPDATE`/`DELETE`, making it the right tool for guarantees like audit logging that must hold regardless of which application changed the data.",
+      "BEFORE triggers can adjust or reject an incoming row; AFTER triggers react once a change is already committed.",
+      "The same guarantee that makes triggers powerful — invisible, automatic enforcement — is also what makes overusing them a real production risk."
+    ],
+    "relatedTopics": [
+      {
+        "label": "Stored Procedures — logic you call directly instead of triggering automatically",
+        "sectionId": "sql",
+        "subsectionId": "stored-procedures"
+      },
+      {
+        "label": "Database Architecture — where these objects live and execute",
+        "sectionId": "database",
+        "subsectionId": "database-architecture"
+      }
+    ]
+  },
+  {
+    "id": "practice-queries",
+    "title": "SQL Interview Problems",
+    "overview": [
+      "Reading about `JOIN`s and window functions only gets you so far — interviewers judge SQL skill by watching you translate a plain-English ask into a working query under time pressure, so deliberate practice on realistic problems is what actually builds that muscle.",
+      "Every problem below uses one consistent schema so you can focus on the SQL technique instead of re-learning a new domain each time: `employees(id, name, department, salary, manager_id, hire_date)`, `customers(id, name, city)`, `products(id, name, category, price)`, and `orders(id, customer_id, product_id, quantity, total, status, created_at)`.",
+      "Problems are ordered **Beginner → Intermediate → Advanced**, with difficulty increasing from single-table filtering to multi-join aggregation to window functions, recursive CTEs, and correlated subqueries — the same progression most interview loops use.",
+      "Each problem states the ask exactly as an interviewer would phrase it, followed by a complete, runnable solution query — read the problem first and try writing your own query before looking at the solution."
+    ],
+    "why": [
+      "SQL interview rounds rarely test syntax trivia — they test whether you can decompose a business question (\"who are our top customers?\") into the right combination of filtering, joining, grouping, and windowing.",
+      "Working through graduated problems builds pattern recognition: seeing \"top N per group\" and instantly reaching for `RANK() OVER (PARTITION BY ...)`, or seeing \"all reports under a manager\" and reaching for a recursive CTE.",
+      "Many candidates know individual clauses (`JOIN`, `GROUP BY`, `HAVING`) but freeze when asked to combine three or four of them in one query — practice closes exactly that gap.",
+      "Interviewers also watch *how* you approach the problem — do you clarify edge cases (ties in a ranking, NULL manager_id, no orders at all), or do you jump straight to code? Practicing out loud builds that habit.",
+      "A fixed practice schema (used consistently below) mirrors how real interviews work: you're rarely given a schema you already know, so practicing on one recurring schema builds the skill of quickly internalizing table relationships."
+    ],
+    "problem": [
+      "Most SQL prep resources scatter examples across unrelated schemas — a `students` table here, a `movies` table there — which forces you to re-learn context on every single example instead of building depth.",
+      "It's also easy to only practice easy `SELECT`/`WHERE` problems and never build confidence with window functions, recursive CTEs, or correlated subqueries — exactly the techniques that separate mid from senior-level SQL rounds.",
+      "This page fixes both problems: one schema, three difficulty tiers, and full worked solutions so you can check your approach immediately instead of guessing whether your query is right."
+    ],
+    "internalWorking": {
+      "intro": [
+        "The problems are grouped into three difficulty tiers — Beginner, Intermediate, and Advanced — all against the same four tables: `employees`, `customers`, `products`, and `orders`. Each entry gives the exact problem statement an interviewer might ask, followed by a complete SQL solution.",
+        "Work through them in order: beginner problems isolate a single clause or join, intermediate problems combine multiple joins or introduce subqueries and self-joins, and advanced problems require window functions, CTEs (including recursion), or correlated subqueries."
+      ],
+      "topics": [
+        {
+          "heading": "Beginner Problems",
+          "points": [
+            "**Problem:** List the names and salaries of all employees in the 'Engineering' department, ordered by salary from highest to lowest. — **Solution:** `SELECT name, salary FROM employees WHERE department = 'Engineering' ORDER BY salary DESC;`",
+            "**Problem:** Find the 3 most recently hired employees. — **Solution:** `SELECT name, department, hire_date FROM employees ORDER BY hire_date DESC LIMIT 3;`",
+            "**Problem:** Count how many employees work in each department. — **Solution:** `SELECT department, COUNT(*) AS employee_count FROM employees GROUP BY department;`",
+            "**Problem:** Find the average price of products in the 'Electronics' category. — **Solution:** `SELECT AVG(price) AS avg_price FROM products WHERE category = 'Electronics';`",
+            "**Problem:** List each order's id and total along with the customer's name who placed it. — **Solution:** `SELECT o.id AS order_id, o.total, c.name AS customer_name FROM orders o JOIN customers c ON o.customer_id = c.id;`"
+          ]
+        },
+        {
+          "heading": "Intermediate Problems",
+          "points": [
+            "**Problem:** For every completed order, show the order id, the customer's name, and the product's name. — **Solution:** `SELECT o.id AS order_id, c.name AS customer_name, p.name AS product_name FROM orders o JOIN customers c ON o.customer_id = c.id JOIN products p ON o.product_id = p.id WHERE o.status = 'COMPLETED';`",
+            "**Problem:** Find every department whose total salary bill exceeds 500,000. — **Solution:** `SELECT department, SUM(salary) AS total_salary FROM employees GROUP BY department HAVING SUM(salary) > 500000;`",
+            "**Problem:** Find all customers who have never placed an order. — **Solution:** `SELECT c.name, c.city FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);`",
+            "**Problem:** Find all products that appear in at least one order with quantity greater than 10. — **Solution:** `SELECT DISTINCT p.name, p.category FROM products p WHERE p.id IN (SELECT o.product_id FROM orders o WHERE o.quantity > 10);`",
+            "**Problem:** List every employee's name alongside their manager's name (employees with no manager should show NULL). — **Solution:** `SELECT e.name AS employee_name, m.name AS manager_name FROM employees e LEFT JOIN employees m ON e.manager_id = m.id;`"
+          ]
+        },
+        {
+          "heading": "Advanced Problems",
+          "points": [
+            "**Problem:** Find the top-earning employee in each department. — **Solution:** `SELECT name, department, salary FROM (SELECT name, department, salary, RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS salary_rank FROM employees) ranked WHERE salary_rank = 1;`",
+            "**Problem:** Given a manager's id, find every employee who reports to that manager at any depth (direct or indirect reports). — **Solution:** `WITH RECURSIVE org_chart AS (SELECT id, name, manager_id FROM employees WHERE manager_id = 100 UNION ALL SELECT e.id, e.name, e.manager_id FROM employees e JOIN org_chart oc ON e.manager_id = oc.id) SELECT * FROM org_chart;`",
+            "**Problem:** Find every employee who earns more than the average salary of their own department. — **Solution:** `SELECT e.name, e.department, e.salary FROM employees e WHERE e.salary > (SELECT AVG(e2.salary) FROM employees e2 WHERE e2.department = e.department);`",
+            "**Problem:** Find each customer's most expensive single order (the order with the highest total for that customer). — **Solution:** `SELECT customer_id, id AS order_id, total FROM (SELECT id, customer_id, total, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY total DESC) AS rn FROM orders) ranked WHERE rn = 1;`",
+            "**Problem:** Calculate month-over-month revenue growth: for each month, show total revenue and the percentage change versus the previous month. — **Solution:** `WITH monthly_revenue AS (SELECT DATE_TRUNC('month', created_at) AS month, SUM(total) AS revenue FROM orders WHERE status = 'COMPLETED' GROUP BY DATE_TRUNC('month', created_at)) SELECT month, revenue, LAG(revenue) OVER (ORDER BY month) AS prev_month_revenue, ROUND(100.0 * (revenue - LAG(revenue) OVER (ORDER BY month)) / LAG(revenue) OVER (ORDER BY month), 2) AS pct_change FROM monthly_revenue ORDER BY month;`"
+          ]
+        }
+      ]
+    },
+    "simpleExample": {
+      "scenario": "An interviewer asks: \"Find the names of employees who work in the same department as an employee named 'Alice'.\"",
+      "code": "SELECT name\nFROM employees\nWHERE department = (\n  SELECT department\n  FROM employees\n  WHERE name = 'Alice'\n)\nAND name != 'Alice';",
+      "input": "An `employees` table with columns `id, name, department, salary, manager_id, hire_date`, containing one row for 'Alice'.",
+      "execution": "The inner subquery runs first and resolves to a single value — Alice's department. The outer query then scans `employees`, keeping rows whose `department` matches that value and excluding Alice herself.",
+      "output": "The names of every other employee in Alice's department.",
+      "explanation": "This is the simplest form of subquery — a scalar subquery used inside `WHERE` — and is exactly the kind of warm-up question interviewers use before moving to joins or aggregation."
+    },
+    "realWorldExample": {
+      "scenario": "A hiring manager asks a multi-part question to see how you compose techniques: \"For each city, find the customer who has spent the most in total, but only consider cities with at least 2 customers who have placed orders.\"",
+      "code": "WITH customer_spend AS (\n  SELECT c.id AS customer_id, c.name, c.city, SUM(o.total) AS total_spent\n  FROM customers c\n  JOIN orders o ON o.customer_id = c.id\n  WHERE o.status = 'COMPLETED'\n  GROUP BY c.id, c.name, c.city\n),\ncity_customer_counts AS (\n  SELECT city, COUNT(*) AS customers_with_orders\n  FROM customer_spend\n  GROUP BY city\n),\nranked_spend AS (\n  SELECT cs.*,\n         RANK() OVER (PARTITION BY cs.city ORDER BY cs.total_spent DESC) AS spend_rank\n  FROM customer_spend cs\n)\nSELECT rs.city, rs.name AS top_customer, rs.total_spent\nFROM ranked_spend rs\nJOIN city_customer_counts ccc ON ccc.city = rs.city\nWHERE rs.spend_rank = 1\n  AND ccc.customers_with_orders >= 2\nORDER BY rs.total_spent DESC;",
+      "input": "`customers(id, name, city)`, `orders(id, customer_id, product_id, quantity, total, status, created_at)` with multiple customers per city and varying order histories.",
+      "execution": "The first CTE (`customer_spend`) joins customers to their completed orders and sums spend per customer. The second CTE (`city_customer_counts`) counts, per city, how many customers actually have order history. The third CTE (`ranked_spend`) uses `RANK()` partitioned by city to find the top spender in each city. The final `SELECT` joins the ranked results back to the city counts, keeps only rank 1, and filters out cities with fewer than 2 qualifying customers.",
+      "output": "One row per qualifying city: the top-spending customer's name and their total spend, sorted by spend descending.",
+      "explanation": "This mirrors a real interview's final question: it forces you to combine a `JOIN`, an aggregation, a window function, and a `HAVING`-style post-filter — all organized cleanly using multiple CTEs instead of nested subqueries, which is exactly what a senior-level interviewer wants to see for readability."
+    },
+    "bestPractices": [
+      "Restate the problem in your own words before writing any SQL — it catches misunderstandings early and signals clear thinking to the interviewer.",
+      "Write the query incrementally: get the joins right and inspect a few rows first, then layer on `GROUP BY`, `HAVING`, or window functions on top of a query you already trust.",
+      "Always ask about edge cases out loud: can `manager_id` be NULL? Can a customer have zero orders? Should ties in a ranking both appear?",
+      "Prefer CTEs (`WITH`) over deeply nested subqueries once a query needs more than one derived step — it reads top-to-bottom and is easier to debug live.",
+      "Alias tables meaningfully (`e` for employees, `o` for orders) rather than `a`, `b`, `c` — it keeps multi-join queries readable under pressure.",
+      "State which window function you're choosing and why — `RANK()` vs `DENSE_RANK()` vs `ROW_NUMBER()` — since interviewers often probe exactly this distinction."
+    ],
+    "commonMistakes": [
+      "Forgetting that `WHERE` cannot filter on an aggregate — using `WHERE SUM(total) > 100000` instead of `HAVING SUM(total) > 100000`.",
+      "Using `ROW_NUMBER()` when ties should share a rank (e.g., two employees with identical top salaries) — `RANK()` or `DENSE_RANK()` is usually the correct choice for \"top N per group\" problems.",
+      "Writing a self-join for a manager lookup as an `INNER JOIN`, which silently drops employees who have no manager (`manager_id IS NULL`) — a `LEFT JOIN` is almost always correct there.",
+      "Missing the base case or the termination condition in a recursive CTE, causing infinite recursion or an empty result set.",
+      "Using a correlated subquery when a window function would be clearer and faster (e.g., recomputing the department average once per row instead of using `AVG() OVER (PARTITION BY department)`).",
+      "Comparing a value to the result of a subquery that can return multiple rows using `=` instead of `IN`, causing a runtime error."
+    ],
+    "interviewTips": [
+      "Narrate your plan before typing: \"I'll join orders to customers, group by customer, then filter with HAVING\" — interviewers score reasoning as much as the final query.",
+      "If you're unsure between two approaches (say, a subquery vs. a `JOIN`), mention the trade-off out loud rather than silently picking one.",
+      "For window function questions, explicitly say the partition and order columns you're choosing and why, since that's usually the crux of the question.",
+      "For recursive CTE questions, sketch the base case and recursive case in plain English first — most candidates lose points by jumping straight to syntax.",
+      "If time is short, get a correct-but-unoptimized query working first, then mention how you'd optimize it (e.g., adding an index, replacing a subquery with a join) — a working answer beats an unfinished elegant one.",
+      "Ask whether NULLs are possible in key columns like `manager_id` or `status` before finalizing joins — handling this well is a strong signal."
+    ],
+    "faq": [
+      {
+        "q": "Should I use a subquery or a JOIN for problems like \"customers with no orders\"?",
+        "a": "For existence checks, `NOT EXISTS` (correlated subquery) or `LEFT JOIN ... WHERE right.id IS NULL` both work and are usually similarly performant on modern optimizers. `NOT IN` is riskier — it silently returns no rows if the subquery result contains a NULL, so most interviewers prefer seeing `NOT EXISTS`."
+      },
+      {
+        "q": "What's the difference between RANK(), DENSE_RANK(), and ROW_NUMBER() in the top-earner-per-department problem?",
+        "a": "`ROW_NUMBER()` always assigns unique sequential numbers even for tied salaries, so ties get arbitrarily split. `RANK()` gives tied rows the same rank but skips the next rank number (1,1,3). `DENSE_RANK()` gives tied rows the same rank without skipping (1,1,2). For \"find the top earner,\" `RANK()` is usually preferred so genuine ties both show up."
+      },
+      {
+        "q": "How does a recursive CTE actually execute under the hood?",
+        "a": "The database runs the base case (anchor member) once to produce an initial result set, then repeatedly runs the recursive member using only the rows produced in the previous iteration, unioning new rows into the result each time, until an iteration produces zero new rows — at which point recursion stops."
+      },
+      {
+        "q": "When should I reach for a correlated subquery instead of a window function?",
+        "a": "Window functions (`AVG() OVER (PARTITION BY ...)`) are almost always faster and clearer for \"compare this row to an aggregate of its group\" problems, since the aggregate is computed once per partition instead of once per row. Correlated subqueries are more natural for existence checks (`EXISTS`/`NOT EXISTS`) or when the comparison logic doesn't map cleanly to a window frame."
+      },
+      {
+        "q": "Do I need to memorize exact syntax differences between databases (e.g., DATE_TRUNC vs. DATE_FORMAT)?",
+        "a": "Interviewers generally care more about the logical approach than database-specific syntax, and most will let you state a function in pseudocode (\"a function that truncates a timestamp to the month\") if you're unsure of the exact name. It's still worth knowing the common ones: PostgreSQL's `DATE_TRUNC`, MySQL's `DATE_FORMAT`, and window functions which are standard across both."
+      }
+    ],
+    "summary": [
+      "These 15 problems span the full interview difficulty curve on one consistent schema — `employees`, `customers`, `products`, and `orders` — from basic filtering to window functions, recursive CTEs, and correlated subqueries.",
+      "The goal isn't memorizing these exact queries, but recognizing the *pattern* behind each ask: \"top N per group\" means a ranking window function, \"all descendants\" means a recursive CTE, \"compare to a group aggregate\" means a correlated subquery or a windowed aggregate.",
+      "Practice writing the query yourself before reading the solution, and practice explaining your reasoning out loud — both the query and the narration are being evaluated in a real interview."
+    ],
+    "quickRevision": [
+      "WHERE filters rows before grouping; HAVING filters after grouping/aggregation.",
+      "LEFT JOIN + `IS NULL` on the right side finds \"has none of\" relationships.",
+      "NOT EXISTS is safer than NOT IN when the subquery can return NULLs.",
+      "Self-join (alias the same table twice) resolves manager/employee style hierarchies one level at a time.",
+      "RANK()/DENSE_RANK()/ROW_NUMBER() differ only in how they handle ties.",
+      "Recursive CTEs need an anchor (base case) and a recursive member that terminates when no new rows are produced.",
+      "LAG()/LEAD() compare a row to the previous/next row in an ordered partition — ideal for month-over-month or day-over-day deltas.",
+      "Prefer CTEs over nested subqueries once you have more than one derived step — it keeps multi-stage queries readable."
+    ],
+    "interviewQuestions": {
+      "beginner": [
+        "Write a query to find all employees hired in the last 90 days.",
+        "How would you find the second-highest salary in the employees table without using LIMIT/OFFSET?",
+        "What's the difference between WHERE and HAVING, and can you give an example using the orders table?",
+        "Write a query to count how many orders each customer has placed, including customers with zero orders."
+      ],
+      "intermediate": [
+        "Write a query to find the top 3 best-selling products by total quantity ordered.",
+        "How would you find employees who earn more than their own manager?",
+        "Write a query to find customers who have ordered every product in a given category.",
+        "Explain how you'd find duplicate rows in the customers table based on name and city, and write the query to delete the duplicates while keeping one copy."
+      ],
+      "advanced": [
+        "Write a query using a window function to compute a running total of revenue per customer, ordered by order date.",
+        "How would you write a recursive CTE to detect a cycle in the manager_id relationships (i.e., data corruption where an employee is indirectly their own manager)?",
+        "Write a query to find the median salary per department without using a built-in MEDIAN function.",
+        "Design a query to identify customers whose order frequency has dropped — e.g., ordered in the previous 3 months but not in the most recent month — and explain the approach before writing SQL."
+      ]
+    },
+    "relatedTopics": [
+      {
+        "label": "Joins — many practice problems combine multiple tables",
+        "sectionId": "sql",
+        "subsectionId": "joins"
+      },
+      {
+        "label": "Window Functions — common in advanced interview problems",
+        "sectionId": "sql",
+        "subsectionId": "window-functions"
+      },
+      {
+        "label": "Subqueries — used throughout intermediate and advanced problems",
+        "sectionId": "sql",
+        "subsectionId": "subqueries"
+      },
+      {
+        "label": "SQL Introduction — review core SQL concepts first",
+        "sectionId": "sql",
+        "subsectionId": "sql-introduction"
+      }
+    ]
+  },
+  {
+    "id": "quick-revision",
+    "title": "Quick Revision",
+    "overview": [
+      "This page condenses every SQL topic in this section into dense, one-line recall bullets — the last thing to skim before walking into an interview.",
+      "No new explanations here, just the highest-signal facts from each topic regrouped under five broad headings."
+    ],
+    "internalWorking": {
+      "intro": [],
+      "topics": [
+        {
+          "heading": "Basics",
+          "points": [
+            "SQL is **declarative** (say what, not how); categories are DDL (`CREATE`/`ALTER`/`DROP`), DML (`INSERT`/`UPDATE`/`DELETE`), DQL (`SELECT`), DCL (`GRANT`/`REVOKE`), TCL (`COMMIT`/`ROLLBACK`).",
+            "CRUD maps to `INSERT`/`SELECT`/`UPDATE`/`DELETE`; always attach `WHERE` to `UPDATE`/`DELETE` or the whole table is affected.",
+            "`TRUNCATE` is faster than `DELETE` and resets auto-increment; `DELETE` supports `WHERE` and fires triggers. UPSERT = insert-or-update (`ON DUPLICATE KEY UPDATE` in MySQL, `ON CONFLICT DO UPDATE` in PostgreSQL).",
+            "`WHERE` filters using `=`, `!=`, `<`, `>`, `BETWEEN`, `IN`, `LIKE`, `IS NULL`; `LIKE` wildcards are `%` (any chars) and `_` (one char).",
+            "Use parentheses when mixing `AND`/`OR`; `ORDER BY` defaults to `ASC`; `NULL` always needs `IS NULL`/`IS NOT NULL`, never `= NULL`.",
+            "`LIMIT n OFFSET m` paginates, but large `OFFSET` values get slower since rows must be scanned and discarded to reach the page."
+          ]
+        },
+        {
+          "heading": "Aggregation & Grouping",
+          "points": [
+            "Aggregate functions: `COUNT()`, `SUM()`, `AVG()`, `MIN()`, `MAX()` — `COUNT(*)` counts all rows, `COUNT(column)` skips `NULL`s in that column.",
+            "`GROUP BY` buckets rows into groups; every non-aggregate `SELECT` column must appear in it.",
+            "`HAVING` filters groups after `GROUP BY`; `WHERE` filters rows before it — you cannot reference an aggregate function inside `WHERE`.",
+            "`DISTINCT` removes duplicate rows without computing an aggregate; `HAVING` can be used without `GROUP BY` (filters the one implicit whole-table group).",
+            "Logical execution order: `FROM` → `WHERE` → `GROUP BY` → `HAVING` → `SELECT` → `ORDER BY` → `LIMIT`."
+          ]
+        },
+        {
+          "heading": "Joins & Subqueries",
+          "points": [
+            "`INNER JOIN`: only matches. `LEFT JOIN`: all left rows + matches. `FULL OUTER JOIN`: everything, both sides (not in MySQL — simulate with `LEFT JOIN UNION RIGHT JOIN`).",
+            "Self join = a table joined to itself (manager/employee); `CROSS JOIN` = Cartesian product; natural joins are implicit and fragile — always specify `ON` explicitly.",
+            "Scalar subquery returns exactly one value; `IN` subquery checks membership against a list; `EXISTS` short-circuits on first match and is usually faster than `IN` on large sets.",
+            "Correlated subqueries reference the outer query and conceptually run once per outer row — consider rewriting as a `JOIN` if slow.",
+            "`NOT IN` with `NULL`s in the subquery result can silently return zero rows — prefer `NOT EXISTS` for absence checks.",
+            "Watch for row multiplication on `LEFT JOIN` when the right table has duplicate keys — wrap with `GROUP BY` for one row per left-side entity."
+          ]
+        },
+        {
+          "heading": "Advanced SQL",
+          "points": [
+            "`WITH name AS (subquery) SELECT ...` — non-recursive CTE, scoped to one statement, not stored (unlike a view).",
+            "`WITH RECURSIVE name AS (base UNION ALL recursive) SELECT ...` — base case runs once, recursive case re-joins against only the newest rows each pass, stops when zero new rows are produced.",
+            "Classic recursive use case: `employees(id, manager_id)` hierarchy or `categories(id, parent_id)` tree; use `UNION ALL`, not `UNION`, to avoid per-pass deduplication cost.",
+            "Window function: `function() OVER (PARTITION BY ... ORDER BY ...)` — row count never shrinks, unlike `GROUP BY`.",
+            "`ROW_NUMBER()` always unique; `RANK()` ties share a rank and skips the next rank; `DENSE_RANK()` ties share a rank with no skip.",
+            "`LAG(col)`/`LEAD(col)` read a previous/next row's value with no self-join needed; window functions run after `WHERE`, so you can't filter on them in the same query's `WHERE`."
+          ]
+        },
+        {
+          "heading": "Database Objects",
+          "points": [
+            "View: `CREATE VIEW v AS SELECT ...` — saved query, no stored data, always reflects live base tables; materialized view stores results physically and needs refreshing.",
+            "Stored procedure: `CREATE PROCEDURE`, invoked with `CALL`, return value optional, can freely modify data across multiple steps.",
+            "Function: `CREATE FUNCTION ... RETURNS type`, used inside expressions/`SELECT`, must return a value — modifying data from a function is discouraged/restricted since it can run implicitly per row.",
+            "Trigger: `CREATE TRIGGER ... {BEFORE|AFTER} {INSERT|UPDATE|DELETE}` — fires automatically, never called directly; use `AFTER` for audit logging, `BEFORE` for validation/defaulting."
+          ]
+        }
+      ]
+    },
+    "summary": [
+      "Every topic in this section boils down to a handful of syntax patterns and a handful of classic gotchas — WHERE-vs-HAVING timing, JOIN NULL behavior, tie-handling in ranking functions, and recursion termination.",
+      "If a bullet above feels unfamiliar, jump back to its full topic page before the interview rather than trying to relearn it from one line."
+    ],
+    "relatedTopics": [
+      {
+        "label": "SQL Interview Problems — hands-on practice",
+        "sectionId": "sql",
+        "subsectionId": "practice-queries"
+      },
+      {
+        "label": "Database Interview Questions — the internals side of interview prep",
+        "sectionId": "database",
+        "subsectionId": "interview-questions"
+      }
+    ]
+  }
+]

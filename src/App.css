@@ -963,6 +963,39 @@ body,
   line-height: 1.6;
 }
 
+/* How to Explain in an Interview */
+.interview-explanation-box {
+  display: flex;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  margin: 14px 0;
+  background: #fff9ec;
+  border: 1px solid #f0dfb0;
+  border-left: 4px solid #d4a017;
+}
+
+.interview-explanation-icon {
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1.7;
+}
+
+.interview-explanation-body {
+  flex: 1;
+}
+
+.interview-explanation-text {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: #4a3b0a;
+  font-style: italic;
+}
+
+.interview-explanation-text:not(:last-child) {
+  margin-bottom: 8px;
+}
+
 /* FAQ */
 .faq-item {
   border-bottom: 1px solid #eee;
